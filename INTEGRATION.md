@@ -1,6 +1,6 @@
 # Devic UI Integration Guide
 
-This guide explains how to integrate the `@devic/ui` library into your React application to add AI assistant chat capabilities.
+This guide explains how to integrate the `@devicai/ui` library into your React application to add AI assistant chat capabilities.
 
 ## Prerequisites
 
@@ -11,11 +11,11 @@ This guide explains how to integrate the `@devic/ui` library into your React app
 ## Installation
 
 ```bash
-npm install @devic/ui
+npm install @devicai/ui
 # or
-yarn add @devic/ui
+yarn add @devicai/ui
 # or
-pnpm add @devic/ui
+pnpm add @devicai/ui
 ```
 
 ## Basic Integration
@@ -26,13 +26,13 @@ Add the CSS import to your application entry point:
 
 ```tsx
 // App.tsx or index.tsx
-import '@devic/ui/styles.css';
+import '@devicai/ui/styles.css';
 ```
 
 ### Step 2: Wrap Your App with DevicProvider
 
 ```tsx
-import { DevicProvider } from '@devic/ui';
+import { DevicProvider } from '@devicai/ui';
 
 function App() {
   return (
@@ -49,7 +49,7 @@ function App() {
 ### Step 3: Add ChatDrawer Component
 
 ```tsx
-import { ChatDrawer } from '@devic/ui';
+import { ChatDrawer } from '@devicai/ui';
 
 function YourApp() {
   return (
@@ -98,7 +98,7 @@ For SaaS applications with multiple tenants:
 Enable the assistant to call functions in your application:
 
 ```tsx
-import { ChatDrawer, ModelInterfaceTool } from '@devic/ui';
+import { ChatDrawer, ModelInterfaceTool } from '@devicai/ui';
 
 // Define client-side tools
 const tools: ModelInterfaceTool[] = [
@@ -190,7 +190,7 @@ function App() {
 Build a completely custom chat interface:
 
 ```tsx
-import { useDevicChat } from '@devic/ui';
+import { useDevicChat } from '@devicai/ui';
 
 function CustomChat() {
   const {
@@ -402,7 +402,7 @@ Handle various chat events:
 For advanced use cases, use the API client directly:
 
 ```tsx
-import { DevicApiClient } from '@devic/ui';
+import { DevicApiClient } from '@devicai/ui';
 
 const client = new DevicApiClient({
   apiKey: 'your-api-key',
@@ -446,7 +446,7 @@ The library is SSR-compatible. Ensure you only render the ChatDrawer on the clie
 import dynamic from 'next/dynamic';
 
 const ChatDrawer = dynamic(
-  () => import('@devic/ui').then(mod => mod.ChatDrawer),
+  () => import('@devicai/ui').then(mod => mod.ChatDrawer),
   { ssr: false }
 );
 
@@ -475,7 +475,7 @@ import type {
   UseDevicChatResult,
   RealtimeChatHistory,
   AssistantSpecialization,
-} from '@devic/ui';
+} from '@devicai/ui';
 
 // Use types in your code
 const options: ChatDrawerOptions = {
@@ -499,7 +499,7 @@ const handleMessage = (message: ChatMessage) => {
 
 ### Styles not applied
 
-1. Make sure you imported the CSS: `import '@devic/ui/styles.css'`
+1. Make sure you imported the CSS: `import '@devicai/ui/styles.css'`
 2. Check for CSS conflicts with your application styles
 3. Try increasing specificity or using CSS variables
 

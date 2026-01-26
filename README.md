@@ -1,4 +1,4 @@
-# @devic/ui
+# @devicai/ui
 
 React component library for integrating Devic AI assistants into your application.
 
@@ -15,11 +15,11 @@ React component library for integrating Devic AI assistants into your applicatio
 ## Installation
 
 ```bash
-npm install @devic/ui
+npm install @devicai/ui
 # or
-yarn add @devic/ui
+yarn add @devicai/ui
 # or
-pnpm add @devic/ui
+pnpm add @devicai/ui
 ```
 
 ## Quick Start
@@ -27,8 +27,8 @@ pnpm add @devic/ui
 ### Using ChatDrawer (Simplest)
 
 ```tsx
-import { DevicProvider, ChatDrawer } from '@devic/ui';
-import '@devic/ui/dist/esm/styles.css';
+import { DevicProvider, ChatDrawer } from '@devicai/ui';
+import '@devicai/ui/dist/esm/styles.css';
 
 function App() {
   return (
@@ -49,7 +49,7 @@ function App() {
 ### Using the Hook (Custom UI)
 
 ```tsx
-import { DevicProvider, useDevicChat } from '@devic/ui';
+import { DevicProvider, useDevicChat } from '@devicai/ui';
 
 function CustomChat() {
   const { messages, isLoading, sendMessage } = useDevicChat({
@@ -248,7 +248,7 @@ const {
 Use the API client directly for advanced use cases.
 
 ```tsx
-import { DevicApiClient } from '@devic/ui';
+import { DevicApiClient } from '@devicai/ui';
 
 const client = new DevicApiClient({
   apiKey: 'your-api-key',
@@ -355,7 +355,7 @@ import type {
   RealtimeChatHistory,
   ChatDrawerOptions,
   UseDevicChatOptions,
-} from '@devic/ui';
+} from '@devicai/ui';
 ```
 
 ## License
