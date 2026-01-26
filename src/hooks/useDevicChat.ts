@@ -1,0 +1,450 @@
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useOptionalDevicContext } from '../provider';
+import { DevicApiClient } from '../api/client';
+import { usePolling } from './usePolling';
+import { useModelInterface } from './useModelInterface';
+import type {
+  ChatMessage,
+  ChatFile,
+  ModelInterfaceTool,
+  RealtimeChatHistory,
+  RealtimeStatus,
+} from '../api/types';
+
+export interface UseDevicChatOptions {
+  /**
+   * Assistant identifier
+   */
+  assistantId: string;
+
+  /**
+   * Existing chat UID to continue a conversation
+   */
+  chatUid?: string;
+
+  /**
+   * API key (overrides provider context)
+   */
+  apiKey?: string;
+
+  /**
+   * Base URL (overrides provider context)
+   */
+  baseUrl?: string;
+
+  /**
+   * Tenant ID for multi-tenant environments
+   */
+  tenantId?: string;
+
+  /**
+   * Tenant metadata
+   */
+  tenantMetadata?: Record<string, any>;
+
+  /**
+   * Tools enabled from the assistant's configured tool groups
+   */
+  enabledTools?: string[];
+
+  /**
+   * Client-side tools for model interface protocol
+   */
+  modelInterfaceTools?: ModelInterfaceTool[];
+
+  /**
+   * Polling interval for async mode (ms)
+   * @default 1000
+   */
+  pollingInterval?: number;
+
+  /**
+   * Callback when a message is sent
+   */
+  onMessageSent?: (message: ChatMessage) => void;
+
+  /**
+   * Callback when a message is received
+   */
+  onMessageReceived?: (message: ChatMessage) => void;
+
+  /**
+   * Callback when a tool is called
+   */
+  onToolCall?: (toolName: string, params: any) => void;
+
+  /**
+   * Callback when an error occurs
+   */
+  onError?: (error: Error) => void;
+
+  /**
+   * Callback when a new chat is created
+   */
+  onChatCreated?: (chatUid: string) => void;
+}
+
+export interface UseDevicChatResult {
+  /**
+   * Current chat messages
+   */
+  messages: ChatMessage[];
+
+  /**
+   * Current chat UID
+   */
+  chatUid: string | null;
+
+  /**
+   * Whether a message is being processed
+   */
+  isLoading: boolean;
+
+  /**
+   * Current status
+   */
+  status: RealtimeStatus | 'idle';
+
+  /**
+   * Last error
+   */
+  error: Error | null;
+
+  /**
+   * Send a message
+   */
+  sendMessage: (
+    message: string,
+    options?: {
+      files?: ChatFile[];
+      metadata?: Record<string, any>;
+    }
+  ) => Promise<void>;
+
+  /**
+   * Clear the chat and start a new conversation
+   */
+  clearChat: () => void;
+
+  /**
+   * Load an existing chat
+   */
+  loadChat: (chatUid: string) => Promise<void>;
+}
+
+/**
+ * Main hook for managing chat with a Devic assistant
+ *
+ * @example
+ * ```tsx
+ * const {
+ *   messages,
+ *   isLoading,
+ *   sendMessage,
+ * } = useDevicChat({
+ *   assistantId: 'my-assistant',
+ *   modelInterfaceTools: [
+ *     {
+ *       toolName: 'get_user_location',
+ *       schema: { ... },
+ *       callback: async () => ({ lat: 40.7, lng: -74.0 })
+ *     }
+ *   ],
+ *   onMessageReceived: (msg) => console.log('Received:', msg),
+ * });
+ * ```
+ */
+export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
+  const {
+    assistantId,
+    chatUid: initialChatUid,
+    apiKey: propsApiKey,
+    baseUrl: propsBaseUrl,
+    tenantId,
+    tenantMetadata,
+    enabledTools,
+    modelInterfaceTools = [],
+    pollingInterval = 1000,
+    onMessageSent,
+    onMessageReceived,
+    onToolCall,
+    onError,
+    onChatCreated,
+  } = options;
+
+  // Get context (may be null if not wrapped in provider)
+  const context = useOptionalDevicContext();
+
+  // Resolve configuration
+  const apiKey = propsApiKey || context?.apiKey;
+  const baseUrl = propsBaseUrl || context?.baseUrl || 'https://api.devic.ai';
+  const resolvedTenantId = tenantId || context?.tenantId;
+  const resolvedTenantMetadata = { ...context?.tenantMetadata, ...tenantMetadata };
+
+  // State
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatUid, setChatUid] = useState<string | null>(initialChatUid || null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [status, setStatus] = useState<RealtimeStatus | 'idle'>('idle');
+  const [error, setError] = useState<Error | null>(null);
+
+  // Polling state
+  const [shouldPoll, setShouldPoll] = useState(false);
+
+  // Refs for callbacks
+  const onMessageReceivedRef = useRef(onMessageReceived);
+  const onErrorRef = useRef(onError);
+  const onChatCreatedRef = useRef(onChatCreated);
+
+  useEffect(() => {
+    onMessageReceivedRef.current = onMessageReceived;
+    onErrorRef.current = onError;
+    onChatCreatedRef.current = onChatCreated;
+  });
+
+  // Create API client
+  const clientRef = useRef<DevicApiClient | null>(null);
+  if (!clientRef.current && apiKey) {
+    clientRef.current = new DevicApiClient({ apiKey, baseUrl });
+  }
+
+  // Update client config if it changes
+  useEffect(() => {
+    if (clientRef.current && apiKey) {
+      clientRef.current.setConfig({ apiKey, baseUrl });
+    }
+  }, [apiKey, baseUrl]);
+
+  // Model interface hook
+  const {
+    toolSchemas,
+    handleToolCalls,
+    extractPendingToolCalls,
+  } = useModelInterface({
+    tools: modelInterfaceTools,
+    onToolExecute: onToolCall,
+  });
+
+  // Polling hook
+  const polling = usePolling(
+    shouldPoll ? chatUid : null,
+    async () => {
+      if (!clientRef.current || !chatUid) {
+        throw new Error('Cannot poll without client or chatUid');
+      }
+      return clientRef.current.getRealtimeHistory(assistantId, chatUid);
+    },
+    {
+      interval: pollingInterval,
+      enabled: shouldPoll,
+      stopStatuses: ['completed', 'error', 'waiting_for_tool_response'],
+      onUpdate: async (data: RealtimeChatHistory) => {
+        setMessages(data.chatHistory);
+        setStatus(data.status);
+
+        // Notify about new messages
+        const lastMessage = data.chatHistory[data.chatHistory.length - 1];
+        if (lastMessage && lastMessage.role === 'assistant') {
+          onMessageReceivedRef.current?.(lastMessage);
+        }
+
+        // Handle model interface - check for pending tool calls
+        if (data.status === 'waiting_for_tool_response' || data.pendingToolCalls?.length) {
+          await handlePendingToolCalls(data);
+        }
+      },
+      onStop: async (data) => {
+        setIsLoading(false);
+        setShouldPoll(false);
+
+        if (data?.status === 'error') {
+          const err = new Error('Chat processing failed');
+          setError(err);
+          onErrorRef.current?.(err);
+        } else if (data?.status === 'waiting_for_tool_response') {
+          // Handle tool response
+          await handlePendingToolCalls(data);
+        }
+      },
+      onError: (err) => {
+        setError(err);
+        setIsLoading(false);
+        setShouldPoll(false);
+        onErrorRef.current?.(err);
+      },
+    }
+  );
+
+  // Handle pending tool calls from model interface
+  const handlePendingToolCalls = useCallback(
+    async (data: RealtimeChatHistory) => {
+      if (!clientRef.current || !chatUid) return;
+
+      // Get pending tool calls
+      const pendingCalls = data.pendingToolCalls || extractPendingToolCalls(data.chatHistory);
+
+      if (pendingCalls.length === 0) return;
+
+      try {
+        // Execute client-side tools
+        const responses = await handleToolCalls(pendingCalls);
+
+        if (responses.length > 0) {
+          // Send tool responses back to the API
+          await clientRef.current.sendToolResponses(assistantId, chatUid, responses);
+
+          // Resume polling
+          setShouldPoll(true);
+          setIsLoading(true);
+        }
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        setError(error);
+        onErrorRef.current?.(error);
+      }
+    },
+    [chatUid, assistantId, handleToolCalls, extractPendingToolCalls]
+  );
+
+  // Send a message
+  const sendMessage = useCallback(
+    async (
+      message: string,
+      sendOptions?: {
+        files?: ChatFile[];
+        metadata?: Record<string, any>;
+      }
+    ) => {
+      if (!clientRef.current) {
+        const err = new Error(
+          'API client not configured. Please provide an API key.'
+        );
+        setError(err);
+        onErrorRef.current?.(err);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+      setStatus('processing');
+
+      // Add user message optimistically
+      const userMessage: ChatMessage = {
+        uid: `temp-${Date.now()}`,
+        role: 'user',
+        content: {
+          message,
+          files: sendOptions?.files?.map((f) => ({
+            name: f.name,
+            url: f.downloadUrl || '',
+            type: f.fileType || 'other',
+          })),
+        },
+        timestamp: Date.now(),
+      };
+
+      setMessages((prev) => [...prev, userMessage]);
+      onMessageSent?.(userMessage);
+
+      try {
+        // Build request DTO
+        const dto = {
+          message,
+          chatUid: chatUid || undefined,
+          files: sendOptions?.files,
+          metadata: {
+            ...resolvedTenantMetadata,
+            ...sendOptions?.metadata,
+          },
+          tenantId: resolvedTenantId,
+          enabledTools,
+          // Include model interface tools if any
+          ...(toolSchemas.length > 0 && { tools: toolSchemas }),
+        };
+
+        // Send message in async mode
+        const response = await clientRef.current.sendMessageAsync(assistantId, dto);
+
+        // Update chat UID if this is a new chat
+        if (response.chatUid && response.chatUid !== chatUid) {
+          setChatUid(response.chatUid);
+          onChatCreatedRef.current?.(response.chatUid);
+        }
+
+        // Start polling for results
+        setShouldPoll(true);
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        setError(error);
+        setIsLoading(false);
+        setStatus('error');
+        onErrorRef.current?.(error);
+
+        // Remove optimistic user message on error
+        setMessages((prev) => prev.filter((m) => m.uid !== userMessage.uid));
+      }
+    },
+    [
+      chatUid,
+      assistantId,
+      enabledTools,
+      resolvedTenantId,
+      resolvedTenantMetadata,
+      toolSchemas,
+      onMessageSent,
+    ]
+  );
+
+  // Clear chat
+  const clearChat = useCallback(() => {
+    setMessages([]);
+    setChatUid(null);
+    setStatus('idle');
+    setError(null);
+    setShouldPoll(false);
+  }, []);
+
+  // Load existing chat
+  const loadChat = useCallback(
+    async (loadChatUid: string) => {
+      if (!clientRef.current) {
+        const err = new Error('API client not configured');
+        setError(err);
+        onErrorRef.current?.(err);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const history = await clientRef.current.getChatHistory(
+          assistantId,
+          loadChatUid
+        );
+
+        setMessages(history.chatContent);
+        setChatUid(loadChatUid);
+        setStatus('completed');
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        setError(error);
+        onErrorRef.current?.(error);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [assistantId]
+  );
+
+  return {
+    messages,
+    chatUid,
+    isLoading,
+    status,
+    error,
+    sendMessage,
+    clearChat,
+    loadChat,
+  };
+}

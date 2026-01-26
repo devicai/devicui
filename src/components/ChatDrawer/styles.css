@@ -1,0 +1,463 @@
+/* CSS Variables for theming */
+.devic-chat-drawer {
+  --devic-primary: #1890ff;
+  --devic-primary-hover: #40a9ff;
+  --devic-primary-light: #e6f7ff;
+  --devic-bg: #ffffff;
+  --devic-bg-secondary: #f5f5f5;
+  --devic-text: #333333;
+  --devic-text-secondary: #666666;
+  --devic-text-muted: #999999;
+  --devic-border: #e8e8e8;
+  --devic-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --devic-radius: 8px;
+  --devic-radius-sm: 4px;
+  --devic-radius-lg: 16px;
+  --devic-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --devic-transition: 0.3s ease;
+}
+
+/* Drawer Container */
+.devic-chat-drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 400px;
+  background: var(--devic-bg);
+  box-shadow: var(--devic-shadow);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--devic-font-family);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--devic-text);
+  transition: transform var(--devic-transition);
+}
+
+.devic-chat-drawer[data-position="right"] {
+  right: 0;
+  transform: translateX(100%);
+}
+
+.devic-chat-drawer[data-position="left"] {
+  left: 0;
+  transform: translateX(-100%);
+}
+
+.devic-chat-drawer[data-open="true"] {
+  transform: translateX(0);
+}
+
+/* Drawer Overlay */
+.devic-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--devic-transition), visibility var(--devic-transition);
+}
+
+.devic-drawer-overlay[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Header */
+.devic-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--devic-border);
+  flex-shrink: 0;
+}
+
+.devic-drawer-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.devic-drawer-close {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--devic-text-secondary);
+  border-radius: var(--devic-radius-sm);
+  transition: background var(--devic-transition), color var(--devic-transition);
+}
+
+.devic-drawer-close:hover {
+  background: var(--devic-bg-secondary);
+  color: var(--devic-text);
+}
+
+/* Messages Container */
+.devic-messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Welcome Message */
+.devic-welcome {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--devic-text-secondary);
+}
+
+.devic-welcome-text {
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+
+/* Suggested Messages */
+.devic-suggested-messages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.devic-suggested-btn {
+  background: var(--devic-bg);
+  border: 1px solid var(--devic-border);
+  padding: 8px 16px;
+  border-radius: var(--devic-radius-lg);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--devic-text);
+  transition: border-color var(--devic-transition), background var(--devic-transition);
+}
+
+.devic-suggested-btn:hover {
+  border-color: var(--devic-primary);
+  background: var(--devic-primary-light);
+}
+
+/* Message Bubble */
+.devic-message {
+  display: flex;
+  flex-direction: column;
+  max-width: 85%;
+}
+
+.devic-message[data-role="user"] {
+  align-self: flex-end;
+}
+
+.devic-message[data-role="assistant"],
+.devic-message[data-role="tool"] {
+  align-self: flex-start;
+}
+
+.devic-message-bubble {
+  padding: 10px 14px;
+  border-radius: var(--devic-radius);
+  word-wrap: break-word;
+}
+
+.devic-message[data-role="user"] .devic-message-bubble {
+  background: var(--devic-primary);
+  color: white;
+  border-bottom-right-radius: var(--devic-radius-sm);
+}
+
+.devic-message[data-role="assistant"] .devic-message-bubble {
+  background: var(--devic-bg-secondary);
+  color: var(--devic-text);
+  border-bottom-left-radius: var(--devic-radius-sm);
+}
+
+.devic-message[data-role="tool"] .devic-message-bubble {
+  background: var(--devic-primary-light);
+  color: var(--devic-text);
+  border: 1px solid var(--devic-primary);
+  font-size: 12px;
+}
+
+.devic-message-time {
+  font-size: 11px;
+  color: var(--devic-text-muted);
+  margin-top: 4px;
+}
+
+.devic-message[data-role="user"] .devic-message-time {
+  text-align: right;
+}
+
+/* Message Files */
+.devic-message-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.devic-message-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: var(--devic-radius-sm);
+  font-size: 12px;
+}
+
+/* Loading Indicator */
+.devic-loading {
+  display: flex;
+  gap: 4px;
+  padding: 10px 14px;
+  align-self: flex-start;
+}
+
+.devic-loading-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--devic-text-muted);
+  border-radius: 50%;
+  animation: devic-bounce 1.4s infinite ease-in-out both;
+}
+
+.devic-loading-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.devic-loading-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes devic-bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
+}
+
+/* Tool Timeline */
+.devic-tool-timeline {
+  padding: 8px 12px;
+  background: var(--devic-bg-secondary);
+  border-radius: var(--devic-radius);
+  font-size: 12px;
+  margin: 8px 0;
+}
+
+.devic-tool-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.devic-tool-item + .devic-tool-item {
+  border-top: 1px solid var(--devic-border);
+}
+
+.devic-tool-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.devic-tool-status[data-status="pending"] {
+  background: var(--devic-text-muted);
+}
+
+.devic-tool-status[data-status="executing"] {
+  background: var(--devic-primary);
+  animation: devic-pulse 1s infinite;
+}
+
+.devic-tool-status[data-status="completed"] {
+  background: #52c41a;
+}
+
+.devic-tool-status[data-status="error"] {
+  background: #ff4d4f;
+}
+
+@keyframes devic-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.devic-tool-name {
+  font-weight: 500;
+  color: var(--devic-text);
+}
+
+/* Input Area */
+.devic-input-area {
+  padding: 16px;
+  border-top: 1px solid var(--devic-border);
+  flex-shrink: 0;
+}
+
+.devic-input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: var(--devic-bg-secondary);
+  border-radius: var(--devic-radius);
+  padding: 8px 12px;
+}
+
+.devic-input {
+  flex: 1;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+  min-height: 24px;
+  max-height: 120px;
+  outline: none;
+  color: var(--devic-text);
+}
+
+.devic-input::placeholder {
+  color: var(--devic-text-muted);
+}
+
+.devic-input-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--devic-text-secondary);
+  border-radius: var(--devic-radius-sm);
+  transition: color var(--devic-transition);
+  flex-shrink: 0;
+}
+
+.devic-input-btn:hover:not(:disabled) {
+  color: var(--devic-primary);
+}
+
+.devic-input-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.devic-send-btn {
+  background: var(--devic-primary);
+  color: white;
+  padding: 6px 12px;
+  border-radius: var(--devic-radius-sm);
+}
+
+.devic-send-btn:hover:not(:disabled) {
+  background: var(--devic-primary-hover);
+  color: white;
+}
+
+/* File Upload Preview */
+.devic-file-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.devic-file-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--devic-bg);
+  border: 1px solid var(--devic-border);
+  border-radius: var(--devic-radius-sm);
+  font-size: 12px;
+}
+
+.devic-file-remove {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--devic-text-muted);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.devic-file-remove:hover {
+  color: #ff4d4f;
+}
+
+/* Trigger Button */
+.devic-trigger {
+  position: fixed;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--devic-primary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: var(--devic-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--devic-transition), transform var(--devic-transition);
+}
+
+.devic-trigger:hover {
+  background: var(--devic-primary-hover);
+  transform: scale(1.05);
+}
+
+.devic-trigger svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Error Message */
+.devic-error {
+  padding: 12px;
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
+  border-radius: var(--devic-radius);
+  color: #ff4d4f;
+  font-size: 13px;
+  margin: 8px 16px;
+}
+
+/* Scrollbar Styling */
+.devic-messages-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.devic-messages-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.devic-messages-container::-webkit-scrollbar-thumb {
+  background: var(--devic-border);
+  border-radius: 3px;
+}
+
+.devic-messages-container::-webkit-scrollbar-thumb:hover {
+  background: var(--devic-text-muted);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .devic-chat-drawer {
+    width: 100%;
+  }
+}
