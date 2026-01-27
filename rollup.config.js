@@ -3,6 +3,8 @@ import commonjs from '@rollup/plugin-commonjs';
 import typescript from '@rollup/plugin-typescript';
 import postcss from 'rollup-plugin-postcss';
 
+const external = ['react', 'react-dom', 'react/jsx-runtime', 'markdown-to-jsx'];
+
 export default [
   // ESM build with types
   {
@@ -27,7 +29,7 @@ export default [
         minimize: true,
       }),
     ],
-    external: ['react', 'react-dom', 'react/jsx-runtime'],
+    external,
   },
   // CJS build
   {
@@ -54,6 +56,6 @@ export default [
         minimize: true,
       }),
     ],
-    external: ['react', 'react-dom', 'react/jsx-runtime'],
+    external,
   },
 ];

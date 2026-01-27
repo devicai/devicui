@@ -3,7 +3,7 @@ export { DevicProvider, DevicContext, useDevicContext, useOptionalDevicContext }
 export type { DevicProviderConfig, DevicProviderProps, DevicContextValue } from './provider';
 
 // Components
-export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline } from './components/ChatDrawer';
+export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector } from './components/ChatDrawer';
 export type {
   ChatDrawerProps,
   ChatDrawerOptions,
@@ -11,6 +11,7 @@ export type {
   ChatInputProps,
   ToolTimelineProps,
   AllowedFileTypes,
+  ConversationSelectorProps,
 } from './components/ChatDrawer';
 
 // Hooks
@@ -46,6 +47,7 @@ export type {
   ModelInterfaceToolSchema,
   PreviousMessage,
   ApiError,
+  ConversationSummary,
 } from './api/types';
 
 // Utilities

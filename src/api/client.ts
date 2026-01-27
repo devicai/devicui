@@ -7,6 +7,8 @@ import type {
   AssistantSpecialization,
   ApiError,
   ToolCallResponse,
+  ConversationSummary,
+  ListConversationsResponse,
 } from './types';
 
 export interface DevicApiClientConfig {
@@ -139,11 +141,35 @@ export class DevicApiClient {
    */
   async getChatHistory(
     assistantId: string,
-    chatUid: string
+    chatUid: string,
+    options?: { tenantId?: string }
   ): Promise<ChatHistory> {
+    const params = new URLSearchParams();
+    if (options?.tenantId) {
+      params.set('tenantId', options.tenantId);
+    }
+    const query = params.toString();
     return this.request<ChatHistory>(
-      `/api/v1/assistants/${assistantId}/chats/${chatUid}`
+      `/api/v1/assistants/${assistantId}/chats/${chatUid}${query ? `?${query}` : ''}`
     );
+  }
+
+  /**
+   * List conversations for an assistant
+   */
+  async listConversations(
+    assistantId: string,
+    options?: { tenantId?: string }
+  ): Promise<ConversationSummary[]> {
+    const params = new URLSearchParams();
+    if (options?.tenantId) {
+      params.set('tenantId', options.tenantId);
+    }
+    const query = params.toString();
+    const response = await this.request<ListConversationsResponse>(
+      `/api/v1/assistants/${assistantId}/chats${query ? `?${query}` : ''}`
+    );
+    return response.histories;
   }
 
   /**

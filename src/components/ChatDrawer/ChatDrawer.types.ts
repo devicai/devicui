@@ -21,10 +21,10 @@ export interface ChatDrawerOptions {
   position?: 'left' | 'right';
 
   /**
-   * Drawer width in pixels
-   * @default 400
+   * Drawer width as pixels (number) or CSS string (e.g. '50%', '400px')
+   * @default '100%'
    */
-  width?: number;
+  width?: number | string;
 
   /**
    * Whether drawer starts open
@@ -72,9 +72,15 @@ export interface ChatDrawerOptions {
   inputPlaceholder?: string;
 
   /**
-   * Title displayed in header
+   * Title displayed in header. Can be a string or React node.
    */
-  title?: string;
+  title?: string | React.ReactNode;
+
+  /**
+   * Show the assistant's image (from its imgUrl) as an avatar next to the title
+   * @default false
+   */
+  showAvatar?: boolean;
 
   /**
    * Show tool execution timeline
@@ -87,12 +93,138 @@ export interface ChatDrawerOptions {
    * @default 1000
    */
   zIndex?: number;
+
+  /**
+   * Border radius for the drawer container
+   * @default 0
+   */
+  borderRadius?: number | string;
+
+  /**
+   * Enable a draggable resize handle on the lateral border
+   * @default false
+   */
+  resizable?: boolean;
+
+  /**
+   * Minimum width when resizable (px)
+   * @default 300
+   */
+  minWidth?: number;
+
+  /**
+   * Maximum width when resizable (px)
+   * @default 800
+   */
+  maxWidth?: number;
+
+  /**
+   * Additional inline styles applied to the drawer container
+   */
+  style?: React.CSSProperties;
+
+  /**
+   * Font family override
+   */
+  fontFamily?: string;
+
+  /**
+   * Drawer background color
+   */
+  backgroundColor?: string;
+
+  /**
+   * Text color
+   */
+  textColor?: string;
+
+  /**
+   * Secondary background color (inputs, selector trigger, etc.)
+   */
+  secondaryBackgroundColor?: string;
+
+  /**
+   * Drawer border color
+   */
+  borderColor?: string;
+
+  /**
+   * User bubble background color
+   */
+  userBubbleColor?: string;
+
+  /**
+   * Assistant bubble background color
+   */
+  assistantBubbleColor?: string;
+
+  /**
+   * User bubble text color
+   */
+  userBubbleTextColor?: string;
+
+  /**
+   * Assistant bubble text color
+   */
+  assistantBubbleTextColor?: string;
+
+  /**
+   * Send button background color
+   */
+  sendButtonColor?: string;
+
+  /**
+   * Custom loading indicator to replace the default 3-dot spinner
+   */
+  loadingIndicator?: React.ReactNode;
+
+  /**
+   * Custom send button content. The click handler is managed by an overlay,
+   * so the node doesn't need to handle click events.
+   */
+  sendButtonContent?: React.ReactNode;
+
+  /**
+   * Custom renderers for tool calls by tool name.
+   * When a completed tool has a matching renderer, it replaces the default summary line.
+   */
+  toolRenderers?: Record<string, (input: any, output: any) => React.ReactNode>;
+
+  /**
+   * Custom icons for completed tool calls by tool name.
+   * Replaces the default check icon.
+   */
+  toolIcons?: Record<string, React.ReactNode>;
 }
 
 /**
  * Props for the ChatDrawer component
  */
+/**
+ * Props for ConversationSelector component
+ */
+export interface ConversationSelectorProps {
+  assistantId: string;
+  currentChatUid: string | null;
+  onSelect: (chatUid: string) => void;
+  onNewChat: () => void;
+  apiKey?: string;
+  baseUrl?: string;
+  tenantId?: string;
+}
+
 export interface ChatDrawerProps {
+  /**
+   * Display mode: 'drawer' (default overlay) or 'inline' (embedded, always visible)
+   * @default 'drawer'
+   */
+  mode?: 'drawer' | 'inline';
+
+  /**
+   * Callback when active conversation changes
+   */
+  onConversationChange?: (chatUid: string) => void;
+
   /**
    * Assistant identifier
    */
@@ -189,11 +321,15 @@ export interface ChatDrawerProps {
  */
 export interface ChatMessagesProps {
   messages: ChatMessage[];
+  allMessages: ChatMessage[];
   isLoading: boolean;
   welcomeMessage?: string;
   suggestedMessages?: string[];
   onSuggestedClick?: (message: string) => void;
   showToolTimeline?: boolean;
+  toolRenderers?: Record<string, (input: any, output: any) => React.ReactNode>;
+  toolIcons?: Record<string, React.ReactNode>;
+  loadingIndicator?: React.ReactNode;
 }
 
 /**
@@ -206,6 +342,7 @@ export interface ChatInputProps {
   enableFileUploads?: boolean;
   allowedFileTypes?: AllowedFileTypes;
   maxFileSize?: number;
+  sendButtonContent?: React.ReactNode;
 }
 
 /**

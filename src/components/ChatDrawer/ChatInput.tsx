@@ -25,6 +25,7 @@ export function ChatInput({
   enableFileUploads = false,
   allowedFileTypes = { images: true, documents: true },
   maxFileSize = 10 * 1024 * 1024, // 10MB
+  sendButtonContent,
 }: ChatInputProps): JSX.Element {
   const [message, setMessage] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -164,15 +165,30 @@ export function ChatInput({
           rows={1}
         />
 
-        <button
-          className="devic-input-btn devic-send-btn"
-          onClick={handleSend}
-          disabled={disabled || (!message.trim() && files.length === 0)}
-          type="button"
-          title="Send message"
-        >
-          <SendIcon />
-        </button>
+        {sendButtonContent ? (
+          <div className="devic-send-btn-wrapper">
+            <div className="devic-send-btn-custom" aria-hidden="true">
+              {sendButtonContent}
+            </div>
+            <button
+              className="devic-send-btn-overlay"
+              onClick={handleSend}
+              disabled={disabled || (!message.trim() && files.length === 0)}
+              type="button"
+              title="Send message"
+            />
+          </div>
+        ) : (
+          <button
+            className="devic-input-btn devic-send-btn"
+            onClick={handleSend}
+            disabled={disabled || (!message.trim() && files.length === 0)}
+            type="button"
+            title="Send message"
+          >
+            <SendIcon />
+          </button>
+        )}
       </div>
     </div>
   );

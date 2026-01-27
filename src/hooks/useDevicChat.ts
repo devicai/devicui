@@ -3,6 +3,8 @@ import { useOptionalDevicContext } from '../provider';
 import { DevicApiClient } from '../api/client';
 import { usePolling } from './usePolling';
 import { useModelInterface } from './useModelInterface';
+
+console.log('[devic-ui] Version: DEV-BUILD-001 (2026-01-26 18:20)');
 import type {
   ChatMessage,
   ChatFile,
@@ -225,21 +227,44 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     onToolExecute: onToolCall,
   });
 
-  // Polling hook
-  const polling = usePolling(
+  // Polling hook - uses callbacks for side effects, return value not needed
+  console.log('[useDevicChat] Render - shouldPoll:', shouldPoll, 'chatUid:', chatUid);
+  usePolling(
     shouldPoll ? chatUid : null,
     async () => {
+      console.log('[useDevicChat] fetchFn called, chatUid:', chatUid);
       if (!clientRef.current || !chatUid) {
         throw new Error('Cannot poll without client or chatUid');
       }
-      return clientRef.current.getRealtimeHistory(assistantId, chatUid);
+      const result = await clientRef.current.getRealtimeHistory(assistantId, chatUid);
+      console.log('[useDevicChat] getRealtimeHistory result:', result);
+      return result;
     },
     {
       interval: pollingInterval,
       enabled: shouldPoll,
       stopStatuses: ['completed', 'error', 'waiting_for_tool_response'],
       onUpdate: async (data: RealtimeChatHistory) => {
-        setMessages(data.chatHistory);
+        console.log('[useDevicChat] onUpdate called, status:', data.status);
+
+        // Merge realtime data with optimistic messages
+        setMessages((prev) => {
+          const realtimeUIDs = new Set(data.chatHistory.map((m) => m.uid));
+          const realtimeUserMessages = new Set(
+            data.chatHistory
+              .filter((m) => m.role === 'user')
+              .map((m) => m.content?.message)
+          );
+
+          // Keep optimistic messages not yet in realtime data
+          const optimistic = prev.filter((m) => {
+            if (realtimeUIDs.has(m.uid)) return false;
+            if (m.role === 'user' && realtimeUserMessages.has(m.content?.message)) return false;
+            return true;
+          });
+
+          return [...data.chatHistory, ...optimistic];
+        });
         setStatus(data.status);
 
         // Notify about new messages
@@ -253,20 +278,22 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           await handlePendingToolCalls(data);
         }
       },
-      onStop: async (data) => {
-        setIsLoading(false);
+      onStop: (data) => {
+        console.log('[useDevicChat] onStop called, status:', data?.status);
         setShouldPoll(false);
 
         if (data?.status === 'error') {
+          setIsLoading(false);
           const err = new Error('Chat processing failed');
           setError(err);
           onErrorRef.current?.(err);
-        } else if (data?.status === 'waiting_for_tool_response') {
-          // Handle tool response
-          await handlePendingToolCalls(data);
+        } else if (data?.status === 'completed') {
+          setIsLoading(false);
         }
+        // Note: waiting_for_tool_response is handled in onUpdate to avoid double execution
       },
       onError: (err) => {
+        console.error('[useDevicChat] onError called:', err);
         setError(err);
         setIsLoading(false);
         setShouldPoll(false);
@@ -363,15 +390,19 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         };
 
         // Send message in async mode
+        console.log('[useDevicChat] Sending message async...');
         const response = await clientRef.current.sendMessageAsync(assistantId, dto);
+        console.log('[useDevicChat] sendMessageAsync response:', response);
 
         // Update chat UID if this is a new chat
         if (response.chatUid && response.chatUid !== chatUid) {
+          console.log('[useDevicChat] Setting chatUid:', response.chatUid);
           setChatUid(response.chatUid);
           onChatCreatedRef.current?.(response.chatUid);
         }
 
         // Start polling for results
+        console.log('[useDevicChat] Setting shouldPoll to true');
         setShouldPoll(true);
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
@@ -420,7 +451,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       try {
         const history = await clientRef.current.getChatHistory(
           assistantId,
-          loadChatUid
+          loadChatUid,
+          { tenantId: resolvedTenantId }
         );
 
         setMessages(history.chatContent);
@@ -434,7 +466,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         setIsLoading(false);
       }
     },
-    [assistantId]
+    [assistantId, resolvedTenantId]
   );
 
   return {

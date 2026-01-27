@@ -191,6 +191,23 @@ export interface AssistantSpecialization {
 }
 
 /**
+ * Summary of a conversation for listing
+ */
+export interface ConversationSummary {
+  chatUID: string;
+  name?: string;
+  creationTimestampMs: number;
+  lastEditTimestampMs?: number;
+}
+
+export interface ListConversationsResponse {
+  histories: ConversationSummary[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+/**
  * API error response
  */
 export interface ApiError {

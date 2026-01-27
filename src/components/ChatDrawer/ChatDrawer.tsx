@@ -1,13 +1,17 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useDevicChat } from '../../hooks/useDevicChat';
+import { useOptionalDevicContext } from '../../provider';
+import { DevicApiClient } from '../../api/client';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
+import { ConversationSelector } from './ConversationSelector';
+import { ChatDrawerErrorBoundary } from './ErrorBoundary';
 import type { ChatDrawerProps, ChatDrawerOptions } from './ChatDrawer.types';
 import './styles.css';
 
 const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   position: 'right',
-  width: 400,
+  width: '100%',
   defaultOpen: false,
   color: '#1890ff',
   welcomeMessage: '',
@@ -17,8 +21,28 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   maxFileSize: 10 * 1024 * 1024,
   inputPlaceholder: 'Type a message...',
   title: 'Chat',
+  showAvatar: false,
   showToolTimeline: true,
   zIndex: 1000,
+  borderRadius: 0,
+  resizable: false,
+  minWidth: 300,
+  maxWidth: 800,
+  style: {},
+  fontFamily: undefined as any,
+  backgroundColor: undefined as any,
+  textColor: undefined as any,
+  secondaryBackgroundColor: undefined as any,
+  borderColor: undefined as any,
+  userBubbleColor: undefined as any,
+  userBubbleTextColor: undefined as any,
+  assistantBubbleColor: undefined as any,
+  assistantBubbleTextColor: undefined as any,
+  sendButtonColor: undefined as any,
+  loadingIndicator: undefined as any,
+  sendButtonContent: undefined as any,
+  toolRenderers: undefined as any,
+  toolIcons: undefined as any,
 };
 
 /**
@@ -45,7 +69,15 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
  * />
  * ```
  */
-export function ChatDrawer({
+export function ChatDrawer(props: ChatDrawerProps): JSX.Element {
+  return (
+    <ChatDrawerErrorBoundary>
+      <ChatDrawerInner {...props} />
+    </ChatDrawerErrorBoundary>
+  );
+}
+
+function ChatDrawerInner({
   assistantId,
   chatUid: initialChatUid,
   options = {},
@@ -64,6 +96,8 @@ export function ChatDrawer({
   onClose,
   isOpen: controlledIsOpen,
   className,
+  mode = 'drawer',
+  onConversationChange,
 }: ChatDrawerProps): JSX.Element {
   // Merge options with defaults
   const mergedOptions = useMemo(
@@ -71,9 +105,10 @@ export function ChatDrawer({
     [options]
   );
 
-  // Drawer open state (can be controlled or uncontrolled)
+  // Drawer open state (can be controlled or uncontrolled; inline mode is always open)
   const [internalIsOpen, setInternalIsOpen] = useState(mergedOptions.defaultOpen);
-  const isOpen = controlledIsOpen ?? internalIsOpen;
+  const isInline = mode === 'inline';
+  const isOpen = isInline ? true : (controlledIsOpen ?? internalIsOpen);
 
   // Use chat hook
   const chat = useDevicChat({
@@ -91,6 +126,22 @@ export function ChatDrawer({
     onError,
     onChatCreated,
   });
+
+  // Fetch assistant avatar when showAvatar is enabled
+  const context = useOptionalDevicContext();
+  const resolvedApiKey = apiKey || context?.apiKey;
+  const resolvedBaseUrl = baseUrl || context?.baseUrl || 'https://api.devic.ai';
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const avatarFetchedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!mergedOptions.showAvatar || !resolvedApiKey || avatarFetchedRef.current === assistantId) return;
+    avatarFetchedRef.current = assistantId;
+    const client = new DevicApiClient({ apiKey: resolvedApiKey, baseUrl: resolvedBaseUrl });
+    client.getAssistant(assistantId).then((a) => {
+      if (a.imgUrl) setAvatarUrl(a.imgUrl);
+    }).catch(() => {});
+  }, [mergedOptions.showAvatar, assistantId, resolvedApiKey, resolvedBaseUrl]);
 
   // Handle open/close
   const handleOpen = useCallback(() => {
@@ -111,6 +162,19 @@ export function ChatDrawer({
     [chat]
   );
 
+  // Handle conversation selection
+  const handleConversationSelect = useCallback(
+    (chatUid: string) => {
+      chat.loadChat(chatUid);
+      onConversationChange?.(chatUid);
+    },
+    [chat, onConversationChange]
+  );
+
+  const handleNewChat = useCallback(() => {
+    chat.clearChat();
+  }, [chat]);
+
   // Handle suggested message click
   const handleSuggestedClick = useCallback(
     (message: string) => {
@@ -119,23 +183,82 @@ export function ChatDrawer({
     [chat]
   );
 
-  // Apply CSS variable for primary color
+  // Apply CSS variables for theming on the drawer element itself
+  // (must target the component root so they override the defaults defined on .devic-chat-drawer)
+  const drawerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (mergedOptions.color !== DEFAULT_OPTIONS.color) {
-      document.documentElement.style.setProperty(
-        '--devic-primary',
-        mergedOptions.color
-      );
+    const el = drawerRef.current;
+    if (!el) return;
+    const vars: [string, string | undefined][] = [
+      ['--devic-primary', mergedOptions.color !== DEFAULT_OPTIONS.color ? mergedOptions.color : undefined],
+      ['--devic-font-family', mergedOptions.fontFamily],
+      ['--devic-bg', mergedOptions.backgroundColor],
+      ['--devic-text', mergedOptions.textColor],
+      ['--devic-bg-secondary', mergedOptions.secondaryBackgroundColor],
+      ['--devic-border', mergedOptions.borderColor],
+      ['--devic-user-bubble', mergedOptions.userBubbleColor],
+      ['--devic-user-bubble-text', mergedOptions.userBubbleTextColor],
+      ['--devic-assistant-bubble', mergedOptions.assistantBubbleColor],
+      ['--devic-assistant-bubble-text', mergedOptions.assistantBubbleTextColor],
+      ['--devic-send-btn', mergedOptions.sendButtonColor],
+    ];
+    for (const [name, value] of vars) {
+      if (value) {
+        el.style.setProperty(name, value);
+      } else {
+        el.style.removeProperty(name);
+      }
     }
-  }, [mergedOptions.color]);
+  }, [mergedOptions.color, mergedOptions.fontFamily, mergedOptions.backgroundColor, mergedOptions.textColor, mergedOptions.secondaryBackgroundColor, mergedOptions.borderColor, mergedOptions.userBubbleColor, mergedOptions.userBubbleTextColor, mergedOptions.assistantBubbleColor, mergedOptions.assistantBubbleTextColor, mergedOptions.sendButtonColor]);
+
+  // Resizable drawer
+  const [resizedWidth, setResizedWidth] = useState<number | null>(null);
+
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startWidth = drawerRef.current?.offsetWidth ?? 0;
+      const isLeft = mergedOptions.position === 'left';
+
+      const onMove = (ev: MouseEvent) => {
+        const delta = ev.clientX - startX;
+        const newWidth = startWidth + (isLeft ? delta : -delta);
+        const clamped = Math.min(
+          mergedOptions.maxWidth,
+          Math.max(mergedOptions.minWidth, newWidth)
+        );
+        setResizedWidth(clamped);
+      };
+
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    },
+    [mergedOptions.position, mergedOptions.minWidth, mergedOptions.maxWidth]
+  );
 
   // Build style object
+  const baseWidth = resizedWidth
+    ? `${resizedWidth}px`
+    : typeof mergedOptions.width === 'number'
+      ? `${mergedOptions.width}px`
+      : mergedOptions.width;
+
   const drawerStyle = useMemo(
     () => ({
-      width: mergedOptions.width,
+      width: baseWidth,
       zIndex: mergedOptions.zIndex,
+      borderRadius: typeof mergedOptions.borderRadius === 'number'
+        ? `${mergedOptions.borderRadius}px`
+        : mergedOptions.borderRadius,
+      ...mergedOptions.style,
     }),
-    [mergedOptions.width, mergedOptions.zIndex]
+    [baseWidth, mergedOptions.zIndex, mergedOptions.borderRadius, mergedOptions.style]
   );
 
   const overlayStyle = useMemo(
@@ -156,32 +279,75 @@ export function ChatDrawer({
 
   return (
     <>
-      {/* Overlay */}
-      <div
-        className="devic-drawer-overlay"
-        data-open={isOpen}
-        style={overlayStyle}
-        onClick={handleClose}
-      />
+      {/* Overlay (drawer mode only) */}
+      {!isInline && (
+        <div
+          className="devic-drawer-overlay"
+          data-open={isOpen}
+          style={overlayStyle}
+          onClick={handleClose}
+        />
+      )}
 
       {/* Drawer */}
       <div
+        ref={drawerRef}
         className={`devic-chat-drawer ${className || ''}`}
         data-position={mergedOptions.position}
         data-open={isOpen}
+        data-mode={mode}
         style={drawerStyle}
       >
+        {/* Resize handle */}
+        {mergedOptions.resizable && (
+          <div
+            className="devic-resize-handle"
+            data-position={mergedOptions.position}
+            onMouseDown={handleResizeStart}
+          />
+        )}
+
         {/* Header */}
         <div className="devic-drawer-header">
+          {avatarUrl && (
+            <img
+              className="devic-drawer-avatar"
+              src={avatarUrl}
+              alt=""
+              aria-hidden="true"
+            />
+          )}
           <h2 className="devic-drawer-title">{mergedOptions.title}</h2>
-          <button
-            className="devic-drawer-close"
-            onClick={handleClose}
-            type="button"
-            aria-label="Close chat"
-          >
-            <CloseIcon />
-          </button>
+          <ConversationSelector
+            assistantId={assistantId}
+            currentChatUid={chat.chatUid}
+            onSelect={handleConversationSelect}
+            onNewChat={handleNewChat}
+            apiKey={apiKey}
+            baseUrl={baseUrl}
+            tenantId={tenantId}
+          />
+          <div className="devic-drawer-header-actions">
+            <button
+              className="devic-new-chat-btn"
+              onClick={handleNewChat}
+              type="button"
+              aria-label="New chat"
+              title="New chat"
+            >
+              <PlusIcon />
+            </button>
+            {!isInline && (
+              <button
+                className="devic-drawer-close"
+                onClick={handleClose}
+                type="button"
+                aria-label="Close chat"
+              >
+                <CloseIcon />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Error display */}
@@ -194,11 +360,15 @@ export function ChatDrawer({
         {/* Messages */}
         <ChatMessages
           messages={chat.messages}
+          allMessages={chat.messages}
           isLoading={chat.isLoading}
           welcomeMessage={mergedOptions.welcomeMessage}
           suggestedMessages={mergedOptions.suggestedMessages}
           onSuggestedClick={handleSuggestedClick}
           showToolTimeline={mergedOptions.showToolTimeline}
+          toolRenderers={mergedOptions.toolRenderers}
+          toolIcons={mergedOptions.toolIcons}
+          loadingIndicator={mergedOptions.loadingIndicator}
         />
 
         {/* Input */}
@@ -209,11 +379,12 @@ export function ChatDrawer({
           enableFileUploads={mergedOptions.enableFileUploads}
           allowedFileTypes={mergedOptions.allowedFileTypes}
           maxFileSize={mergedOptions.maxFileSize}
+          sendButtonContent={mergedOptions.sendButtonContent}
         />
       </div>
 
-      {/* Trigger button (when drawer is closed) */}
-      {!isOpen && (
+      {/* Trigger button (drawer mode only, when closed) */}
+      {!isInline && !isOpen && (
         <button
           className="devic-trigger"
           onClick={handleOpen}
@@ -245,6 +416,27 @@ function CloseIcon(): JSX.Element {
     >
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+/**
+ * Plus icon for new chat button
+ */
+function PlusIcon(): JSX.Element {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
   );
 }

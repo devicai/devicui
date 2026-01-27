@@ -1,6 +1,6 @@
 {
   "name": "@devicai/ui",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "React component library for Devic AI assistants",
   "engines": {
@@ -31,7 +31,8 @@
   },
   "peerDependencies": {
     "react": ">=17.0.0",
-    "react-dom": ">=17.0.0"
+    "react-dom": ">=17.0.0",
+    "markdown-to-jsx": ">=7.0.0"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.0",
@@ -66,5 +67,8 @@
   },
   "sideEffects": [
     "**/*.css"
-  ]
+  ],
+  "dependencies": {
+    "markdown-to-jsx": "^9.6.1"
+  }
 }
