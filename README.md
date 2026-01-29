@@ -5,8 +5,10 @@ React component library for integrating Devic AI assistants into your applicatio
 ## Features
 
 - **ChatDrawer** - A ready-to-use chat drawer component
+- **AICommandBar** - A spotlight-style command bar for quick AI interactions
 - **useDevicChat** - Hook for building custom chat UIs
 - **Model Interface Protocol** - Support for client-side tool execution
+- **Message Feedback** - Built-in thumbs up/down feedback with comments
 - **CSS Variables** - Easy theming with CSS custom properties
 - **TypeScript** - Full type definitions included
 - **React 17+** - Compatible with React 17 and above
@@ -152,6 +154,102 @@ A complete chat drawer component.
 />
 ```
 
+### AICommandBar
+
+A floating command bar (similar to Spotlight/Command Palette) for quick AI interactions.
+
+```tsx
+import { AICommandBar } from '@devicai/ui';
+
+<AICommandBar
+  assistantId="my-assistant"
+  options={{
+    shortcut: 'cmd+k',           // Keyboard shortcut to open
+    placeholder: 'Ask AI...',
+    position: 'fixed',           // 'inline' | 'fixed'
+    fixedPlacement: { bottom: 20, right: 20 },
+    showResultCard: true,        // Show response in a card
+    showShortcutHint: true,      // Show shortcut badge
+
+    // Commands (slash commands)
+    commands: [
+      {
+        keyword: 'summarize',
+        description: 'Summarize content',
+        message: 'Please summarize this page.',
+        icon: <SummarizeIcon />,
+      },
+    ],
+
+    // History
+    enableHistory: true,
+    maxHistoryItems: 50,
+
+    // Theming
+    backgroundColor: '#ffffff',
+    textColor: '#1f2937',
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+  }}
+
+  // Callbacks
+  onResponse={({ message, toolCalls, chatUid }) => {}}
+  onSubmit={(message) => {}}
+  onToolCall={(toolName, params) => {}}
+  onError={(error) => {}}
+  onOpen={() => {}}
+  onClose={() => {}}
+
+  // Integration with ChatDrawer
+  onExecute="openDrawer"         // 'callback' | 'openDrawer'
+  chatDrawerRef={drawerRef}      // Required when onExecute="openDrawer"
+
+  // Controlled mode
+  isVisible={true}
+  onVisibilityChange={(visible) => {}}
+/>
+```
+
+#### AICommandBar with ChatDrawer Integration
+
+```tsx
+import { useRef } from 'react';
+import { AICommandBar, ChatDrawer, ChatDrawerHandle } from '@devicai/ui';
+
+function App() {
+  const drawerRef = useRef<ChatDrawerHandle>(null);
+
+  return (
+    <>
+      <AICommandBar
+        assistantId="my-assistant"
+        onExecute="openDrawer"
+        chatDrawerRef={drawerRef}
+        options={{
+          shortcut: 'cmd+k',
+          showResultCard: false,
+        }}
+      />
+      <ChatDrawer ref={drawerRef} assistantId="my-assistant" />
+    </>
+  );
+}
+```
+
+#### AICommandBar Handle (ref methods)
+
+```tsx
+const commandBarRef = useRef<AICommandBarHandle>(null);
+
+// Methods available via ref
+commandBarRef.current?.open();
+commandBarRef.current?.close();
+commandBarRef.current?.toggle();
+commandBarRef.current?.focus();
+commandBarRef.current?.submit('Hello!');
+commandBarRef.current?.reset();
+```
+
 ## Hooks
 
 ### useDevicChat
@@ -183,6 +281,42 @@ const {
   onToolCall: (toolName, params) => {},
   onError: (error) => {},
   onChatCreated: (chatUid) => {},
+});
+```
+
+### useAICommandBar
+
+Hook for building custom command bar UIs.
+
+```tsx
+import { useAICommandBar } from '@devicai/ui';
+
+const {
+  isVisible,           // boolean
+  open,                // () => void
+  close,               // () => void
+  toggle,              // () => void
+  inputValue,          // string
+  setInputValue,       // (value: string) => void
+  inputRef,            // RefObject<HTMLInputElement>
+  focus,               // () => void
+  isProcessing,        // boolean
+  currentToolSummary,  // string | null
+  toolCalls,           // ToolCallSummary[]
+  result,              // CommandBarResult | null
+  error,               // Error | null
+  history,             // string[]
+  showingHistory,      // boolean
+  showingCommands,     // boolean
+  filteredCommands,    // AICommandBarCommand[]
+  submit,              // (message?: string) => Promise<void>
+  reset,               // () => void
+  handleKeyDown,       // (e: KeyboardEvent) => void
+} = useAICommandBar({
+  assistantId: 'my-assistant',
+  options: { shortcut: 'cmd+k' },
+  onResponse: (result) => {},
+  onError: (error) => {},
 });
 ```
 
