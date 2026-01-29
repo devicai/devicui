@@ -368,3 +368,33 @@ export interface TriggerPosition {
   left?: number;
   top?: number;
 }
+
+/**
+ * Handle for programmatically controlling the ChatDrawer
+ */
+export interface ChatDrawerHandle {
+  /**
+   * Open the drawer
+   */
+  open: () => void;
+
+  /**
+   * Close the drawer
+   */
+  close: () => void;
+
+  /**
+   * Toggle the drawer visibility
+   */
+  toggle: () => void;
+
+  /**
+   * Set the chat UID to load a specific conversation
+   */
+  setChatUid: (chatUid: string) => void;
+
+  /**
+   * Send a message in the drawer
+   */
+  sendMessage: (message: string) => void;
+}

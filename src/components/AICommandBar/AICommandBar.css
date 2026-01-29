@@ -1,0 +1,421 @@
+/* AICommandBar CSS */
+
+.devic-command-bar-container {
+  /* CSS Variables with defaults */
+  --devic-cmd-bg: var(--devic-cmd-bg-override, #ffffff);
+  --devic-cmd-text: var(--devic-cmd-text-override, #1f2937);
+  --devic-cmd-text-secondary: var(--devic-cmd-text-secondary-override, #6b7280);
+  --devic-cmd-border: var(--devic-cmd-border-override, #e5e7eb);
+  --devic-cmd-radius: var(--devic-cmd-radius-override, 12px);
+  --devic-cmd-shadow: var(--devic-cmd-shadow-override, 0 4px 20px rgba(0, 0, 0, 0.1));
+  --devic-cmd-primary: var(--devic-cmd-primary-override, #3b82f6);
+  --devic-cmd-font-family: var(--devic-cmd-font-family-override, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  --devic-cmd-font-size: var(--devic-cmd-font-size-override, 14px);
+  --devic-cmd-animation-duration: var(--devic-cmd-animation-duration-override, 200ms);
+
+  font-family: var(--devic-cmd-font-family);
+  font-size: var(--devic-cmd-font-size);
+  color: var(--devic-cmd-text);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 400px;
+  max-width: 100%;
+}
+
+/* Positioning */
+.devic-command-bar-container[data-position="fixed"] {
+  position: fixed;
+}
+
+.devic-command-bar-container[data-position="inline"] {
+  position: relative;
+}
+
+/* Visibility animation */
+.devic-command-bar-container[data-visible="false"] {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity var(--devic-cmd-animation-duration) ease,
+              transform var(--devic-cmd-animation-duration) ease;
+}
+
+.devic-command-bar-container[data-visible="true"] {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity var(--devic-cmd-animation-duration) ease,
+              transform var(--devic-cmd-animation-duration) ease;
+}
+
+/* Main bar */
+.devic-command-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--devic-cmd-bg);
+  border: 1px solid var(--devic-cmd-border);
+  border-radius: var(--devic-cmd-radius);
+  box-shadow: var(--devic-cmd-shadow);
+}
+
+/* Icon area */
+.devic-command-bar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  color: var(--devic-cmd-text-secondary);
+}
+
+.devic-command-bar-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Input */
+.devic-command-bar-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  outline: none;
+  min-width: 0;
+}
+
+.devic-command-bar-input::placeholder {
+  color: var(--devic-cmd-text-secondary);
+}
+
+/* Tool summary (shown during processing) */
+.devic-command-bar-summary {
+  flex: 1;
+  color: var(--devic-cmd-text-secondary);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: devic-cmd-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes devic-cmd-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Shortcut hint */
+.devic-command-bar-shortcut {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  background: var(--devic-cmd-border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--devic-cmd-text-secondary);
+  letter-spacing: 0.5px;
+}
+
+/* Spinner */
+.devic-command-bar-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--devic-cmd-border);
+  border-top-color: var(--devic-cmd-primary);
+  border-radius: 50%;
+  animation: devic-cmd-spin 0.8s linear infinite;
+}
+
+@keyframes devic-cmd-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Result card */
+.devic-command-bar-result {
+  background: var(--devic-cmd-bg);
+  border: 1px solid var(--devic-cmd-border);
+  border-radius: var(--devic-cmd-radius);
+  box-shadow: var(--devic-cmd-shadow);
+  overflow: hidden;
+  animation: devic-cmd-slide-up 200ms ease-out;
+}
+
+@keyframes devic-cmd-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Result tools section */
+.devic-command-bar-result-tools {
+  border-bottom: 1px solid var(--devic-cmd-border);
+}
+
+.devic-command-bar-result-tools-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+  color: var(--devic-cmd-text-secondary);
+  transition: background 150ms ease;
+}
+
+.devic-command-bar-result-tools-header:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.devic-command-bar-result-tools-chevron {
+  width: 16px;
+  height: 16px;
+  transition: transform 200ms ease;
+}
+
+.devic-command-bar-result-tools-header[data-expanded="true"] .devic-command-bar-result-tools-chevron {
+  transform: rotate(90deg);
+}
+
+.devic-command-bar-result-tools-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: var(--devic-cmd-primary);
+  color: white;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Tools list */
+.devic-command-bar-result-tools-list {
+  padding: 8px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.devic-command-bar-result-tools-list[data-expanded="false"] {
+  display: none;
+}
+
+.devic-command-bar-result-tool-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.devic-command-bar-result-tool-icon {
+  width: 14px;
+  height: 14px;
+  color: #10b981;
+}
+
+.devic-command-bar-result-tool-name {
+  color: var(--devic-cmd-text-secondary);
+}
+
+/* Result message section */
+.devic-command-bar-result-message {
+  padding: 14px;
+  max-height: 300px;
+  overflow-y: auto;
+  line-height: 1.5;
+}
+
+.devic-command-bar-result-message::-webkit-scrollbar {
+  width: 6px;
+}
+
+.devic-command-bar-result-message::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.devic-command-bar-result-message::-webkit-scrollbar-thumb {
+  background: var(--devic-cmd-border);
+  border-radius: 3px;
+}
+
+/* Error state */
+.devic-command-bar-error {
+  padding: 10px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: var(--devic-cmd-radius);
+  color: #dc2626;
+  font-size: 13px;
+}
+
+/* Empty result */
+.devic-command-bar-result-empty {
+  padding: 14px;
+  text-align: center;
+  color: var(--devic-cmd-text-secondary);
+  font-size: 13px;
+}
+
+/* Dropdown (for commands and history) */
+.devic-command-bar-dropdown {
+  background: var(--devic-cmd-bg);
+  border: 1px solid var(--devic-cmd-border);
+  border-radius: var(--devic-cmd-radius);
+  box-shadow: var(--devic-cmd-shadow);
+  overflow: hidden;
+  animation: devic-cmd-slide-up 200ms ease-out;
+}
+
+.devic-command-bar-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--devic-cmd-border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--devic-cmd-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.devic-command-bar-dropdown-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.devic-command-bar-dropdown-hint kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  background: var(--devic-cmd-border);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 10px;
+}
+
+.devic-command-bar-dropdown-clear {
+  background: none;
+  border: none;
+  color: var(--devic-cmd-primary);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+.devic-command-bar-dropdown-clear:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.devic-command-bar-dropdown-list {
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.devic-command-bar-dropdown-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.devic-command-bar-dropdown-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.devic-command-bar-dropdown-list::-webkit-scrollbar-thumb {
+  background: var(--devic-cmd-border);
+  border-radius: 3px;
+}
+
+.devic-command-bar-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.devic-command-bar-dropdown-item:hover,
+.devic-command-bar-dropdown-item[data-selected="true"] {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.devic-command-bar-dropdown-item[data-selected="true"] {
+  background: var(--devic-cmd-primary);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.devic-command-bar-dropdown-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--devic-cmd-text-secondary);
+}
+
+.devic-command-bar-dropdown-keyword {
+  font-weight: 600;
+  color: var(--devic-cmd-text);
+  flex-shrink: 0;
+}
+
+.devic-command-bar-dropdown-desc {
+  color: var(--devic-cmd-text-secondary);
+  font-size: 13px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devic-command-bar-dropdown-empty {
+  padding: 20px 14px;
+  text-align: center;
+  color: var(--devic-cmd-text-secondary);
+  font-size: 13px;
+}
+
+/* History item specific styles */
+.devic-command-bar-history-item {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.devic-command-bar-history-item:last-child {
+  border-bottom: none;
+}
+
+.devic-command-bar-history-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}

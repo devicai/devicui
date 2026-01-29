@@ -7,12 +7,34 @@ export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector
 export type {
   ChatDrawerProps,
   ChatDrawerOptions,
+  ChatDrawerHandle,
   ChatMessagesProps,
   ChatInputProps,
   ToolTimelineProps,
   AllowedFileTypes,
   ConversationSelectorProps,
 } from './components/ChatDrawer';
+
+// AICommandBar
+export { AICommandBar, useAICommandBar, formatShortcut } from './components/AICommandBar';
+export type {
+  AICommandBarProps,
+  AICommandBarOptions,
+  AICommandBarHandle,
+  AICommandBarCommand,
+  CommandBarResult,
+  ToolCallSummary,
+} from './components/AICommandBar';
+
+// AutocompleteInput - WIP, not ready for public use
+// export { AutocompleteInput, useAutocomplete } from './components/AutocompleteInput';
+// export type {
+//   AutocompleteInputProps,
+//   AutocompleteInputOptions,
+//   AutocompleteInputHandle,
+//   UseAutocompleteOptions,
+//   UseAutocompleteResult,
+// } from './components/AutocompleteInput';
 
 // Hooks
 export { useDevicChat, usePolling, useModelInterface } from './hooks';

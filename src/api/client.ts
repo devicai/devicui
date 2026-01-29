@@ -9,7 +9,7 @@ import type {
   ToolCallResponse,
   ConversationSummary,
   ListConversationsResponse,
-} from './types';
+} from "./types";
 
 export interface DevicApiClientConfig {
   apiKey: string;
@@ -38,13 +38,13 @@ export class DevicApiClient {
    */
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<T> {
     const url = `${this.config.baseUrl}${endpoint}`;
 
     const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.config.apiKey}`,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${this.config.apiKey}`,
       ...options.headers,
     };
 
@@ -70,7 +70,7 @@ export class DevicApiClient {
     const data = await response.json();
 
     // If the response has a data property, extract it (common wrapper pattern)
-    if (data && typeof data === 'object' && 'data' in data) {
+    if (data && typeof data === "object" && "data" in data) {
       return data.data as T;
     }
 
@@ -81,15 +81,19 @@ export class DevicApiClient {
    * Get all assistant specializations
    */
   async getAssistants(external = false): Promise<AssistantSpecialization[]> {
-    const query = external ? '?external=true' : '';
-    return this.request<AssistantSpecialization[]>(`/api/v1/assistants${query}`);
+    const query = external ? "?external=true" : "";
+    return this.request<AssistantSpecialization[]>(
+      `/api/v1/assistants${query}`,
+    );
   }
 
   /**
    * Get a specific assistant specialization
    */
   async getAssistant(identifier: string): Promise<AssistantSpecialization> {
-    return this.request<AssistantSpecialization>(`/api/v1/assistants/${identifier}`);
+    return this.request<AssistantSpecialization>(
+      `/api/v1/assistants/${identifier}`,
+    );
   }
 
   /**
@@ -97,14 +101,16 @@ export class DevicApiClient {
    */
   async sendMessage(
     assistantId: string,
-    dto: ProcessMessageDto
+    dto: ProcessMessageDto,
+    signal?: AbortSignal,
   ): Promise<ChatMessage[]> {
     return this.request<ChatMessage[]>(
-      `/api/v1/assistants/${assistantId}/messages`,
+      `/api/v1/assistants/${assistantId}/messages${dto.skipSummarization ? "?skipSummarization=true" : ""}`,
       {
-        method: 'POST',
+        method: "POST",
         body: JSON.stringify(dto),
-      }
+        signal,
+      },
     );
   }
 
@@ -113,14 +119,14 @@ export class DevicApiClient {
    */
   async sendMessageAsync(
     assistantId: string,
-    dto: ProcessMessageDto
+    dto: ProcessMessageDto,
   ): Promise<AsyncResponse> {
     return this.request<AsyncResponse>(
-      `/api/v1/assistants/${assistantId}/messages?async=true`,
+      `/api/v1/assistants/${assistantId}/messages?async=true${dto.skipSummarization ? "&skipSummarization=true" : ""}`,
       {
-        method: 'POST',
+        method: "POST",
         body: JSON.stringify(dto),
-      }
+      },
     );
   }
 
@@ -129,10 +135,10 @@ export class DevicApiClient {
    */
   async getRealtimeHistory(
     assistantId: string,
-    chatUid: string
+    chatUid: string,
   ): Promise<RealtimeChatHistory> {
     return this.request<RealtimeChatHistory>(
-      `/api/v1/assistants/${assistantId}/chats/${chatUid}/realtime`
+      `/api/v1/assistants/${assistantId}/chats/${chatUid}/realtime`,
     );
   }
 
@@ -142,15 +148,15 @@ export class DevicApiClient {
   async getChatHistory(
     assistantId: string,
     chatUid: string,
-    options?: { tenantId?: string }
+    options?: { tenantId?: string },
   ): Promise<ChatHistory> {
     const params = new URLSearchParams();
     if (options?.tenantId) {
-      params.set('tenantId', options.tenantId);
+      params.set("tenantId", options.tenantId);
     }
     const query = params.toString();
     return this.request<ChatHistory>(
-      `/api/v1/assistants/${assistantId}/chats/${chatUid}${query ? `?${query}` : ''}`
+      `/api/v1/assistants/${assistantId}/chats/${chatUid}${query ? `?${query}` : ""}`,
     );
   }
 
@@ -159,15 +165,15 @@ export class DevicApiClient {
    */
   async listConversations(
     assistantId: string,
-    options?: { tenantId?: string }
+    options?: { tenantId?: string },
   ): Promise<ConversationSummary[]> {
     const params = new URLSearchParams();
     if (options?.tenantId) {
-      params.set('tenantId', options.tenantId);
+      params.set("tenantId", options.tenantId);
     }
     const query = params.toString();
     const response = await this.request<ListConversationsResponse>(
-      `/api/v1/assistants/${assistantId}/chats${query ? `?${query}` : ''}`
+      `/api/v1/assistants/${assistantId}/chats${query ? `?${query}` : ""}`,
     );
     return response.histories;
   }
@@ -178,14 +184,14 @@ export class DevicApiClient {
   async sendToolResponses(
     assistantId: string,
     chatUid: string,
-    responses: ToolCallResponse[]
+    responses: ToolCallResponse[],
   ): Promise<AsyncResponse> {
     return this.request<AsyncResponse>(
       `/api/v1/assistants/${assistantId}/chats/${chatUid}/tool-response`,
       {
-        method: 'POST',
+        method: "POST",
         body: JSON.stringify({ responses }),
-      }
+      },
     );
   }
 }
@@ -199,7 +205,7 @@ export class DevicApiError extends Error {
 
   constructor(error: ApiError) {
     super(error.message);
-    this.name = 'DevicApiError';
+    this.name = "DevicApiError";
     this.statusCode = error.statusCode;
     this.errorType = error.error;
   }

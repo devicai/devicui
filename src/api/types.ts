@@ -109,6 +109,7 @@ export interface ProcessMessageDto {
   // Model interface protocol fields
   tools?: ModelInterfaceToolSchema[];
   applicationState?: Record<string, any>;
+  skipSummarization?: boolean;
 }
 
 /**

@@ -6,6 +6,7 @@ export { ConversationSelector } from './ConversationSelector';
 export type {
   ChatDrawerProps,
   ChatDrawerOptions,
+  ChatDrawerHandle,
   ChatMessagesProps,
   ChatInputProps,
   ToolTimelineProps,

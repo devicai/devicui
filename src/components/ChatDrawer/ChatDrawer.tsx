@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useDevicChat } from '../../hooks/useDevicChat';
 import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from '../../api/client';
@@ -6,7 +6,7 @@ import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
 import { ConversationSelector } from './ConversationSelector';
 import { ChatDrawerErrorBoundary } from './ErrorBoundary';
-import type { ChatDrawerProps, ChatDrawerOptions } from './ChatDrawer.types';
+import type { ChatDrawerProps, ChatDrawerOptions, ChatDrawerHandle } from './ChatDrawer.types';
 import './styles.css';
 
 const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
@@ -51,6 +51,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
  * @example
  * ```tsx
  * <ChatDrawer
+ *   ref={drawerRef}
  *   assistantId="my-assistant"
  *   options={{
  *     position: 'right',
@@ -69,12 +70,18 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
  * />
  * ```
  */
-export function ChatDrawer(props: ChatDrawerProps): JSX.Element {
-  return (
-    <ChatDrawerErrorBoundary>
-      <ChatDrawerInner {...props} />
-    </ChatDrawerErrorBoundary>
-  );
+export const ChatDrawer = forwardRef<ChatDrawerHandle, ChatDrawerProps>(
+  function ChatDrawer(props, ref) {
+    return (
+      <ChatDrawerErrorBoundary>
+        <ChatDrawerInner {...props} forwardedRef={ref} />
+      </ChatDrawerErrorBoundary>
+    );
+  }
+);
+
+interface ChatDrawerInnerProps extends ChatDrawerProps {
+  forwardedRef?: React.Ref<ChatDrawerHandle>;
 }
 
 function ChatDrawerInner({
@@ -98,7 +105,8 @@ function ChatDrawerInner({
   className,
   mode = 'drawer',
   onConversationChange,
-}: ChatDrawerProps): JSX.Element {
+  forwardedRef,
+}: ChatDrawerInnerProps): JSX.Element {
   // Merge options with defaults
   const mergedOptions = useMemo(
     () => ({ ...DEFAULT_OPTIONS, ...options }),
@@ -153,6 +161,23 @@ function ChatDrawerInner({
     setInternalIsOpen(false);
     onClose?.();
   }, [onClose]);
+
+  const handleToggle = useCallback(() => {
+    setInternalIsOpen((prev) => !prev);
+  }, []);
+
+  // Expose handle for programmatic control
+  useImperativeHandle(forwardedRef, () => ({
+    open: handleOpen,
+    close: handleClose,
+    toggle: handleToggle,
+    setChatUid: (chatUid: string) => {
+      chat.loadChat(chatUid);
+    },
+    sendMessage: (message: string) => {
+      chat.sendMessage(message);
+    },
+  }), [handleOpen, handleClose, handleToggle, chat]);
 
   // Handle send message
   const handleSend = useCallback(

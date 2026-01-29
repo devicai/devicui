@@ -29,3 +29,9 @@ coverage/
 # Temporary files
 *.tmp
 *.temp
+
+.agents
+.claude
+.codex
+.github
+.opencode
