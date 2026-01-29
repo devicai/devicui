@@ -1,0 +1,238 @@
+/* ── Message Actions ── */
+
+.devic-message-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.devic-message:hover .devic-message-actions,
+.devic-message-actions:focus-within {
+  opacity: 1;
+}
+
+/* Always show if feedback was given */
+.devic-message-actions:has(.devic-action-btn--active) {
+  opacity: 1;
+}
+
+.devic-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: var(--devic-radius-sm, 6px);
+  background: transparent;
+  color: var(--devic-text-muted, #94a3b8);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.devic-action-btn:hover:not(:disabled) {
+  background: var(--devic-bg-secondary, #f8fafc);
+  color: var(--devic-text-secondary, #64748b);
+}
+
+.devic-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.devic-action-btn--active {
+  color: var(--devic-primary, #3b82f6);
+}
+
+.devic-action-btn--active.devic-action-btn--positive {
+  color: #22c55e;
+}
+
+.devic-action-btn--active.devic-action-btn--negative {
+  color: #ef4444;
+}
+
+/* ── Feedback Modal ── */
+
+.devic-feedback-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  animation: devic-feedback-fade-in 0.15s ease;
+}
+
+@keyframes devic-feedback-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.devic-feedback-modal {
+  background: var(--devic-bg, #ffffff);
+  border-radius: var(--devic-radius, 12px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 400px;
+  margin: 16px;
+  animation: devic-feedback-slide-up 0.2s ease;
+}
+
+@keyframes devic-feedback-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.devic-feedback-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--devic-border, #e2e8f0);
+}
+
+.devic-feedback-modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--devic-bg-secondary, #f8fafc);
+  color: var(--devic-text, #1e293b);
+}
+
+.devic-feedback-modal-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--devic-text, #1e293b);
+}
+
+.devic-feedback-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--devic-text-muted, #94a3b8);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.devic-feedback-modal-close:hover {
+  background: var(--devic-bg-secondary, #f8fafc);
+  color: var(--devic-text-secondary, #64748b);
+}
+
+.devic-feedback-textarea {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-bottom: 1px solid var(--devic-border, #e2e8f0);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--devic-text, #1e293b);
+  background: transparent;
+  resize: none;
+  box-sizing: border-box;
+}
+
+.devic-feedback-textarea:focus {
+  outline: none;
+}
+
+.devic-feedback-textarea::placeholder {
+  color: var(--devic-text-muted, #94a3b8);
+}
+
+.devic-feedback-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.devic-feedback-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--devic-radius-sm, 6px);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.devic-feedback-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.devic-feedback-btn--secondary {
+  background: var(--devic-bg-secondary, #f8fafc);
+  color: var(--devic-text-secondary, #64748b);
+}
+
+.devic-feedback-btn--secondary:hover:not(:disabled) {
+  background: var(--devic-border, #e2e8f0);
+}
+
+.devic-feedback-btn--primary {
+  background: var(--devic-primary, #3b82f6);
+  color: white;
+}
+
+.devic-feedback-btn--primary:hover:not(:disabled) {
+  background: var(--devic-primary-hover, #2563eb);
+}
+
+/* ── Result Card Actions (AICommandBar) ── */
+
+.devic-cmd-result-actions {
+  padding-top: 8px;
+  border-top: 1px solid var(--devic-cmd-border, var(--devic-border, #e5e7eb));
+  margin-top: 8px;
+}
+
+/* Override the default hidden state for message actions in command bar */
+.devic-cmd-result-actions .devic-message-actions {
+  opacity: 1;
+  padding-left: 10px;
+}
+
+.devic-cmd-result-actions .devic-action-btn {
+  opacity: 0.7;
+}
+
+.devic-cmd-result-actions .devic-action-btn:hover {
+  opacity: 1;
+}
+
+.devic-cmd-result-actions .devic-action-btn--active {
+  opacity: 1;
+}

@@ -195,6 +195,12 @@ export interface ChatDrawerOptions {
    * Replaces the default check icon.
    */
   toolIcons?: Record<string, React.ReactNode>;
+
+  /**
+   * Show feedback buttons (thumbs up/down) on assistant messages
+   * @default true
+   */
+  showFeedback?: boolean;
 }
 
 /**
@@ -330,6 +336,12 @@ export interface ChatMessagesProps {
   toolRenderers?: Record<string, (input: any, output: any) => React.ReactNode>;
   toolIcons?: Record<string, React.ReactNode>;
   loadingIndicator?: React.ReactNode;
+  /** Show feedback buttons on assistant messages */
+  showFeedback?: boolean;
+  /** Map of message ID to feedback state */
+  feedbackMap?: Map<string, 'positive' | 'negative'>;
+  /** Callback when feedback is submitted */
+  onFeedback?: (messageId: string, positive: boolean, comment?: string) => void;
 }
 
 /**

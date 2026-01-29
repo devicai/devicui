@@ -43,6 +43,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   sendButtonContent: undefined as any,
   toolRenderers: undefined as any,
   toolIcons: undefined as any,
+  showFeedback: true,
 };
 
 /**
@@ -206,6 +207,64 @@ function ChatDrawerInner({
       chat.sendMessage(message);
     },
     [chat]
+  );
+
+  // Feedback state
+  const [feedbackMap, setFeedbackMap] = useState<Map<string, 'positive' | 'negative'>>(new Map());
+  const feedbackClientRef = useRef<DevicApiClient | null>(null);
+
+  // Initialize feedback client
+  useEffect(() => {
+    if (resolvedApiKey && !feedbackClientRef.current) {
+      feedbackClientRef.current = new DevicApiClient({
+        apiKey: resolvedApiKey,
+        baseUrl: resolvedBaseUrl,
+      });
+    }
+  }, [resolvedApiKey, resolvedBaseUrl]);
+
+  // Load existing feedback when chat changes
+  useEffect(() => {
+    if (!chat.chatUid || !feedbackClientRef.current || !mergedOptions.showFeedback) return;
+
+    feedbackClientRef.current.getChatFeedback(assistantId, chat.chatUid)
+      .then((entries) => {
+        const newMap = new Map<string, 'positive' | 'negative'>();
+        for (const entry of entries) {
+          if (entry.feedback !== undefined) {
+            newMap.set(entry.requestId, entry.feedback ? 'positive' : 'negative');
+          }
+        }
+        setFeedbackMap(newMap);
+      })
+      .catch(() => {
+        // Silently ignore feedback loading errors
+      });
+  }, [chat.chatUid, assistantId, mergedOptions.showFeedback]);
+
+  // Handle feedback submission
+  const handleFeedback = useCallback(
+    async (messageId: string, positive: boolean, comment?: string) => {
+      if (!chat.chatUid || !feedbackClientRef.current) return;
+
+      try {
+        await feedbackClientRef.current.submitChatFeedback(assistantId, chat.chatUid, {
+          messageId,
+          feedback: positive,
+          feedbackComment: comment,
+        });
+
+        setFeedbackMap((prev) => {
+          const newMap = new Map(prev);
+          newMap.set(messageId, positive ? 'positive' : 'negative');
+          return newMap;
+        });
+      } catch (err) {
+        console.error('Failed to submit feedback:', err);
+        throw err;
+      }
+    },
+    [chat.chatUid, assistantId]
   );
 
   // Apply CSS variables for theming on the drawer element itself
@@ -394,6 +453,9 @@ function ChatDrawerInner({
           toolRenderers={mergedOptions.toolRenderers}
           toolIcons={mergedOptions.toolIcons}
           loadingIndicator={mergedOptions.loadingIndicator}
+          showFeedback={mergedOptions.showFeedback}
+          feedbackMap={feedbackMap}
+          onFeedback={handleFeedback}
         />
 
         {/* Input */}

@@ -188,10 +188,21 @@
   font-size: 12px;
 }
 
+.devic-message-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .devic-message-time {
   font-size: 11px;
   color: var(--devic-text-muted);
-  margin-top: 4px;
+}
+
+.devic-message[data-role="user"] .devic-message-footer {
+  justify-content: flex-end;
 }
 
 .devic-message[data-role="user"] .devic-message-time {

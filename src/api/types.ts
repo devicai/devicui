@@ -216,3 +216,29 @@ export interface ApiError {
   message: string;
   error?: string;
 }
+
+/**
+ * Feedback submission request
+ */
+export interface FeedbackSubmission {
+  messageId: string;
+  feedback?: boolean;
+  feedbackComment?: string;
+  feedbackData?: Record<string, any>;
+}
+
+/**
+ * Feedback entry response
+ */
+export interface FeedbackEntry {
+  _id: string;
+  requestId: string;
+  chatUID?: string;
+  threadId?: string;
+  agentId?: string;
+  feedback?: boolean;
+  feedbackComment?: string;
+  feedbackData?: Record<string, any>;
+  creationTimestamp: string;
+  lastEditTimestamp?: string;
+}

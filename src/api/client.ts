@@ -9,6 +9,8 @@ import type {
   ToolCallResponse,
   ConversationSummary,
   ListConversationsResponse,
+  FeedbackSubmission,
+  FeedbackEntry,
 } from "./types";
 
 export interface DevicApiClientConfig {
@@ -192,6 +194,35 @@ export class DevicApiClient {
         method: "POST",
         body: JSON.stringify({ responses }),
       },
+    );
+  }
+
+  /**
+   * Submit feedback for a chat message
+   */
+  async submitChatFeedback(
+    assistantId: string,
+    chatUid: string,
+    data: FeedbackSubmission,
+  ): Promise<FeedbackEntry> {
+    return this.request<FeedbackEntry>(
+      `/api/v1/assistants/${assistantId}/chats/${chatUid}/feedback`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+    );
+  }
+
+  /**
+   * Get all feedback for a chat
+   */
+  async getChatFeedback(
+    assistantId: string,
+    chatUid: string,
+  ): Promise<FeedbackEntry[]> {
+    return this.request<FeedbackEntry[]>(
+      `/api/v1/assistants/${assistantId}/chats/${chatUid}/feedback`,
     );
   }
 }

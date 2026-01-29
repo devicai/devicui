@@ -1,7 +1,49 @@
-import React, { forwardRef, useImperativeHandle, useState, useMemo, useEffect, useRef } from 'react';
+import React, { forwardRef, useImperativeHandle, useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useAICommandBar, formatShortcut } from './useAICommandBar';
+import { MessageActions } from '../Feedback';
+import { useOptionalDevicContext } from '../../provider';
+import { DevicApiClient } from '../../api/client';
 import type { AICommandBarProps, AICommandBarHandle, AICommandBarOptions } from './AICommandBar.types';
+import type { FeedbackState, FeedbackTheme } from '../Feedback';
 import './AICommandBar.css';
+import '../Feedback/Feedback.css';
+
+/**
+ * Detect if a color is dark based on perceived brightness
+ */
+function isColorDark(color: string): boolean {
+  // Handle hex colors
+  const hex = color.replace('#', '');
+  if (hex.length === 3 || hex.length === 6) {
+    const r = parseInt(hex.length === 3 ? hex[0] + hex[0] : hex.slice(0, 2), 16);
+    const g = parseInt(hex.length === 3 ? hex[1] + hex[1] : hex.slice(2, 4), 16);
+    const b = parseInt(hex.length === 3 ? hex[2] + hex[2] : hex.slice(4, 6), 16);
+    // Perceived brightness formula
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness < 128;
+  }
+  // Handle rgb/rgba
+  const rgbMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (rgbMatch) {
+    const r = parseInt(rgbMatch[1], 10);
+    const g = parseInt(rgbMatch[2], 10);
+    const b = parseInt(rgbMatch[3], 10);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness < 128;
+  }
+  return false;
+}
+
+/**
+ * Lighten or darken a hex color
+ */
+function adjustColor(color: string, amount: number): string {
+  const hex = color.replace('#', '');
+  const r = Math.min(255, Math.max(0, parseInt(hex.slice(0, 2), 16) + amount));
+  const g = Math.min(255, Math.max(0, parseInt(hex.slice(2, 4), 16) + amount));
+  const b = Math.min(255, Math.max(0, parseInt(hex.slice(4, 6), 16) + amount));
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
 
 const DEFAULT_OPTIONS: Required<AICommandBarOptions> = {
   position: 'inline',
@@ -113,6 +155,53 @@ export const AICommandBar = forwardRef<AICommandBarHandle, AICommandBarProps>(
     // Tool list expansion state
     const [toolsExpanded, setToolsExpanded] = useState(false);
 
+    // Feedback state
+    const [feedbackState, setFeedbackState] = useState<FeedbackState>('none');
+    const feedbackClientRef = useRef<DevicApiClient | null>(null);
+
+    // Get context for API client
+    const context = useOptionalDevicContext();
+    const resolvedApiKey = apiKey || context?.apiKey;
+    const resolvedBaseUrl = baseUrl || context?.baseUrl || 'https://api.devic.ai';
+
+    // Initialize feedback client
+    useEffect(() => {
+      if (resolvedApiKey && !feedbackClientRef.current) {
+        feedbackClientRef.current = new DevicApiClient({
+          apiKey: resolvedApiKey,
+          baseUrl: resolvedBaseUrl,
+        });
+      }
+    }, [resolvedApiKey, resolvedBaseUrl]);
+
+    // Reset feedback state when result changes
+    useEffect(() => {
+      if (hook.result) {
+        setFeedbackState('none');
+      }
+    }, [hook.result?.chatUid, hook.result?.message.uid]);
+
+    // Handle feedback submission
+    const handleFeedback = useCallback(
+      async (messageId: string, positive: boolean, comment?: string) => {
+        if (!hook.result?.chatUid || !feedbackClientRef.current) return;
+
+        try {
+          await feedbackClientRef.current.submitChatFeedback(assistantId, hook.result.chatUid, {
+            messageId,
+            feedback: positive,
+            feedbackComment: comment,
+          });
+
+          setFeedbackState(positive ? 'positive' : 'negative');
+        } catch (err) {
+          console.error('Failed to submit feedback:', err);
+          throw err;
+        }
+      },
+      [hook.result?.chatUid, assistantId]
+    );
+
     // Container ref for theming
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -161,6 +250,29 @@ export const AICommandBar = forwardRef<AICommandBarHandle, AICommandBarProps>(
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [hook.isVisible, hook.result, hook.reset, hook.close]);
+
+    // Feedback theme derived from command bar options
+    const feedbackTheme = useMemo((): FeedbackTheme | undefined => {
+      const bg = mergedOptions.backgroundColor;
+      const text = mergedOptions.textColor;
+      const border = mergedOptions.borderColor;
+      const primary = mergedOptions.color;
+
+      // Only create theme if we have some custom colors
+      if (!bg && !text) return undefined;
+
+      const isDark = bg ? isColorDark(bg) : false;
+
+      return {
+        backgroundColor: bg,
+        textColor: text,
+        textMutedColor: text && bg ? (isDark ? adjustColor(text, -60) : adjustColor(text, 60)) : undefined,
+        secondaryBackgroundColor: bg ? (isDark ? adjustColor(bg, 20) : adjustColor(bg, -15)) : undefined,
+        borderColor: border,
+        primaryColor: primary,
+        primaryHoverColor: primary ? (isDark ? adjustColor(primary, 20) : adjustColor(primary, -20)) : undefined,
+      };
+    }, [mergedOptions.backgroundColor, mergedOptions.textColor, mergedOptions.borderColor, mergedOptions.color]);
 
     // Container styles
     const containerStyle = useMemo(() => {
@@ -336,6 +448,19 @@ export const AICommandBar = forwardRef<AICommandBarHandle, AICommandBarProps>(
               {hook.result.message.content?.message || (
                 <span className="devic-command-bar-result-empty">No response</span>
               )}
+            </div>
+
+            {/* Feedback actions */}
+            <div className="devic-cmd-result-actions">
+              <MessageActions
+                messageId={hook.result.message.uid}
+                messageContent={hook.result.message.content?.message}
+                currentFeedback={feedbackState}
+                onFeedback={handleFeedback}
+                showCopy={true}
+                showFeedback={true}
+                theme={feedbackTheme}
+              />
             </div>
           </div>
         )}

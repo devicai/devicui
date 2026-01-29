@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Markdown from 'markdown-to-jsx';
+import { MessageActions } from '../Feedback';
 import type { ChatMessagesProps } from './ChatDrawer.types';
 import type { ChatMessage } from '../../api/types';
+import type { FeedbackState } from '../Feedback';
+import '../Feedback/Feedback.css';
 
 console.log('[devic-ui] ChatMessages: DEV-BUILD-005');
 
@@ -224,6 +227,9 @@ export function ChatMessages({
   toolRenderers,
   toolIcons,
   loadingIndicator,
+  showFeedback = true,
+  feedbackMap,
+  onFeedback,
 }: ChatMessagesProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLengthRef = useRef(messages.length);
@@ -282,6 +288,8 @@ export function ChatMessages({
         const message = item.message;
         const messageText = message.content?.message;
         const hasFiles = message.content?.files && message.content.files.length > 0;
+        const isAssistant = message.role === 'assistant';
+        const currentFeedback = feedbackMap?.get(message.uid) || 'none';
 
         return (
           <div
@@ -290,7 +298,7 @@ export function ChatMessages({
             data-role={message.role}
           >
             <div className="devic-message-bubble">
-              {messageText && message.role === 'assistant' ? (
+              {messageText && isAssistant ? (
                 <Markdown options={{ overrides: markdownOverrides }}>{messageText}</Markdown>
               ) : (
                 messageText
@@ -306,9 +314,21 @@ export function ChatMessages({
                 </div>
               )}
             </div>
-            <span className="devic-message-time">
-              {formatTime(message.timestamp)}
-            </span>
+            <div className="devic-message-footer">
+              <span className="devic-message-time">
+                {formatTime(message.timestamp)}
+              </span>
+              {isAssistant && showFeedback && onFeedback && (
+                <MessageActions
+                  messageId={message.uid}
+                  messageContent={messageText}
+                  currentFeedback={currentFeedback as FeedbackState}
+                  onFeedback={onFeedback}
+                  showCopy={true}
+                  showFeedback={true}
+                />
+              )}
+            </div>
           </div>
         );
       })}
