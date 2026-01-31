@@ -26,6 +26,16 @@ export type {
   ToolCallSummary,
 } from './components/AICommandBar';
 
+// AIGenerationButton
+export { AIGenerationButton, useAIGenerationButton } from './components/AIGenerationButton';
+export type {
+  AIGenerationButtonProps,
+  AIGenerationButtonOptions,
+  AIGenerationButtonHandle,
+  AIGenerationButtonMode,
+  GenerationResult,
+} from './components/AIGenerationButton';
+
 // AutocompleteInput - WIP, not ready for public use
 // export { AutocompleteInput, useAutocomplete } from './components/AutocompleteInput';
 // export type {

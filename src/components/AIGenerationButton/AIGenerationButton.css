@@ -1,0 +1,480 @@
+/* AIGenerationButton CSS */
+
+.devic-gen-container {
+  /* CSS Variables with defaults */
+  --devic-gen-primary: var(--devic-gen-primary-override, #3b82f6);
+  --devic-gen-primary-hover: var(--devic-gen-primary-hover-override, #2563eb);
+  --devic-gen-bg: var(--devic-gen-bg-override, #ffffff);
+  --devic-gen-text: var(--devic-gen-text-override, #1f2937);
+  --devic-gen-text-secondary: var(--devic-gen-text-secondary-override, #6b7280);
+  --devic-gen-border: var(--devic-gen-border-override, #e5e7eb);
+  --devic-gen-radius: var(--devic-gen-radius-override, 8px);
+  --devic-gen-font-family: var(--devic-gen-font-family-override, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  --devic-gen-font-size: var(--devic-gen-font-size-override, 14px);
+  --devic-gen-z-index: var(--devic-gen-z-index-override, 10000);
+  --devic-gen-animation-duration: var(--devic-gen-animation-duration-override, 200ms);
+
+  /* Modal-specific variables (can be overridden by theme) */
+  --devic-gen-modal-bg: var(--devic-gen-modal-bg-override, #ffffff);
+  --devic-gen-modal-text: var(--devic-gen-modal-text-override, #1f2937);
+  --devic-gen-modal-border: var(--devic-gen-modal-border-override, #e5e7eb);
+
+  font-family: var(--devic-gen-font-family);
+  font-size: var(--devic-gen-font-size);
+}
+
+/* Button base styles */
+.devic-gen-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  border-radius: var(--devic-gen-radius);
+  transition: all var(--devic-gen-animation-duration) ease;
+}
+
+.devic-gen-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Button sizes */
+.devic-gen-button[data-size="small"] {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.devic-gen-button[data-size="medium"] {
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+.devic-gen-button[data-size="large"] {
+  padding: 12px 24px;
+  font-size: 16px;
+}
+
+/* Button variants */
+.devic-gen-button[data-variant="primary"] {
+  background: var(--devic-gen-primary);
+  color: white;
+}
+
+.devic-gen-button[data-variant="primary"]:hover:not(:disabled) {
+  background: var(--devic-gen-primary-hover);
+}
+
+.devic-gen-button[data-variant="secondary"] {
+  background: var(--devic-gen-border);
+  color: var(--devic-gen-text);
+}
+
+.devic-gen-button[data-variant="secondary"]:hover:not(:disabled) {
+  background: #d1d5db;
+}
+
+.devic-gen-button[data-variant="outline"] {
+  background: transparent;
+  color: var(--devic-gen-primary);
+  border: 1px solid var(--devic-gen-primary);
+}
+
+.devic-gen-button[data-variant="outline"]:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.devic-gen-button[data-variant="ghost"] {
+  background: transparent;
+  color: var(--devic-gen-text);
+}
+
+.devic-gen-button[data-variant="ghost"]:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Button icon */
+.devic-gen-button-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.devic-gen-button-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Spinner */
+.devic-gen-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: devic-gen-spin 0.8s linear infinite;
+}
+
+.devic-gen-spinner-small {
+  width: 12px;
+  height: 12px;
+  border-width: 1.5px;
+}
+
+@keyframes devic-gen-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Input (shared between modal and tooltip) */
+.devic-gen-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--devic-gen-modal-border);
+  border-radius: var(--devic-gen-radius);
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--devic-gen-modal-text);
+  background: var(--devic-gen-modal-bg);
+  resize: vertical;
+  min-height: 80px;
+  outline: none;
+  transition: border-color var(--devic-gen-animation-duration) ease;
+}
+
+.devic-gen-input:focus {
+  border-color: var(--devic-gen-primary);
+}
+
+.devic-gen-input::placeholder {
+  color: var(--devic-gen-text-secondary);
+}
+
+/* Error message */
+.devic-gen-error {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: var(--devic-gen-radius);
+  color: #dc2626;
+  font-size: 13px;
+}
+
+/* Tooltip */
+.devic-gen-tooltip {
+  background: var(--devic-gen-modal-bg);
+  border: 1px solid var(--devic-gen-modal-border);
+  border-radius: var(--devic-gen-radius);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  animation: devic-gen-fade-in var(--devic-gen-animation-duration) ease-out;
+}
+
+@keyframes devic-gen-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) translateX(-50%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) translateX(-50%);
+  }
+}
+
+.devic-gen-tooltip[data-placement="left"],
+.devic-gen-tooltip[data-placement="right"] {
+  animation-name: devic-gen-fade-in-horizontal;
+}
+
+@keyframes devic-gen-fade-in-horizontal {
+  from {
+    opacity: 0;
+    transform: translateX(4px) translateY(-50%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) translateY(-50%);
+  }
+}
+
+.devic-gen-tooltip-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.devic-gen-tooltip-cancel,
+.devic-gen-tooltip-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--devic-gen-radius);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--devic-gen-animation-duration) ease;
+}
+
+.devic-gen-tooltip-cancel {
+  background: transparent;
+  border: 1px solid var(--devic-gen-modal-border);
+  color: var(--devic-gen-text-secondary);
+}
+
+.devic-gen-tooltip-cancel:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.devic-gen-tooltip-confirm {
+  background: var(--devic-gen-primary);
+  border: none;
+  color: white;
+}
+
+.devic-gen-tooltip-confirm:hover:not(:disabled) {
+  background: var(--devic-gen-primary-hover);
+}
+
+.devic-gen-tooltip-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Modal overlay */
+.devic-gen-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--devic-gen-z-index);
+  animation: devic-gen-overlay-fade-in var(--devic-gen-animation-duration) ease-out;
+}
+
+@keyframes devic-gen-overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Modal */
+.devic-gen-modal {
+  background: var(--devic-gen-modal-bg);
+  border-radius: calc(var(--devic-gen-radius) + 4px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 480px;
+  margin: 16px;
+  animation: devic-gen-modal-slide-up var(--devic-gen-animation-duration) ease-out;
+}
+
+@keyframes devic-gen-modal-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.devic-gen-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--devic-gen-modal-border);
+}
+
+.devic-gen-modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--devic-gen-modal-text);
+}
+
+.devic-gen-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--devic-gen-text-secondary);
+  cursor: pointer;
+  transition: all var(--devic-gen-animation-duration) ease;
+}
+
+.devic-gen-modal-close:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--devic-gen-modal-text);
+}
+
+.devic-gen-modal-description {
+  margin: 0;
+  padding: 12px 20px 0;
+  color: var(--devic-gen-text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.devic-gen-modal-body {
+  padding: 16px 20px;
+}
+
+.devic-gen-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--devic-gen-modal-border);
+}
+
+.devic-gen-modal-cancel,
+.devic-gen-modal-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--devic-gen-radius);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--devic-gen-animation-duration) ease;
+}
+
+.devic-gen-modal-cancel {
+  background: transparent;
+  border: 1px solid var(--devic-gen-modal-border);
+  color: var(--devic-gen-text-secondary);
+}
+
+.devic-gen-modal-cancel:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--devic-gen-modal-text);
+}
+
+.devic-gen-modal-confirm {
+  background: var(--devic-gen-primary);
+  border: none;
+  color: white;
+}
+
+.devic-gen-modal-confirm:hover:not(:disabled) {
+  background: var(--devic-gen-primary-hover);
+}
+
+.devic-gen-modal-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Scrollbar styling for input */
+.devic-gen-input::-webkit-scrollbar {
+  width: 6px;
+}
+
+.devic-gen-input::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.devic-gen-input::-webkit-scrollbar-thumb {
+  background: var(--devic-gen-border);
+  border-radius: 3px;
+}
+
+/* Disabled input state */
+.devic-gen-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--devic-gen-border);
+}
+
+/* Tool calls display */
+.devic-gen-tool-calls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: var(--devic-gen-radius);
+  border: 1px solid var(--devic-gen-modal-border);
+}
+
+.devic-gen-tool-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--devic-gen-text-secondary);
+}
+
+.devic-gen-tool-item[data-status="executing"] {
+  color: var(--devic-gen-primary);
+}
+
+.devic-gen-tool-item[data-status="completed"] .devic-gen-tool-icon {
+  color: #10b981;
+}
+
+.devic-gen-tool-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.devic-gen-tool-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.devic-gen-tool-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devic-gen-tool-custom {
+  padding: 8px 0;
+}
+
+/* Processing status */
+.devic-gen-processing-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: rgba(59, 130, 246, 0.05);
+  border-radius: var(--devic-gen-radius);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.devic-gen-processing-text {
+  font-size: 13px;
+  color: var(--devic-gen-primary);
+  animation: devic-gen-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes devic-gen-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}

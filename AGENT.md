@@ -31,14 +31,34 @@ devic-ui/
 │   │   ├── useModelInterface.ts     # Client-side tool execution (Model Interface Protocol)
 │   │   └── index.ts                 # Hooks exports
 │   ├── components/
-│   │   └── ChatDrawer/
-│   │       ├── ChatDrawer.tsx       # Main drawer component
-│   │       ├── ChatDrawer.types.ts  # Component prop types
-│   │       ├── ChatMessages.tsx     # Message list display
-│   │       ├── ChatInput.tsx        # Input with file upload support
-│   │       ├── ToolTimeline.tsx     # Tool execution progress display
-│   │       ├── styles.css           # CSS with CSS Variables for theming
-│   │       └── index.ts             # Component exports
+│   │   ├── ChatDrawer/
+│   │   │   ├── ChatDrawer.tsx       # Main drawer component
+│   │   │   ├── ChatDrawer.types.ts  # Component prop types
+│   │   │   ├── ChatMessages.tsx     # Message list display
+│   │   │   ├── ChatInput.tsx        # Input with file upload support
+│   │   │   ├── ToolTimeline.tsx     # Tool execution progress display
+│   │   │   ├── styles.css           # CSS with CSS Variables for theming
+│   │   │   └── index.ts             # Component exports
+│   │   ├── AICommandBar/
+│   │   │   ├── AICommandBar.tsx     # Command bar component
+│   │   │   ├── AICommandBar.types.ts # Component prop types
+│   │   │   ├── AICommandBar.css     # Component styles
+│   │   │   ├── useAICommandBar.ts   # Hook for command bar logic
+│   │   │   └── index.ts             # Component exports
+│   │   ├── AIGenerationButton/
+│   │   │   ├── AIGenerationButton.tsx      # Generation button component
+│   │   │   ├── AIGenerationButton.types.ts # Component prop types
+│   │   │   ├── AIGenerationButton.css      # Component styles
+│   │   │   ├── useAIGenerationButton.ts    # Hook for generation logic
+│   │   │   └── index.ts             # Component exports
+│   │   ├── Feedback/
+│   │   │   ├── MessageActions.tsx   # Thumbs up/down feedback buttons
+│   │   │   ├── FeedbackModal.tsx    # Feedback comment modal
+│   │   │   ├── Feedback.types.ts    # Feedback-related types
+│   │   │   ├── Feedback.css         # Feedback component styles
+│   │   │   └── index.ts             # Component exports
+│   │   └── AutocompleteInput/       # WIP - not ready for public use
+│   │       └── ...
 │   └── utils/
 │       └── index.ts                 # Utility functions
 ├── dist/                            # Build output (git-ignored)
@@ -64,16 +84,79 @@ Global context provider that holds API configuration. Components can work with o
 ```
 
 ### 2. ChatDrawer
-Ready-to-use chat drawer component. Internally uses `useDevicChat` hook.
+Ready-to-use chat drawer component. Internally uses `useDevicChat` hook. Supports two display modes:
+- **drawer**: Overlay panel with floating trigger button (default)
+- **inline**: Embedded in page layout, always visible
 
-### 3. useDevicChat Hook
+### 3. AICommandBar
+A floating command bar (similar to Spotlight/Command Palette) for quick AI interactions. Features:
+- Keyboard shortcut activation (e.g., `cmd+k`)
+- Command history with arrow key navigation
+- Slash commands (`/help`, `/history`)
+- Tool execution progress display
+- Result card with feedback
+- Integration with ChatDrawer for handoff
+
+```tsx
+<AICommandBar
+  assistantId="my-assistant"
+  options={{
+    shortcut: 'cmd+k',
+    placeholder: 'Ask AI...',
+    position: 'fixed',
+    fixedPlacement: { bottom: 20, right: 20 },
+  }}
+  onResponse={({ message }) => console.log(message.content)}
+/>
+```
+
+### 4. AIGenerationButton
+A button component for triggering AI generation with three interaction modes:
+- **direct**: Sends predefined prompt immediately on click
+- **modal**: Opens a modal for user to enter prompt
+- **tooltip**: Shows inline tooltip input for quick prompt entry
+
+```tsx
+// Direct mode - immediate generation
+<AIGenerationButton
+  assistantId="my-assistant"
+  options={{
+    mode: 'direct',
+    prompt: 'Generate a summary',
+    label: 'Summarize',
+  }}
+  onResponse={({ message }) => setResult(message.content.message)}
+/>
+
+// Modal mode - user inputs prompt
+<AIGenerationButton
+  assistantId="my-assistant"
+  options={{
+    mode: 'modal',
+    modalTitle: 'Generate Content',
+  }}
+  onResponse={handleGeneration}
+/>
+
+// Tooltip mode - inline input
+<AIGenerationButton
+  assistantId="my-assistant"
+  options={{
+    mode: 'tooltip',
+    tooltipPlacement: 'bottom',
+  }}
+  onResponse={handleGeneration}
+/>
+```
+
+### 5. useDevicChat Hook
 Core hook that manages:
 - Message state
 - Async message sending with polling
 - Model Interface Protocol (client-side tools)
 - Error handling
 
-### 4. Model Interface Protocol
+### 6. Model Interface Protocol
 Allows the AI assistant to call client-side functions. Tools are defined with OpenAI function-calling schema format.
 
 ```tsx
@@ -91,7 +174,7 @@ const tools: ModelInterfaceTool[] = [{
 }];
 ```
 
-### 5. API Client
+### 7. API Client
 Uses native `fetch` - no external HTTP libraries. Communicates with:
 - `POST /api/v1/assistants/:id/messages?async=true` - Send message
 - `GET /api/v1/assistants/:id/chats/:chatUid/realtime` - Poll for response
