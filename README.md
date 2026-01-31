@@ -6,6 +6,7 @@ React component library for integrating Devic AI assistants into your applicatio
 
 - **ChatDrawer** - A ready-to-use chat drawer component
 - **AICommandBar** - A spotlight-style command bar for quick AI interactions
+- **AIGenerationButton** - A button for triggering AI generation with modal, tooltip, or direct modes
 - **useDevicChat** - Hook for building custom chat UIs
 - **Model Interface Protocol** - Support for client-side tool execution
 - **Message Feedback** - Built-in thumbs up/down feedback with comments
@@ -250,6 +251,136 @@ commandBarRef.current?.submit('Hello!');
 commandBarRef.current?.reset();
 ```
 
+### AIGenerationButton
+
+A button component for triggering AI generation with three interaction modes: direct, modal, or tooltip.
+
+```tsx
+import { AIGenerationButton } from '@devicai/ui';
+
+// Modal mode (default) - opens a modal for user input
+<AIGenerationButton
+  assistantId="my-assistant"
+  options={{
+    mode: 'modal',
+    modalTitle: 'Generate with AI',
+    modalDescription: 'Describe what you want to generate.',
+    placeholder: 'E.g., Create a product description...',
+    confirmText: 'Generate',
+    cancelText: 'Cancel',
+  }}
+  onResponse={({ message, toolCalls }) => {
+    console.log('Generated:', message.content.message);
+  }}
+/>
+
+// Direct mode - sends predefined prompt immediately
+<AIGenerationButton
+  assistantId="my-assistant"
+  options={{
+    mode: 'direct',
+    prompt: 'Generate a summary of this content',
+    label: 'Summarize',
+    loadingLabel: 'Summarizing...',
+  }}
+  onResponse={({ message }) => setSummary(message.content.message)}
+/>
+
+// Tooltip mode - shows inline input
+<AIGenerationButton
+  assistantId="my-assistant"
+  options={{
+    mode: 'tooltip',
+    tooltipPlacement: 'bottom',  // 'top' | 'bottom' | 'left' | 'right'
+    tooltipWidth: 350,
+  }}
+  onResponse={handleGeneration}
+/>
+```
+
+#### AIGenerationButton Options
+
+```tsx
+<AIGenerationButton
+  assistantId="my-assistant"
+  options={{
+    // Mode
+    mode: 'modal',               // 'direct' | 'modal' | 'tooltip'
+    prompt: 'Predefined prompt', // Required for direct mode
+
+    // Labels
+    label: 'Generate with AI',
+    loadingLabel: 'Generating...',
+    placeholder: 'Describe what you want...',
+    modalTitle: 'Generate with AI',
+    modalDescription: 'Optional description',
+    confirmText: 'Generate',
+    cancelText: 'Cancel',
+
+    // Button styling
+    variant: 'primary',          // 'primary' | 'secondary' | 'outline' | 'ghost'
+    size: 'medium',              // 'small' | 'medium' | 'large'
+    icon: <CustomIcon />,        // Custom icon
+    hideIcon: false,
+    hideLabel: false,            // Icon-only button
+
+    // Tooltip options
+    tooltipPlacement: 'top',
+    tooltipWidth: 300,
+
+    // Tool call display
+    toolRenderers: {
+      search_docs: (input, output) => (
+        <div>Found {output.count} results</div>
+      ),
+    },
+    toolIcons: {
+      search_docs: <SearchIcon />,
+    },
+    processingMessage: 'Processing...',
+
+    // Theming
+    color: '#3b82f6',
+    backgroundColor: '#ffffff',
+    textColor: '#1f2937',
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    zIndex: 10000,
+  }}
+
+  // Callbacks
+  onResponse={({ message, toolCalls, chatUid }) => {}}
+  onBeforeSend={(prompt) => modifiedPrompt}  // Modify prompt before sending
+  onError={(error) => {}}
+  onStart={() => {}}
+  onOpen={() => {}}
+  onClose={() => {}}
+
+  // Other props
+  modelInterfaceTools={[...]}
+  tenantId="tenant-123"
+  tenantMetadata={{ userId: '456' }}
+  disabled={false}
+/>
+```
+
+#### AIGenerationButton Handle (ref methods)
+
+```tsx
+const buttonRef = useRef<AIGenerationButtonHandle>(null);
+
+// Trigger generation programmatically
+const result = await buttonRef.current?.generate('Custom prompt');
+
+// Open/close modal or tooltip
+buttonRef.current?.open();
+buttonRef.current?.close();
+buttonRef.current?.reset();
+
+// Check processing state
+if (buttonRef.current?.isProcessing) { ... }
+```
+
 ## Hooks
 
 ### useDevicChat
@@ -317,6 +448,38 @@ const {
   options: { shortcut: 'cmd+k' },
   onResponse: (result) => {},
   onError: (error) => {},
+});
+```
+
+### useAIGenerationButton
+
+Hook for building custom generation button UIs.
+
+```tsx
+import { useAIGenerationButton } from '@devicai/ui';
+
+const {
+  isOpen,              // boolean - modal/tooltip open state
+  isProcessing,        // boolean
+  inputValue,          // string
+  setInputValue,       // (value: string) => void
+  error,               // Error | null
+  result,              // GenerationResult | null
+  toolCalls,           // ToolCallSummary[]
+  currentToolSummary,  // string | null
+  inputRef,            // RefObject<HTMLTextAreaElement>
+  open,                // () => void
+  close,               // () => void
+  generate,            // (prompt?: string) => Promise<GenerationResult | null>
+  reset,               // () => void
+  handleKeyDown,       // (e: KeyboardEvent) => void
+} = useAIGenerationButton({
+  assistantId: 'my-assistant',
+  options: { mode: 'modal' },
+  onResponse: (result) => {},
+  onBeforeSend: (prompt) => prompt,
+  onError: (error) => {},
+  onStart: () => {},
 });
 ```
 
@@ -480,14 +643,35 @@ All types are exported:
 
 ```tsx
 import type {
+  // Chat types
   ChatMessage,
   ChatFile,
+  ChatDrawerOptions,
+  ChatDrawerHandle,
+
+  // AICommandBar types
+  AICommandBarOptions,
+  AICommandBarHandle,
+  AICommandBarCommand,
+  CommandBarResult,
+  ToolCallSummary,
+
+  // AIGenerationButton types
+  AIGenerationButtonOptions,
+  AIGenerationButtonHandle,
+  AIGenerationButtonMode,
+  GenerationResult,
+
+  // Tool types
   ModelInterfaceTool,
   ModelInterfaceToolSchema,
   ToolCall,
   ToolCallResponse,
+
+  // API types
   RealtimeChatHistory,
-  ChatDrawerOptions,
+
+  // Hook types
   UseDevicChatOptions,
 } from '@devicai/ui';
 ```
