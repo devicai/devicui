@@ -4,7 +4,7 @@ import { DevicApiClient } from '../api/client';
 import { usePolling } from './usePolling';
 import { useModelInterface } from './useModelInterface';
 
-console.log('[devic-ui] Version: DEV-BUILD-001 (2026-01-26 18:20)');
+console.log('[devic-ui] Version: 0.6.1');
 import type {
   ChatMessage,
   ChatFile,
@@ -216,6 +216,38 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       clientRef.current.setConfig({ apiKey, baseUrl });
     }
   }, [apiKey, baseUrl]);
+
+  // Load initial chat history if chatUid prop is provided
+  // This runs once on mount (or when initialChatUid changes) to fetch existing conversation
+  const initialChatLoadedRef = useRef(false);
+  useEffect(() => {
+    if (initialChatUid && clientRef.current && !initialChatLoadedRef.current) {
+      initialChatLoadedRef.current = true;
+
+      const loadInitialChat = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+          const history = await clientRef.current!.getChatHistory(
+            assistantId,
+            initialChatUid,
+            { tenantId: resolvedTenantId }
+          );
+          setMessages(history.chatContent);
+          setChatUid(initialChatUid);
+          setStatus('completed');
+        } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          setError(error);
+          onErrorRef.current?.(error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      loadInitialChat();
+    }
+  }, [initialChatUid, assistantId, resolvedTenantId]);
 
   // Model interface hook
   const {
