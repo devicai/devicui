@@ -134,7 +134,7 @@ export interface AsyncResponse {
 /**
  * Real-time chat history status
  */
-export type RealtimeStatus = 'processing' | 'completed' | 'error' | 'waiting_for_tool_response';
+export type RealtimeStatus = 'processing' | 'completed' | 'error' | 'waiting_for_tool_response' | 'handed_off';
 
 /**
  * Real-time chat history response
@@ -146,6 +146,7 @@ export interface RealtimeChatHistory {
   status: RealtimeStatus;
   lastUpdatedAt: number;
   pendingToolCalls?: ToolCall[];
+  handedOffSubThreadId?: string;
 }
 
 /**
@@ -165,6 +166,9 @@ export interface ChatHistory {
   outputTokens?: number;
   metadata?: Record<string, any>;
   tenantId?: string;
+  handedOff?: boolean;
+  handedOffSubThreadId?: string;
+  handedOffToolCallId?: string;
 }
 
 /**
@@ -241,4 +245,72 @@ export interface FeedbackEntry {
   feedbackData?: Record<string, any>;
   creationTimestamp: string;
   lastEditTimestamp?: string;
+}
+
+/**
+ * Agent thread states
+ */
+export enum AgentThreadState {
+  QUEUED = 'queued',
+  PROCESSING = 'processing',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  TERMINATED = 'terminated',
+  PAUSED = 'paused',
+  PAUSED_FOR_APPROVAL = 'paused_for_approval',
+  APPROVAL_REJECTED = 'approval_rejected',
+  WAITING_FOR_RESPONSE = 'waiting_for_response',
+  PAUSED_FOR_RESUME = 'paused_for_resume',
+  HANDED_OFF = 'handed_off',
+  GUARDRAIL_TRIGGER = 'guardrail_trigger',
+}
+
+/**
+ * Task within an agent thread
+ */
+export interface AgentTaskDto {
+  _id?: string;
+  title?: string;
+  description?: string;
+  completed: boolean;
+}
+
+/**
+ * Agent thread DTO
+ */
+export interface AgentThreadDto {
+  _id?: string;
+  agentId: string;
+  state: AgentThreadState;
+  threadContent: ChatMessage[];
+  tasks?: AgentTaskDto[];
+  finishReason?: string;
+  pausedReason?: string;
+  name?: string;
+  creationTimestampMs?: number;
+  lastEditTimestampMs?: number;
+  pauseUntil?: number;
+  isSubthread?: boolean;
+  parentThreadId?: string;
+  subThreadToolCallId?: string;
+  parentAgentId?: string;
+}
+
+/**
+ * Agent details
+ */
+export interface AgentDto {
+  _id?: string;
+  name: string;
+  description?: string;
+  imgUrl?: string;
+  agentId?: string;
+}
+
+/**
+ * Hand-off tool response content
+ */
+export interface HandOffToolResponse {
+  response: string;
+  subthreadId: string;
 }

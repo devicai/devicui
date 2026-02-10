@@ -3,7 +3,7 @@ export { DevicProvider, DevicContext, useDevicContext, useOptionalDevicContext }
 export type { DevicProviderConfig, DevicProviderProps, DevicContextValue } from './provider';
 
 // Components
-export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector } from './components/ChatDrawer';
+export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget } from './components/ChatDrawer';
 export type {
   ChatDrawerProps,
   ChatDrawerOptions,
@@ -13,7 +13,12 @@ export type {
   ToolTimelineProps,
   AllowedFileTypes,
   ConversationSelectorProps,
+  HandoffSubagentWidgetProps,
 } from './components/ChatDrawer';
+
+// ThreadStateTag
+export { ThreadStateTag } from './components/ThreadStateTag';
+export type { ThreadStateTagProps, StateConfig } from './components/ThreadStateTag';
 
 // AICommandBar
 export { AICommandBar, useAICommandBar, formatShortcut } from './components/AICommandBar';
@@ -62,6 +67,10 @@ export { DevicApiClient, DevicApiError } from './api/client';
 export type { DevicApiClientConfig } from './api/client';
 
 // API Types
+export {
+  AgentThreadState,
+} from './api/types';
+
 export type {
   ChatMessage,
   ChatFile,
@@ -82,6 +91,10 @@ export type {
   ConversationSummary,
   FeedbackSubmission,
   FeedbackEntry,
+  AgentThreadDto,
+  AgentTaskDto,
+  AgentDto,
+  HandOffToolResponse,
 } from './api/types';
 
 // Feedback Components

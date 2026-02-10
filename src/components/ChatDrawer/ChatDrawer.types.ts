@@ -1,4 +1,4 @@
-import type { ChatMessage, ModelInterfaceTool, ChatFile } from '../../api/types';
+import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto } from '../../api/types';
 
 /**
  * Allowed file types for upload
@@ -201,6 +201,17 @@ export interface ChatDrawerOptions {
    * @default true
    */
   showFeedback?: boolean;
+
+  /**
+   * Custom renderer for the HandoffSubagentWidget.
+   * Receives thread/agent data and returns a React node.
+   */
+  handoffWidgetRenderer?: (props: {
+    thread: AgentThreadDto | null;
+    agent: AgentDto | null;
+    elapsedSeconds: number;
+    isTerminal: boolean;
+  }) => React.ReactNode;
 }
 
 /**
@@ -342,6 +353,21 @@ export interface ChatMessagesProps {
   feedbackMap?: Map<string, 'positive' | 'negative'>;
   /** Callback when feedback is submitted */
   onFeedback?: (messageId: string, positive: boolean, comment?: string) => void;
+  /** Subthread ID from active handoff (for in-progress handoffs) */
+  handedOffSubThreadId?: string;
+  /** Callback when handoff subagent completes */
+  onHandoffCompleted?: () => void;
+  /** Custom renderer for the handoff widget */
+  handoffWidgetRenderer?: (props: {
+    thread: AgentThreadDto | null;
+    agent: AgentDto | null;
+    elapsedSeconds: number;
+    isTerminal: boolean;
+  }) => React.ReactNode;
+  /** API key for handoff widget API calls */
+  apiKey?: string;
+  /** Base URL for handoff widget API calls */
+  baseUrl?: string;
 }
 
 /**
@@ -355,6 +381,8 @@ export interface ChatInputProps {
   allowedFileTypes?: AllowedFileTypes;
   maxFileSize?: number;
   sendButtonContent?: React.ReactNode;
+  /** Message shown when input is disabled due to handoff */
+  disabledMessage?: string;
 }
 
 /**

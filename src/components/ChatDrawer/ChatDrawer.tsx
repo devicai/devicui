@@ -44,6 +44,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   toolRenderers: undefined as any,
   toolIcons: undefined as any,
   showFeedback: true,
+  handoffWidgetRenderer: undefined as any,
 };
 
 /**
@@ -456,17 +457,23 @@ function ChatDrawerInner({
           showFeedback={mergedOptions.showFeedback}
           feedbackMap={feedbackMap}
           onFeedback={handleFeedback}
+          handedOffSubThreadId={chat.handedOffSubThreadId || undefined}
+          onHandoffCompleted={chat.onHandoffCompleted}
+          handoffWidgetRenderer={mergedOptions.handoffWidgetRenderer}
+          apiKey={resolvedApiKey}
+          baseUrl={resolvedBaseUrl}
         />
 
         {/* Input */}
         <ChatInput
           onSend={handleSend}
-          disabled={chat.isLoading}
+          disabled={chat.isLoading || chat.handedOff}
           placeholder={mergedOptions.inputPlaceholder}
           enableFileUploads={mergedOptions.enableFileUploads}
           allowedFileTypes={mergedOptions.allowedFileTypes}
           maxFileSize={mergedOptions.maxFileSize}
           sendButtonContent={mergedOptions.sendButtonContent}
+          disabledMessage={chat.handedOff ? 'Waiting for subagent to complete' : undefined}
         />
       </div>
 

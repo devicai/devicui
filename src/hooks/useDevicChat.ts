@@ -113,6 +113,16 @@ export interface UseDevicChatResult {
   error: Error | null;
 
   /**
+   * Whether the assistant has handed off to a subagent
+   */
+  handedOff: boolean;
+
+  /**
+   * The subthread ID when a handoff is active
+   */
+  handedOffSubThreadId: string | null;
+
+  /**
    * Send a message
    */
   sendMessage: (
@@ -132,6 +142,12 @@ export interface UseDevicChatResult {
    * Load an existing chat
    */
   loadChat: (chatUid: string) => Promise<void>;
+
+  /**
+   * Called when the handoff subagent completes.
+   * Triggers reload of full chat content.
+   */
+  onHandoffCompleted: () => void;
 }
 
 /**
@@ -189,6 +205,11 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<RealtimeStatus | 'idle'>('idle');
   const [error, setError] = useState<Error | null>(null);
+
+  // Handoff state
+  const [handedOff, setHandedOff] = useState(false);
+  const [handedOffSubThreadId, setHandedOffSubThreadId] = useState<string | null>(null);
+  const handoffPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Polling state
   const [shouldPoll, setShouldPoll] = useState(false);
@@ -275,7 +296,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     {
       interval: pollingInterval,
       enabled: shouldPoll,
-      stopStatuses: ['completed', 'error', 'waiting_for_tool_response'],
+      stopStatuses: ['completed', 'error', 'waiting_for_tool_response', 'handed_off'],
       onUpdate: async (data: RealtimeChatHistory) => {
         console.log('[useDevicChat] onUpdate called, status:', data.status);
 
@@ -321,6 +342,16 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           onErrorRef.current?.(err);
         } else if (data?.status === 'completed') {
           setIsLoading(false);
+        } else if (data?.status === 'handed_off') {
+          // Subagent is working — keep isLoading true so the UI stays in loading state.
+          // Set handoff state directly from the realtime status.
+          setHandedOff(true);
+
+          const subThreadId = data.handedOffSubThreadId || null;
+          console.log('[useDevicChat] Handoff state set:', { handedOff: true, subThreadId });
+          if (subThreadId) {
+            setHandedOffSubThreadId(subThreadId);
+          }
         }
         // Note: waiting_for_tool_response is handled in onUpdate to avoid double execution
       },
@@ -501,14 +532,63 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     [assistantId, resolvedTenantId]
   );
 
+  // Handoff polling: while handedOff is true, poll the realtime endpoint every 5s
+  // to detect when the parent thread is no longer in handed_off state.
+  useEffect(() => {
+    if (!handedOff || !chatUid || !clientRef.current) return;
+
+    const pollHandoff = async () => {
+      try {
+        const realtime = await clientRef.current!.getRealtimeHistory(assistantId, chatUid!);
+        console.log('[useDevicChat] Handoff poll - realtime status:', realtime.status);
+        if (realtime.status !== 'handed_off') {
+          // Handoff completed — clear handoff state and resume main polling
+          if (handoffPollRef.current) {
+            clearInterval(handoffPollRef.current);
+            handoffPollRef.current = null;
+          }
+          setHandedOff(false);
+          setHandedOffSubThreadId(null);
+          // Resume main polling to pick up the parent thread's continuation
+          setShouldPoll(true);
+        }
+      } catch {}
+    };
+
+    handoffPollRef.current = setInterval(pollHandoff, 5000);
+    return () => {
+      if (handoffPollRef.current) {
+        clearInterval(handoffPollRef.current);
+        handoffPollRef.current = null;
+      }
+    };
+  }, [handedOff, chatUid, assistantId]);
+
+  // Called by HandoffSubagentWidget when the subthread reaches a terminal state
+  const onHandoffCompleted = useCallback(() => {
+    console.log('[useDevicChat] onHandoffCompleted called');
+    // Clear the handoff polling
+    if (handoffPollRef.current) {
+      clearInterval(handoffPollRef.current);
+      handoffPollRef.current = null;
+    }
+    // Clear handoff state and resume main polling
+    setHandedOff(false);
+    setHandedOffSubThreadId(null);
+    setShouldPoll(true);
+  }, []);
+
   return {
     messages,
     chatUid,
     isLoading,
     status,
     error,
+    handedOff,
+    handedOffSubThreadId,
     sendMessage,
     clearChat,
     loadChat,
+    onHandoffCompleted,
   };
 }

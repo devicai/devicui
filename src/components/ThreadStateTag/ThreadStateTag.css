@@ -1,0 +1,475 @@
+/* ThreadStateTag */
+.devic-state-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+  border: 1px solid;
+  cursor: default;
+  white-space: nowrap;
+  font-family: var(--devic-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  position: relative;
+}
+
+.devic-state-tag[data-interactive="true"] {
+  cursor: pointer;
+}
+
+.devic-state-tag[data-interactive="true"]:hover {
+  opacity: 0.85;
+}
+
+/* State colors (semi-transparent for dark/light theme compatibility) */
+.devic-state-tag[data-color="gold"] {
+  color: #faad14;
+  background: rgba(250, 173, 20, 0.15);
+  border-color: rgba(250, 173, 20, 0.35);
+}
+
+.devic-state-tag[data-color="processing"] {
+  color: #4096ff;
+  background: rgba(22, 119, 255, 0.15);
+  border-color: rgba(22, 119, 255, 0.35);
+}
+
+.devic-state-tag[data-color="success"] {
+  color: #52c41a;
+  background: rgba(82, 196, 26, 0.15);
+  border-color: rgba(82, 196, 26, 0.35);
+}
+
+.devic-state-tag[data-color="error"] {
+  color: #ff4d4f;
+  background: rgba(255, 77, 79, 0.15);
+  border-color: rgba(255, 77, 79, 0.35);
+}
+
+.devic-state-tag[data-color="default"] {
+  color: #999;
+  background: rgba(153, 153, 153, 0.15);
+  border-color: rgba(153, 153, 153, 0.35);
+}
+
+.devic-state-tag[data-color="purple"] {
+  color: #b37feb;
+  background: rgba(114, 46, 209, 0.15);
+  border-color: rgba(114, 46, 209, 0.35);
+}
+
+.devic-state-tag[data-color="blue"] {
+  color: #4096ff;
+  background: rgba(22, 119, 255, 0.15);
+  border-color: rgba(22, 119, 255, 0.35);
+}
+
+/* State tag icon */
+.devic-state-tag-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Caret */
+.devic-state-tag-caret {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 2px;
+  transition: transform 0.2s ease;
+}
+
+.devic-state-tag[data-dropdown-open="true"] .devic-state-tag-caret {
+  transform: rotate(180deg);
+}
+
+/* Spinner animation for processing state */
+.devic-state-spinner {
+  animation: devic-state-spin 1s linear infinite;
+}
+
+@keyframes devic-state-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Tooltip */
+.devic-state-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  white-space: normal;
+  max-width: 280px;
+  z-index: 1060;
+  pointer-events: none;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  line-height: 1.4;
+}
+
+.devic-state-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: rgba(0, 0, 0, 0.85);
+}
+
+/* Dropdown */
+.devic-state-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08), 0 3px 6px rgba(0, 0, 0, 0.06);
+  z-index: 1050;
+  min-width: 180px;
+  padding: 4px 0;
+  animation: devic-dropdownSlide 0.15s ease-out;
+}
+
+@keyframes devic-dropdownSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.devic-state-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+
+.devic-state-dropdown-item:hover {
+  background: #f5f5f5;
+}
+
+.devic-state-dropdown-item-icon {
+  display: flex;
+  align-items: center;
+  width: 18px;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Portal tooltip (fixed position, escapes overflow/transform containers) */
+.devic-state-tooltip-portal {
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  white-space: normal;
+  max-width: 280px;
+  z-index: 99999;
+  pointer-events: none;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  line-height: 1.4;
+}
+
+/* Portal dropdown (fixed position, escapes overflow/transform containers) */
+.devic-state-dropdown-portal {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08), 0 3px 6px rgba(0, 0, 0, 0.06);
+  z-index: 99999;
+  min-width: 180px;
+  padding: 4px 0;
+  animation: devic-dropdownSlide 0.15s ease-out;
+}
+
+/* Modal overlay */
+.devic-state-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: devic-fadeIn 0.2s ease;
+}
+
+@keyframes devic-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.devic-state-modal {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  max-width: 520px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  animation: devic-modalSlide 0.2s ease-out;
+}
+
+@keyframes devic-modalSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.devic-state-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.devic-state-modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.devic-state-modal-close {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #999;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.devic-state-modal-close:hover {
+  color: #333;
+  background: #f5f5f5;
+}
+
+.devic-state-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.devic-state-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid #f0f0f0;
+}
+
+/* Modal buttons */
+.devic-state-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  color: #333;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.devic-state-btn:hover {
+  border-color: #1677ff;
+  color: #1677ff;
+}
+
+.devic-state-btn-primary {
+  background: #1677ff;
+  color: #fff;
+  border-color: #1677ff;
+}
+
+.devic-state-btn-primary:hover {
+  background: #4096ff;
+  border-color: #4096ff;
+  color: #fff;
+}
+
+.devic-state-btn-danger {
+  background: #ff4d4f;
+  color: #fff;
+  border-color: #ff4d4f;
+}
+
+.devic-state-btn-danger:hover {
+  background: #ff7875;
+  border-color: #ff7875;
+  color: #fff;
+}
+
+.devic-state-btn-success {
+  background: #52c41a;
+  color: #fff;
+  border-color: #52c41a;
+}
+
+.devic-state-btn-success:hover {
+  background: #73d13d;
+  border-color: #73d13d;
+  color: #fff;
+}
+
+.devic-state-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Explain modal */
+.devic-explain-content {
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 12px;
+  white-space: pre-wrap;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 13px;
+  min-height: 150px;
+  max-height: 300px;
+  overflow-y: auto;
+  line-height: 1.6;
+}
+
+.devic-typing-cursor {
+  animation: devic-blink 1s step-end infinite;
+}
+
+@keyframes devic-blink {
+  from, to { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Approval modal */
+.devic-approval-layout {
+  display: flex;
+  gap: 16px;
+}
+
+.devic-approval-request {
+  flex: 1;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 250px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  background: #fafafa;
+}
+
+.devic-approval-actions {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.devic-approval-textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.devic-approval-textarea:focus {
+  border-color: #1677ff;
+}
+
+.devic-approval-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Completion select */
+.devic-completion-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  background: #fff;
+  cursor: pointer;
+}
+
+.devic-completion-select:focus {
+  border-color: #1677ff;
+}
+
+/* Loading spinner */
+.devic-state-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.devic-state-loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #f0f0f0;
+  border-top-color: #1677ff;
+  border-radius: 50%;
+  animation: devic-state-spin 0.8s linear infinite;
+}
+
+/* Warning text */
+.devic-state-warning {
+  color: #cf1322;
+  font-weight: 500;
+  font-size: 13px;
+  margin-top: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}

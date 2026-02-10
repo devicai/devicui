@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Markdown from 'markdown-to-jsx';
 import { MessageActions } from '../Feedback';
+import { HandoffSubagentWidget } from './HandoffSubagentWidget';
 import type { ChatMessagesProps } from './ChatDrawer.types';
 import type { ChatMessage } from '../../api/types';
 import type { FeedbackState } from '../Feedback';
 import '../Feedback/Feedback.css';
-
-console.log('[devic-ui] ChatMessages: DEV-BUILD-005');
 
 /**
  * Format timestamp to readable time
@@ -95,12 +94,22 @@ function ToolGroup({
   allMessages,
   toolRenderers,
   toolIcons,
+  handedOffSubThreadId,
+  onHandoffCompleted,
+  handoffWidgetRenderer,
+  apiKey,
+  baseUrl,
 }: {
   toolMessages: ChatMessage[];
   isActive: boolean;
   allMessages?: ChatMessage[];
   toolRenderers?: Record<string, (input: any, output: any) => React.ReactNode>;
   toolIcons?: Record<string, React.ReactNode>;
+  handedOffSubThreadId?: string;
+  onHandoffCompleted?: () => void;
+  handoffWidgetRenderer?: ChatMessagesProps['handoffWidgetRenderer'];
+  apiKey?: string;
+  baseUrl?: string;
 }): JSX.Element {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const shouldCollapse = toolMessages.length > 3 && !isActive;
@@ -120,6 +129,26 @@ function ToolGroup({
     const toolCall = msg.tool_calls?.[0];
     const toolName = toolCall?.function?.name;
     const summaryText = msg.summary || toolName || (opts.active ? 'Processing...' : 'Completed');
+
+    // Render HandoffSubagentWidget for hand_off_subagent tool calls
+    if (toolName === 'hand_off_subagent' && toolCall && allMessages) {
+      const subThreadId = extractSubThreadId(
+        toolCall.id,
+        allMessages,
+        handedOffSubThreadId,
+      );
+      if (subThreadId) {
+        return (
+          <HandoffSubagentWidget
+            subThreadId={subThreadId}
+            onCompleted={onHandoffCompleted}
+            renderWidget={handoffWidgetRenderer}
+            apiKey={apiKey}
+            baseUrl={baseUrl}
+          />
+        );
+      }
+    }
 
     // Custom renderer for completed tools
     if (!opts.active && toolName && toolRenderers?.[toolName] && allMessages) {
@@ -217,6 +246,32 @@ const markdownOverrides = {
   },
 };
 
+/**
+ * Extract subthread ID from a hand_off_subagent tool call.
+ * Checks the tool response in allMessages first, then falls back to handedOffSubThreadId.
+ */
+function extractSubThreadId(
+  toolCallId: string,
+  allMessages: ChatMessage[],
+  handedOffSubThreadId?: string,
+): string | null {
+  // Look for the tool response message
+  const toolResponse = allMessages.find(
+    (m) => m.role === 'tool' && m.tool_call_id === toolCallId
+  );
+  if (toolResponse) {
+    const content = toolResponse.content?.data || toolResponse.content;
+    if (content && typeof content === 'object' && 'subthreadId' in content) {
+      return (content as any).subthreadId;
+    }
+    if (content && typeof content === 'object' && 'subThreadId' in content) {
+      return (content as any).subThreadId;
+    }
+  }
+  // Fall back to active handoff subthread ID
+  return handedOffSubThreadId || null;
+}
+
 export function ChatMessages({
   messages,
   allMessages,
@@ -230,6 +285,11 @@ export function ChatMessages({
   showFeedback = true,
   feedbackMap,
   onFeedback,
+  handedOffSubThreadId,
+  onHandoffCompleted,
+  handoffWidgetRenderer,
+  apiKey,
+  baseUrl,
 }: ChatMessagesProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLengthRef = useRef(messages.length);
@@ -281,6 +341,11 @@ export function ChatMessages({
               allMessages={allMessages}
               toolRenderers={toolRenderers}
               toolIcons={toolIcons}
+              handedOffSubThreadId={handedOffSubThreadId}
+              onHandoffCompleted={onHandoffCompleted}
+              handoffWidgetRenderer={handoffWidgetRenderer}
+              apiKey={apiKey}
+              baseUrl={baseUrl}
             />
           );
         }

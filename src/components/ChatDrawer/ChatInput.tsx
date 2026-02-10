@@ -26,6 +26,7 @@ export function ChatInput({
   allowedFileTypes = { images: true, documents: true },
   maxFileSize = 10 * 1024 * 1024, // 10MB
   sendButtonContent,
+  disabledMessage,
 }: ChatInputProps): JSX.Element {
   const [message, setMessage] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -110,6 +111,12 @@ export function ChatInput({
 
   return (
     <div className="devic-input-area">
+      {disabledMessage && disabled && (
+        <div className="devic-input-disabled-notice">
+          <WaitingIcon />
+          {disabledMessage}
+        </div>
+      )}
       {files.length > 0 && (
         <div className="devic-file-preview">
           {files.map((file, idx) => (
@@ -266,6 +273,27 @@ function FileIcon(): JSX.Element {
     >
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
       <polyline points="14,2 14,8 20,8" />
+    </svg>
+  );
+}
+
+/**
+ * Waiting icon (clock)
+ */
+function WaitingIcon(): JSX.Element {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12,6 12,12 16,14" />
     </svg>
   );
 }

@@ -11,6 +11,8 @@ import type {
   ListConversationsResponse,
   FeedbackSubmission,
   FeedbackEntry,
+  AgentThreadDto,
+  AgentDto,
 } from "./types";
 
 export interface DevicApiClientConfig {
@@ -223,6 +225,97 @@ export class DevicApiClient {
   ): Promise<FeedbackEntry[]> {
     return this.request<FeedbackEntry[]>(
       `/api/v1/assistants/${assistantId}/chats/${chatUid}/feedback`,
+    );
+  }
+
+  /**
+   * Get an agent thread by ID
+   */
+  async getThreadById(
+    threadId: string,
+    withTasks = false,
+  ): Promise<AgentThreadDto> {
+    const query = withTasks ? "?withTasks=true" : "";
+    return this.request<AgentThreadDto>(
+      `/api/v1/agents/threads/${threadId}${query}`,
+    );
+  }
+
+  /**
+   * Get agent details
+   */
+  async getAgentDetails(agentId: string): Promise<AgentDto> {
+    return this.request<AgentDto>(`/api/v1/agents/${agentId}`);
+  }
+
+  /**
+   * Get an AI-generated explanation of a thread's execution
+   */
+  async explainAgentThread(threadId: string): Promise<string> {
+    return this.request<string>(
+      `/api/v1/agents/threads/${threadId}/explain`,
+    );
+  }
+
+  /**
+   * Pause or resume a thread
+   */
+  async pauseResumeThread(
+    threadId: string,
+    action: "paused" | "queued",
+  ): Promise<void> {
+    return this.request<void>(
+      `/api/v1/agents/threads/${threadId}/pause-resume`,
+      {
+        method: "POST",
+        body: JSON.stringify({ action }),
+      },
+    );
+  }
+
+  /**
+   * Handle thread approval (approve/reject)
+   */
+  async handleThreadApproval(
+    threadId: string,
+    approved: boolean,
+    retry: boolean,
+    message: string,
+  ): Promise<void> {
+    return this.request<void>(
+      `/api/v1/agents/threads/${threadId}/approval`,
+      {
+        method: "POST",
+        body: JSON.stringify({ approved, retry, message }),
+      },
+    );
+  }
+
+  /**
+   * Manually complete a thread
+   */
+  async completeThread(
+    threadId: string,
+    completionState: string,
+  ): Promise<void> {
+    return this.request<void>(
+      `/api/v1/agents/threads/${threadId}/complete`,
+      {
+        method: "POST",
+        body: JSON.stringify({ state: completionState }),
+      },
+    );
+  }
+
+  /**
+   * Get chat history content (full conversation after handoff)
+   */
+  async getChatHistoryContent(
+    assistantId: string,
+    chatUid: string,
+  ): Promise<ChatMessage[]> {
+    return this.request<ChatMessage[]>(
+      `/api/v1/assistants/${assistantId}/chats/${chatUid}/content`,
     );
   }
 }

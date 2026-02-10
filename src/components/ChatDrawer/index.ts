@@ -3,6 +3,7 @@ export { ChatMessages } from './ChatMessages';
 export { ChatInput } from './ChatInput';
 export { ToolTimeline } from './ToolTimeline';
 export { ConversationSelector } from './ConversationSelector';
+export { HandoffSubagentWidget } from './HandoffSubagentWidget';
 export type {
   ChatDrawerProps,
   ChatDrawerOptions,
@@ -13,3 +14,4 @@ export type {
   AllowedFileTypes,
   ConversationSelectorProps,
 } from './ChatDrawer.types';
+export type { HandoffSubagentWidgetProps } from './HandoffSubagentWidget';
