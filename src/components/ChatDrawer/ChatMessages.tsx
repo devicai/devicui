@@ -1,19 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
-import Markdown from 'markdown-to-jsx';
-import { MessageActions } from '../Feedback';
-import { HandoffSubagentWidget } from './HandoffSubagentWidget';
-import type { ChatMessagesProps } from './ChatDrawer.types';
-import type { ChatMessage } from '../../api/types';
-import type { FeedbackState } from '../Feedback';
-import '../Feedback/Feedback.css';
+import React, { useState, useEffect, useRef } from "react";
+import Markdown from "markdown-to-jsx";
+import { MessageActions } from "../Feedback";
+import { HandoffSubagentWidget } from "./HandoffSubagentWidget";
+import type { ChatMessagesProps } from "./ChatDrawer.types";
+import type { ChatMessage } from "../../api/types";
+import type { FeedbackState } from "../Feedback";
+import "../Feedback/Feedback.css";
 
 /**
  * Format timestamp to readable time
  */
 function formatTime(timestamp: number): string {
   return new Date(timestamp).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -23,21 +23,25 @@ function formatTime(timestamp: number): string {
  */
 function groupMessages(
   messages: ChatMessage[],
-  isLoading: boolean
+  isLoading: boolean,
 ): Array<
-  | { type: 'message'; message: ChatMessage }
-  | { type: 'toolGroup'; toolMessages: ChatMessage[]; isActive: boolean }
+  | { type: "message"; message: ChatMessage }
+  | { type: "toolGroup"; toolMessages: ChatMessage[]; isActive: boolean }
 > {
   const result: Array<
-    | { type: 'message'; message: ChatMessage }
-    | { type: 'toolGroup'; toolMessages: ChatMessage[]; isActive: boolean }
+    | { type: "message"; message: ChatMessage }
+    | { type: "toolGroup"; toolMessages: ChatMessage[]; isActive: boolean }
   > = [];
 
   let currentToolGroup: ChatMessage[] = [];
 
   const flushToolGroup = (isActive: boolean) => {
     if (currentToolGroup.length > 0) {
-      result.push({ type: 'toolGroup', toolMessages: [...currentToolGroup], isActive });
+      result.push({
+        type: "toolGroup",
+        toolMessages: [...currentToolGroup],
+        isActive,
+      });
       currentToolGroup = [];
     }
   };
@@ -46,7 +50,7 @@ function groupMessages(
     const msg = messages[i];
 
     // Skip developer and tool response messages
-    if (msg.role === 'developer' || msg.role === 'tool') {
+    if (msg.role === "developer" || msg.role === "tool") {
       continue;
     }
 
@@ -58,23 +62,30 @@ function groupMessages(
       // If message has both text and tool_calls, show text first
       if (hasText || hasFiles) {
         // Flush any prior tool group before inserting the text message
-        const remainingMeaningful = messages.slice(i + 1).some(
-          (m) => (m.role === 'assistant' && m.content?.message) || m.role === 'user'
-        );
+        const remainingMeaningful = messages
+          .slice(i + 1)
+          .some(
+            (m) =>
+              (m.role === "assistant" && m.content?.message) ||
+              m.role === "user",
+          );
         flushToolGroup(isLoading && !remainingMeaningful);
-        result.push({ type: 'message', message: msg });
+        result.push({ type: "message", message: msg });
       }
       // Always accumulate the tool call
       currentToolGroup.push(msg);
     } else {
       // Regular message → flush any accumulated tool group first
-      const remainingMeaningful = messages.slice(i).some(
-        (m) => (m.role === 'assistant' && m.content?.message) || m.role === 'user'
-      );
+      const remainingMeaningful = messages
+        .slice(i)
+        .some(
+          (m) =>
+            (m.role === "assistant" && m.content?.message) || m.role === "user",
+        );
       flushToolGroup(isLoading && !remainingMeaningful);
 
       if (hasText || hasFiles) {
-        result.push({ type: 'message', message: msg });
+        result.push({ type: "message", message: msg });
       }
     }
   }
@@ -107,7 +118,7 @@ function ToolGroup({
   toolIcons?: Record<string, React.ReactNode>;
   handedOffSubThreadId?: string;
   onHandoffCompleted?: () => void;
-  handoffWidgetRenderer?: ChatMessagesProps['handoffWidgetRenderer'];
+  handoffWidgetRenderer?: ChatMessagesProps["handoffWidgetRenderer"];
   apiKey?: string;
   baseUrl?: string;
 }): JSX.Element {
@@ -125,13 +136,17 @@ function ToolGroup({
 
   const lastIndex = toolMessages.length - 1;
 
-  const renderToolItem = (msg: ChatMessage, opts: { active?: boolean; showSpinner?: boolean }) => {
+  const renderToolItem = (
+    msg: ChatMessage,
+    opts: { active?: boolean; showSpinner?: boolean },
+  ) => {
     const toolCall = msg.tool_calls?.[0];
     const toolName = toolCall?.function?.name;
-    const summaryText = msg.summary || toolName || (opts.active ? 'Processing...' : 'Completed');
+    const summaryText =
+      msg.summary || toolName || (opts.active ? "Processing..." : "Completed");
 
     // Render HandoffSubagentWidget for hand_off_subagent tool calls
-    if (toolName === 'hand_off_subagent' && toolCall && allMessages) {
+    if (toolName === "hand_off_subagent" && toolCall && allMessages) {
       const subThreadId = extractSubThreadId(
         toolCall.id,
         allMessages,
@@ -153,22 +168,31 @@ function ToolGroup({
     // Custom renderer for completed tools
     if (!opts.active && toolName && toolRenderers?.[toolName] && allMessages) {
       const toolResponse = allMessages.find(
-        (m) => m.role === 'tool' && m.tool_call_id === toolCall!.id
+        (m) => m.role === "tool" && m.tool_call_id === toolCall!.id,
       );
       let input: any = {};
-      try { input = JSON.parse(toolCall!.function.arguments); } catch {}
-      const output = toolResponse?.content?.data ?? toolResponse?.content?.message;
+      try {
+        input = JSON.parse(toolCall!.function.arguments);
+      } catch {}
+      const output =
+        toolResponse?.content?.data ||
+        toolResponse?.content?.message ||
+        toolResponse?.content;
       return toolRenderers[toolName](input, output);
     }
 
-    const icon = opts.showSpinner
-      ? <SpinnerIcon />
-      : (toolName && toolIcons?.[toolName]) || <ToolDoneIcon />;
+    const icon = opts.showSpinner ? (
+      <SpinnerIcon />
+    ) : (
+      (toolName && toolIcons?.[toolName]) || <ToolDoneIcon />
+    );
 
     return (
       <>
         <span className="devic-tool-activity-icon">{icon}</span>
-        <span className={`devic-tool-activity-text ${opts.active ? 'devic-glow-text' : ''}`}>
+        <span
+          className={`devic-tool-activity-text ${opts.active ? "devic-glow-text" : ""}`}
+        >
           {summaryText}
         </span>
       </>
@@ -184,7 +208,7 @@ function ToolGroup({
           return (
             <div
               key={msg.uid}
-              className={`devic-tool-activity ${isLast ? 'devic-tool-activity--active' : ''}`}
+              className={`devic-tool-activity ${isLast ? "devic-tool-activity--active" : ""}`}
             >
               {renderToolItem(msg, { active: isLast, showSpinner: isLast })}
             </div>
@@ -240,8 +264,10 @@ function ToolGroup({
 const markdownOverrides = {
   table: {
     component: ({ children, ...props }: any) =>
-      React.createElement('div', { className: 'markdown-table' },
-        React.createElement('table', props, children)
+      React.createElement(
+        "div",
+        { className: "markdown-table" },
+        React.createElement("table", props, children),
       ),
   },
 };
@@ -257,14 +283,14 @@ function extractSubThreadId(
 ): string | null {
   // Look for the tool response message
   const toolResponse = allMessages.find(
-    (m) => m.role === 'tool' && m.tool_call_id === toolCallId
+    (m) => m.role === "tool" && m.tool_call_id === toolCallId,
   );
   if (toolResponse) {
     const content = toolResponse.content?.data || toolResponse.content;
-    if (content && typeof content === 'object' && 'subthreadId' in content) {
+    if (content && typeof content === "object" && "subthreadId" in content) {
       return (content as any).subthreadId;
     }
-    if (content && typeof content === 'object' && 'subThreadId' in content) {
+    if (content && typeof content === "object" && "subThreadId" in content) {
       return (content as any).subThreadId;
     }
   }
@@ -306,33 +332,36 @@ export function ChatMessages({
 
   // Show loading dots only if there's no active tool group at the end
   const lastGroup = grouped[grouped.length - 1];
-  const showLoadingDots = isLoading && !(lastGroup?.type === 'toolGroup' && lastGroup.isActive);
+  const showLoadingDots =
+    isLoading && !(lastGroup?.type === "toolGroup" && lastGroup.isActive);
 
   return (
     <div className="devic-messages-container" ref={containerRef}>
-      {messages.length === 0 && !isLoading && (welcomeMessage || suggestedMessages?.length) && (
-        <div className="devic-welcome">
-          {welcomeMessage && (
-            <p className="devic-welcome-text">{welcomeMessage}</p>
-          )}
-          {suggestedMessages && suggestedMessages.length > 0 && (
-            <div className="devic-suggested-messages">
-              {suggestedMessages.map((msg, idx) => (
-                <button
-                  key={idx}
-                  className="devic-suggested-btn"
-                  onClick={() => onSuggestedClick?.(msg)}
-                >
-                  {msg}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {messages.length === 0 &&
+        !isLoading &&
+        (welcomeMessage || suggestedMessages?.length) && (
+          <div className="devic-welcome">
+            {welcomeMessage && (
+              <p className="devic-welcome-text">{welcomeMessage}</p>
+            )}
+            {suggestedMessages && suggestedMessages.length > 0 && (
+              <div className="devic-suggested-messages">
+                {suggestedMessages.map((msg, idx) => (
+                  <button
+                    key={idx}
+                    className="devic-suggested-btn"
+                    onClick={() => onSuggestedClick?.(msg)}
+                  >
+                    {msg}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
       {grouped.map((item) => {
-        if (item.type === 'toolGroup') {
+        if (item.type === "toolGroup") {
           return (
             <ToolGroup
               key={`tg-${item.toolMessages[0].uid}`}
@@ -352,9 +381,10 @@ export function ChatMessages({
 
         const message = item.message;
         const messageText = message.content?.message;
-        const hasFiles = message.content?.files && message.content.files.length > 0;
-        const isAssistant = message.role === 'assistant';
-        const currentFeedback = feedbackMap?.get(message.uid) || 'none';
+        const hasFiles =
+          message.content?.files && message.content.files.length > 0;
+        const isAssistant = message.role === "assistant";
+        const currentFeedback = feedbackMap?.get(message.uid) || "none";
 
         return (
           <div
@@ -364,7 +394,9 @@ export function ChatMessages({
           >
             <div className="devic-message-bubble">
               {messageText && isAssistant ? (
-                <Markdown options={{ overrides: markdownOverrides }}>{messageText}</Markdown>
+                <Markdown options={{ overrides: markdownOverrides }}>
+                  {messageText}
+                </Markdown>
               ) : (
                 messageText
               )}
@@ -398,8 +430,8 @@ export function ChatMessages({
         );
       })}
 
-      {showLoadingDots && (
-        loadingIndicator ? (
+      {showLoadingDots &&
+        (loadingIndicator ? (
           <div className="devic-loading">{loadingIndicator}</div>
         ) : (
           <div className="devic-loading">
@@ -407,8 +439,7 @@ export function ChatMessages({
             <span className="devic-loading-dot"></span>
             <span className="devic-loading-dot"></span>
           </div>
-        )
-      )}
+        ))}
     </div>
   );
 }
@@ -451,7 +482,16 @@ function ToolDoneIcon(): JSX.Element {
 
 function ChevronDownIcon(): JSX.Element {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <polyline points="6,9 12,15 18,9" />
     </svg>
   );
@@ -459,7 +499,16 @@ function ChevronDownIcon(): JSX.Element {
 
 function ChevronUpIcon(): JSX.Element {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <polyline points="6,15 12,9 18,15" />
     </svg>
   );
