@@ -1,4 +1,4 @@
-import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto } from '../../api/types';
+import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig } from '../../api/types';
 
 /**
  * Allowed file types for upload
@@ -212,6 +212,13 @@ export interface ChatDrawerOptions {
     elapsedSeconds: number;
     isTerminal: boolean;
   }) => React.ReactNode;
+
+  /**
+   * Tool group configurations for rendering consecutive tool calls together.
+   * When consecutive tool calls match the same group's `tools` array, they are
+   * passed as a single array to the group's `renderer` function.
+   */
+  toolGroups?: ToolGroupConfig[];
 }
 
 /**
@@ -368,6 +375,8 @@ export interface ChatMessagesProps {
   apiKey?: string;
   /** Base URL for handoff widget API calls */
   baseUrl?: string;
+  /** Tool group configurations for grouped rendering */
+  toolGroups?: ToolGroupConfig[];
 }
 
 /**

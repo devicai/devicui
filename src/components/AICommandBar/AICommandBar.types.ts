@@ -1,4 +1,4 @@
-import type { ChatMessage, ModelInterfaceTool } from '../../api/types';
+import type { ChatMessage, ModelInterfaceTool, ToolGroupConfig } from '../../api/types';
 
 /**
  * Command definition for the command bar
@@ -203,6 +203,11 @@ export interface AICommandBarOptions {
    * @default true
    */
   showHistoryCommand?: boolean;
+
+  /**
+   * Tool group configurations for rendering consecutive tool calls together.
+   */
+  toolGroups?: ToolGroupConfig[];
 }
 
 /**

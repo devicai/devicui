@@ -3,7 +3,9 @@ import { useAICommandBar, formatShortcut } from './useAICommandBar';
 import { MessageActions } from '../Feedback';
 import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from '../../api/client';
-import type { AICommandBarProps, AICommandBarHandle, AICommandBarOptions } from './AICommandBar.types';
+import type { AICommandBarProps, AICommandBarHandle, AICommandBarOptions, ToolCallSummary } from './AICommandBar.types';
+import type { ToolGroupCall } from '../../api/types';
+import { segmentToolCalls } from '../../utils/toolGroups';
 import type { FeedbackState, FeedbackTheme } from '../Feedback';
 import './AICommandBar.css';
 import '../Feedback/Feedback.css';
@@ -75,6 +77,7 @@ const DEFAULT_OPTIONS: Required<AICommandBarOptions> = {
   historyStorageKey: 'devic-command-bar-history',
   commands: undefined as any,
   showHistoryCommand: true,
+  toolGroups: undefined as any,
 };
 
 /**
@@ -315,6 +318,81 @@ export const AICommandBar = forwardRef<AICommandBarHandle, AICommandBarProps>(
       };
     }, [mergedOptions.resultCardMaxHeight]);
 
+    // Render tool call items with optional toolGroups segmentation
+    const renderToolCallItems = (toolCalls: ToolCallSummary[], opts: Required<AICommandBarOptions>) => {
+      if (opts.toolGroups && opts.toolGroups.length > 0) {
+        const calls: ToolGroupCall[] = toolCalls.map((tc) => ({
+          name: tc.name,
+          input: tc.input,
+          output: tc.output,
+          toolCallId: tc.id,
+        }));
+        const segments = segmentToolCalls(calls, opts.toolGroups);
+        const elements: React.ReactNode[] = [];
+        let callIdx = 0;
+
+        for (const segment of segments) {
+          if (segment.type === 'group') {
+            const groupKey = segment.calls.map((c) => c.toolCallId).join('-');
+            elements.push(
+              <div key={`cmd-group-${groupKey}`} className="devic-command-bar-result-tool-item devic-command-bar-result-tool-custom">
+                {segment.config.renderer(segment.calls)}
+              </div>,
+            );
+            callIdx += segment.calls.length;
+          } else {
+            const tc = toolCalls[callIdx];
+            const customRenderer = opts.toolRenderers?.[tc.name];
+            if (customRenderer) {
+              elements.push(
+                <div key={tc.id} className="devic-command-bar-result-tool-item devic-command-bar-result-tool-custom">
+                  {customRenderer(tc.input, tc.output)}
+                </div>,
+              );
+            } else {
+              const customIcon = opts.toolIcons?.[tc.name];
+              elements.push(
+                <div key={tc.id} className="devic-command-bar-result-tool-item">
+                  {customIcon ? (
+                    <span className="devic-command-bar-result-tool-icon">{customIcon}</span>
+                  ) : (
+                    <CheckIcon className="devic-command-bar-result-tool-icon" />
+                  )}
+                  <span className="devic-command-bar-result-tool-name">{tc.summary || tc.name}</span>
+                </div>,
+              );
+            }
+            callIdx += 1;
+          }
+        }
+
+        return elements;
+      }
+
+      // Default: no toolGroups, render individually
+      return toolCalls.map((tc) => {
+        const customRenderer = opts.toolRenderers?.[tc.name];
+        if (customRenderer) {
+          return (
+            <div key={tc.id} className="devic-command-bar-result-tool-item devic-command-bar-result-tool-custom">
+              {customRenderer(tc.input, tc.output)}
+            </div>
+          );
+        }
+        const customIcon = opts.toolIcons?.[tc.name];
+        return (
+          <div key={tc.id} className="devic-command-bar-result-tool-item">
+            {customIcon ? (
+              <span className="devic-command-bar-result-tool-icon">{customIcon}</span>
+            ) : (
+              <CheckIcon className="devic-command-bar-result-tool-icon" />
+            )}
+            <span className="devic-command-bar-result-tool-name">{tc.summary || tc.name}</span>
+          </div>
+        );
+      });
+    };
+
     return (
       <div
         ref={containerRef}
@@ -414,31 +492,7 @@ export const AICommandBar = forwardRef<AICommandBarHandle, AICommandBarProps>(
                   className="devic-command-bar-result-tools-list"
                   data-expanded={toolsExpanded}
                 >
-                  {hook.result.toolCalls.map((tc) => {
-                    // Check for custom renderer
-                    const customRenderer = mergedOptions.toolRenderers?.[tc.name];
-                    if (customRenderer) {
-                      return (
-                        <div key={tc.id} className="devic-command-bar-result-tool-item devic-command-bar-result-tool-custom">
-                          {customRenderer(tc.input, tc.output)}
-                        </div>
-                      );
-                    }
-
-                    // Use custom icon or default check icon
-                    const customIcon = mergedOptions.toolIcons?.[tc.name];
-
-                    return (
-                      <div key={tc.id} className="devic-command-bar-result-tool-item">
-                        {customIcon ? (
-                          <span className="devic-command-bar-result-tool-icon">{customIcon}</span>
-                        ) : (
-                          <CheckIcon className="devic-command-bar-result-tool-icon" />
-                        )}
-                        <span className="devic-command-bar-result-tool-name">{tc.summary || tc.name}</span>
-                      </div>
-                    );
-                  })}
+                  {renderToolCallItems(hook.result.toolCalls, mergedOptions)}
                 </div>
               </div>
             )}

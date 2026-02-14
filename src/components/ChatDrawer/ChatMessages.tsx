@@ -3,8 +3,9 @@ import Markdown from "markdown-to-jsx";
 import { MessageActions } from "../Feedback";
 import { HandoffSubagentWidget } from "./HandoffSubagentWidget";
 import type { ChatMessagesProps } from "./ChatDrawer.types";
-import type { ChatMessage } from "../../api/types";
+import type { ChatMessage, ToolGroupConfig, ToolGroupCall } from "../../api/types";
 import type { FeedbackState } from "../Feedback";
+import { segmentToolCalls } from "../../utils/toolGroups";
 import "../Feedback/Feedback.css";
 
 /**
@@ -105,6 +106,7 @@ function ToolGroup({
   allMessages,
   toolRenderers,
   toolIcons,
+  toolGroups,
   handedOffSubThreadId,
   onHandoffCompleted,
   handoffWidgetRenderer,
@@ -116,6 +118,7 @@ function ToolGroup({
   allMessages?: ChatMessage[];
   toolRenderers?: Record<string, (input: any, output: any) => React.ReactNode>;
   toolIcons?: Record<string, React.ReactNode>;
+  toolGroups?: ToolGroupConfig[];
   handedOffSubThreadId?: string;
   onHandoffCompleted?: () => void;
   handoffWidgetRenderer?: ChatMessagesProps["handoffWidgetRenderer"];
@@ -199,21 +202,92 @@ function ToolGroup({
     );
   };
 
+  /** Resolve a ChatMessage into a ToolGroupCall */
+  const resolveToolGroupCall = (msg: ChatMessage): ToolGroupCall | null => {
+    const toolCall = msg.tool_calls?.[0];
+    if (!toolCall) return null;
+    const toolName = toolCall.function?.name;
+    let input: any = {};
+    try {
+      input = JSON.parse(toolCall.function.arguments);
+    } catch {}
+    const toolResponse = allMessages?.find(
+      (m) => m.role === "tool" && m.tool_call_id === toolCall.id,
+    );
+    const output =
+      toolResponse?.content?.data ||
+      toolResponse?.content?.message ||
+      toolResponse?.content;
+    return { name: toolName, input, output, toolCallId: toolCall.id };
+  };
+
+  /** Render completed tool messages, applying toolGroups segmentation when configured */
+  const renderCompletedItems = (msgs: ChatMessage[]) => {
+    if (!toolGroups || toolGroups.length === 0) {
+      return msgs.map((msg) => (
+        <div key={msg.uid} className="devic-tool-activity">
+          {renderToolItem(msg, {})}
+        </div>
+      ));
+    }
+
+    // Build ToolGroupCall array for completed messages
+    const calls: Array<{ msg: ChatMessage; call: ToolGroupCall }> = [];
+    for (const msg of msgs) {
+      const call = resolveToolGroupCall(msg);
+      if (call) {
+        calls.push({ msg, call });
+      }
+    }
+
+    const segments = segmentToolCalls(
+      calls.map((c) => c.call),
+      toolGroups,
+    );
+
+    const elements: React.ReactNode[] = [];
+    let callIdx = 0;
+
+    for (const segment of segments) {
+      if (segment.type === "group") {
+        const groupKey = segment.calls
+          .map((c) => c.toolCallId)
+          .join("-");
+        elements.push(
+          <div key={`tg-group-${groupKey}`} className="devic-tool-activity devic-tool-activity--grouped">
+            {segment.config.renderer(segment.calls)}
+          </div>,
+        );
+        callIdx += segment.calls.length;
+      } else {
+        const entry = calls[callIdx];
+        elements.push(
+          <div key={entry.msg.uid} className="devic-tool-activity">
+            {renderToolItem(entry.msg, {})}
+          </div>,
+        );
+        callIdx += 1;
+      }
+    }
+
+    return elements;
+  };
+
   // If active, show all items; last one gets the glow treatment
   if (isActive) {
+    // For active groups: render all completed items with grouping, then render the active (last) item individually
+    const completedMessages = toolMessages.slice(0, lastIndex);
+    const lastMsg = toolMessages[lastIndex];
+
     return (
       <div className="devic-tool-group">
-        {toolMessages.map((msg, idx) => {
-          const isLast = idx === lastIndex;
-          return (
-            <div
-              key={msg.uid}
-              className={`devic-tool-activity ${isLast ? "devic-tool-activity--active" : ""}`}
-            >
-              {renderToolItem(msg, { active: isLast, showSpinner: isLast })}
-            </div>
-          );
-        })}
+        {completedMessages.length > 0 && renderCompletedItems(completedMessages)}
+        <div
+          key={lastMsg.uid}
+          className="devic-tool-activity devic-tool-activity--active"
+        >
+          {renderToolItem(lastMsg, { active: true, showSpinner: true })}
+        </div>
       </div>
     );
   }
@@ -248,11 +322,7 @@ function ToolGroup({
         </button>
       )}
       <div className="devic-tool-group-items" data-expanded="true">
-        {toolMessages.map((msg) => (
-          <div key={msg.uid} className="devic-tool-activity">
-            {renderToolItem(msg, {})}
-          </div>
-        ))}
+        {renderCompletedItems(toolMessages)}
       </div>
     </div>
   );
@@ -314,6 +384,7 @@ export function ChatMessages({
   handedOffSubThreadId,
   onHandoffCompleted,
   handoffWidgetRenderer,
+  toolGroups,
   apiKey,
   baseUrl,
 }: ChatMessagesProps): JSX.Element {
@@ -370,6 +441,7 @@ export function ChatMessages({
               allMessages={allMessages}
               toolRenderers={toolRenderers}
               toolIcons={toolIcons}
+              toolGroups={toolGroups}
               handedOffSubThreadId={handedOffSubThreadId}
               onHandoffCompleted={onHandoffCompleted}
               handoffWidgetRenderer={handoffWidgetRenderer}

@@ -45,6 +45,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   toolIcons: undefined as any,
   showFeedback: true,
   handoffWidgetRenderer: undefined as any,
+  toolGroups: undefined as any,
 };
 
 /**
@@ -460,6 +461,7 @@ function ChatDrawerInner({
           handedOffSubThreadId={chat.handedOffSubThreadId || undefined}
           onHandoffCompleted={chat.onHandoffCompleted}
           handoffWidgetRenderer={mergedOptions.handoffWidgetRenderer}
+          toolGroups={mergedOptions.toolGroups}
           apiKey={resolvedApiKey}
           baseUrl={resolvedBaseUrl}
         />

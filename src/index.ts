@@ -95,6 +95,8 @@ export type {
   AgentTaskDto,
   AgentDto,
   HandOffToolResponse,
+  ToolGroupCall,
+  ToolGroupConfig,
 } from './api/types';
 
 // Feedback Components
@@ -102,4 +104,5 @@ export { MessageActions, FeedbackModal } from './components/Feedback';
 export type { MessageActionsProps, FeedbackModalProps, FeedbackState, FeedbackTheme } from './components/Feedback';
 
 // Utilities
-export { generateId, deepMerge, debounce, throttle, formatFileSize, storage } from './utils';
+export { generateId, deepMerge, debounce, throttle, formatFileSize, storage, segmentToolCalls } from './utils';
+export type { ToolGroupSegment } from './utils';

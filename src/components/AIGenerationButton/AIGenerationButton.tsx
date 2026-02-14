@@ -5,6 +5,9 @@ import type {
   AIGenerationButtonHandle,
   AIGenerationButtonOptions,
 } from './AIGenerationButton.types';
+import type { ToolGroupCall } from '../../api/types';
+import type { ToolCallSummary } from '../AICommandBar/AICommandBar.types';
+import { segmentToolCalls } from '../../utils/toolGroups';
 import './AIGenerationButton.css';
 
 const DEFAULT_OPTIONS: Required<AIGenerationButtonOptions> = {
@@ -36,6 +39,7 @@ const DEFAULT_OPTIONS: Required<AIGenerationButtonOptions> = {
   toolRenderers: undefined as any,
   toolIcons: undefined as any,
   processingMessage: 'Processing...',
+  toolGroups: undefined as any,
 };
 
 /**
@@ -261,48 +265,85 @@ export const AIGenerationButton = forwardRef<AIGenerationButtonHandle, AIGenerat
       );
     };
 
+    // Render a single tool call item (default rendering)
+    const renderSingleToolCall = (tc: ToolCallSummary) => {
+      const customRenderer = mergedOptions.toolRenderers?.[tc.name];
+      if (customRenderer && tc.status === 'completed') {
+        return (
+          <div key={tc.id} className="devic-gen-tool-item devic-gen-tool-custom">
+            {customRenderer(tc.input, tc.output)}
+          </div>
+        );
+      }
+
+      const customIcon = mergedOptions.toolIcons?.[tc.name];
+      const isExecuting = tc.status === 'executing';
+
+      return (
+        <div
+          key={tc.id}
+          className="devic-gen-tool-item"
+          data-status={tc.status}
+        >
+          <span className="devic-gen-tool-icon">
+            {isExecuting ? (
+              <span className="devic-gen-spinner devic-gen-spinner-small" />
+            ) : customIcon ? (
+              customIcon
+            ) : (
+              <CheckIcon />
+            )}
+          </span>
+          <span className="devic-gen-tool-name">{tc.summary || tc.name}</span>
+        </div>
+      );
+    };
+
     // Render tool calls display
     const renderToolCalls = () => {
       if (!hook.isProcessing || hook.toolCalls.length === 0) {
         return null;
       }
 
+      // Separate completed calls (for grouping) from still-active calls
+      const completedCalls = hook.toolCalls.filter((tc) => tc.status === 'completed');
+      const activeCalls = hook.toolCalls.filter((tc) => tc.status !== 'completed');
+
+      let completedElements: React.ReactNode[];
+
+      if (mergedOptions.toolGroups && mergedOptions.toolGroups.length > 0 && completedCalls.length > 0) {
+        const calls: ToolGroupCall[] = completedCalls.map((tc) => ({
+          name: tc.name,
+          input: tc.input,
+          output: tc.output,
+          toolCallId: tc.id,
+        }));
+        const segments = segmentToolCalls(calls, mergedOptions.toolGroups);
+        completedElements = [];
+        let callIdx = 0;
+
+        for (const segment of segments) {
+          if (segment.type === 'group') {
+            const groupKey = segment.calls.map((c) => c.toolCallId).join('-');
+            completedElements.push(
+              <div key={`gen-group-${groupKey}`} className="devic-gen-tool-item devic-gen-tool-custom">
+                {segment.config.renderer(segment.calls)}
+              </div>,
+            );
+            callIdx += segment.calls.length;
+          } else {
+            completedElements.push(renderSingleToolCall(completedCalls[callIdx]));
+            callIdx += 1;
+          }
+        }
+      } else {
+        completedElements = completedCalls.map(renderSingleToolCall);
+      }
+
       return (
         <div className="devic-gen-tool-calls">
-          {hook.toolCalls.map((tc) => {
-            // Check for custom renderer
-            const customRenderer = mergedOptions.toolRenderers?.[tc.name];
-            if (customRenderer && tc.status === 'completed') {
-              return (
-                <div key={tc.id} className="devic-gen-tool-item devic-gen-tool-custom">
-                  {customRenderer(tc.input, tc.output)}
-                </div>
-              );
-            }
-
-            // Use custom icon or default
-            const customIcon = mergedOptions.toolIcons?.[tc.name];
-            const isExecuting = tc.status === 'executing';
-
-            return (
-              <div
-                key={tc.id}
-                className="devic-gen-tool-item"
-                data-status={tc.status}
-              >
-                <span className="devic-gen-tool-icon">
-                  {isExecuting ? (
-                    <span className="devic-gen-spinner devic-gen-spinner-small" />
-                  ) : customIcon ? (
-                    customIcon
-                  ) : (
-                    <CheckIcon />
-                  )}
-                </span>
-                <span className="devic-gen-tool-name">{tc.summary || tc.name}</span>
-              </div>
-            );
-          })}
+          {completedElements}
+          {activeCalls.map(renderSingleToolCall)}
         </div>
       );
     };

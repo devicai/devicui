@@ -1,3 +1,5 @@
+import type React from 'react';
+
 /**
  * File attachment for messages
  */
@@ -313,4 +315,22 @@ export interface AgentDto {
 export interface HandOffToolResponse {
   response: string;
   subthreadId: string;
+}
+
+/**
+ * Represents a single tool call within a tool group
+ */
+export interface ToolGroupCall {
+  name: string;
+  input: any;
+  output: any;
+  toolCallId: string;
+}
+
+/**
+ * Configuration for grouping consecutive tool calls under a single renderer
+ */
+export interface ToolGroupConfig {
+  tools: string[];
+  renderer: (calls: ToolGroupCall[]) => React.ReactNode;
 }

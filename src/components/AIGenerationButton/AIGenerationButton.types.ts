@@ -1,4 +1,4 @@
-import type { ChatMessage, ModelInterfaceTool } from '../../api/types';
+import type { ChatMessage, ModelInterfaceTool, ToolGroupConfig } from '../../api/types';
 import type { FeedbackTheme } from '../Feedback';
 import type { ToolCallSummary } from '../AICommandBar/AICommandBar.types';
 
@@ -187,6 +187,11 @@ export interface AIGenerationButtonOptions {
    * @default 'Processing...'
    */
   processingMessage?: string;
+
+  /**
+   * Tool group configurations for rendering consecutive tool calls together.
+   */
+  toolGroups?: ToolGroupConfig[];
 }
 
 /**

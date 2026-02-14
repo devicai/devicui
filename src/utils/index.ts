@@ -1,3 +1,6 @@
+export { segmentToolCalls } from './toolGroups';
+export type { ToolGroupSegment } from './toolGroups';
+
 /**
  * Generate a unique ID
  */
