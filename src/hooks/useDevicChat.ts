@@ -584,12 +584,20 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     setShouldPoll(true);
   }, []);
 
-  // Stop current conversation (client-side only)
-  const stopChat = useCallback(() => {
+  // Stop current conversation — calls the server-side stop endpoint
+  // then stops polling and resets loading state.
+  const stopChat = useCallback(async () => {
+    if (clientRef.current && chatUid) {
+      try {
+        await clientRef.current.stopChat(assistantId, chatUid);
+      } catch {
+        // Ignore errors (e.g. chat already completed)
+      }
+    }
     setShouldPoll(false);
     setIsLoading(false);
     setStatus('idle');
-  }, []);
+  }, [chatUid, assistantId]);
 
   return {
     messages,

@@ -308,6 +308,21 @@ export class DevicApiClient {
   }
 
   /**
+   * Stop an in-progress async chat.
+   * The current LLM call or tool execution will finish, then the chat
+   * will be marked as completed with the history accumulated so far.
+   */
+  async stopChat(
+    assistantId: string,
+    chatUid: string,
+  ): Promise<{ chatUid: string; message: string }> {
+    return this.request<{ chatUid: string; message: string }>(
+      `/api/v1/assistants/${assistantId}/chats/${chatUid}/stop`,
+      { method: "POST" },
+    );
+  }
+
+  /**
    * Get chat history content (full conversation after handoff)
    */
   async getChatHistoryContent(

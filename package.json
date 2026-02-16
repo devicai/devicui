@@ -1,6 +1,6 @@
 {
   "name": "@devicai/ui",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "type": "module",
   "description": "React component library for Devic AI assistants",
   "engines": {
