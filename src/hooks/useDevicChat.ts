@@ -220,6 +220,10 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   // Polling state
   const [shouldPoll, setShouldPoll] = useState(false);
 
+  // Keep a ref to chatUid so async callbacks always read the latest value
+  const chatUidRef = useRef(chatUid);
+  chatUidRef.current = chatUid;
+
   // Refs for callbacks
   const onMessageReceivedRef = useRef(onMessageReceived);
   const onErrorRef = useRef(onError);
@@ -587,17 +591,20 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   // Stop current conversation — calls the server-side stop endpoint
   // then stops polling and resets loading state.
   const stopChat = useCallback(async () => {
-    if (clientRef.current && chatUid) {
+    const uid = chatUidRef.current;
+    console.log('[useDevicChat] stopChat called, chatUid:', uid);
+    if (clientRef.current && uid) {
       try {
-        await clientRef.current.stopChat(assistantId, chatUid);
-      } catch {
-        // Ignore errors (e.g. chat already completed)
+        await clientRef.current.stopChat(assistantId, uid);
+        console.log('[useDevicChat] stopChat API call succeeded');
+      } catch (err) {
+        console.warn('[useDevicChat] stopChat API call failed:', err);
       }
     }
     setShouldPoll(false);
     setIsLoading(false);
     setStatus('idle');
-  }, [chatUid, assistantId]);
+  }, [assistantId]);
 
   return {
     messages,
