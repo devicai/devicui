@@ -148,6 +148,12 @@ export interface UseDevicChatResult {
    * Triggers reload of full chat content.
    */
   onHandoffCompleted: () => void;
+
+  /**
+   * Stop the current conversation processing (client-side only).
+   * Stops polling and resets loading state.
+   */
+  stopChat: () => void;
 }
 
 /**
@@ -578,6 +584,13 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     setShouldPoll(true);
   }, []);
 
+  // Stop current conversation (client-side only)
+  const stopChat = useCallback(() => {
+    setShouldPoll(false);
+    setIsLoading(false);
+    setStatus('idle');
+  }, []);
+
   return {
     messages,
     chatUid,
@@ -590,5 +603,6 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     clearChat,
     loadChat,
     onHandoffCompleted,
+    stopChat,
   };
 }

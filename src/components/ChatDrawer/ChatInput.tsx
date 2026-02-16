@@ -27,6 +27,9 @@ export function ChatInput({
   maxFileSize = 10 * 1024 * 1024, // 10MB
   sendButtonContent,
   disabledMessage,
+  isProcessing = false,
+  onStop,
+  stopButtonContent,
 }: ChatInputProps): JSX.Element {
   const [message, setMessage] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -172,7 +175,30 @@ export function ChatInput({
           rows={1}
         />
 
-        {sendButtonContent ? (
+        {isProcessing ? (
+          stopButtonContent ? (
+            <div className="devic-send-btn-wrapper">
+              <div className="devic-send-btn-custom" aria-hidden="true">
+                {stopButtonContent}
+              </div>
+              <button
+                className="devic-send-btn-overlay"
+                onClick={onStop}
+                type="button"
+                title="Stop"
+              />
+            </div>
+          ) : (
+            <button
+              className="devic-input-btn devic-send-btn"
+              onClick={onStop}
+              type="button"
+              title="Stop"
+            >
+              <StopIcon />
+            </button>
+          )
+        ) : sendButtonContent ? (
           <div className="devic-send-btn-wrapper">
             <div className="devic-send-btn-custom" aria-hidden="true">
               {sendButtonContent}
@@ -273,6 +299,22 @@ function FileIcon(): JSX.Element {
     >
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
       <polyline points="14,2 14,8 20,8" />
+    </svg>
+  );
+}
+
+/**
+ * Stop icon (square)
+ */
+function StopIcon(): JSX.Element {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+    >
+      <rect x="4" y="4" width="16" height="16" rx="2" />
     </svg>
   );
 }

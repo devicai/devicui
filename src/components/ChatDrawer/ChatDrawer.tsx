@@ -46,6 +46,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   showFeedback: true,
   handoffWidgetRenderer: undefined as any,
   toolGroups: undefined as any,
+  stopButtonContent: undefined as any,
 };
 
 /**
@@ -476,6 +477,9 @@ function ChatDrawerInner({
           maxFileSize={mergedOptions.maxFileSize}
           sendButtonContent={mergedOptions.sendButtonContent}
           disabledMessage={chat.handedOff ? 'Waiting for subagent to complete' : undefined}
+          isProcessing={chat.isLoading && !chat.handedOff}
+          onStop={chat.stopChat}
+          stopButtonContent={mergedOptions.stopButtonContent}
         />
       </div>
 

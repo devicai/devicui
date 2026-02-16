@@ -219,6 +219,12 @@ export interface ChatDrawerOptions {
    * passed as a single array to the group's `renderer` function.
    */
   toolGroups?: ToolGroupConfig[];
+
+  /**
+   * Custom stop button content. Shown when the assistant is processing.
+   * If not provided, a default square stop icon is rendered.
+   */
+  stopButtonContent?: React.ReactNode;
 }
 
 /**
@@ -392,6 +398,12 @@ export interface ChatInputProps {
   sendButtonContent?: React.ReactNode;
   /** Message shown when input is disabled due to handoff */
   disabledMessage?: string;
+  /** Whether the assistant is currently processing (shows stop button) */
+  isProcessing?: boolean;
+  /** Callback to stop the current processing */
+  onStop?: () => void;
+  /** Custom stop button content */
+  stopButtonContent?: React.ReactNode;
 }
 
 /**
