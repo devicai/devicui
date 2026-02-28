@@ -49,6 +49,7 @@ export class DevicApiClient {
     const headers: HeadersInit = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${this.config.apiKey}`,
+      "devic-api-source": "ui",
       ...options.headers,
     };
 
@@ -286,7 +287,11 @@ export class DevicApiClient {
       `/api/v1/agents/threads/${threadId}/approval`,
       {
         method: "POST",
-        body: JSON.stringify({ approved, retry, message }),
+        body: JSON.stringify({
+          action: approved ? "approved" : "rejected",
+          message,
+          retry,
+        }),
       },
     );
   }
