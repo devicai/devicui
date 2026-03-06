@@ -431,6 +431,21 @@
   border-radius: var(--devic-radius-sm);
 }
 
+.devic-stop-btn {
+  background: var(--devic-send-btn, var(--devic-primary));
+  color: white;
+  padding: 6px;
+  border-radius: var(--devic-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.devic-stop-btn:hover {
+  background: var(--devic-primary-hover);
+  color: white;
+}
+
 .devic-send-btn-wrapper {
   position: relative;
   flex-shrink: 0;

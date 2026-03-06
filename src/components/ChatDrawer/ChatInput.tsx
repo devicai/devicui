@@ -190,7 +190,7 @@ export function ChatInput({
             </div>
           ) : (
             <button
-              className="devic-input-btn devic-send-btn"
+              className="devic-input-btn devic-stop-btn"
               onClick={onStop}
               type="button"
               title="Stop"
