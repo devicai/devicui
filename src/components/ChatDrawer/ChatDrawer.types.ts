@@ -225,6 +225,21 @@ export interface ChatDrawerOptions {
    * If not provided, a default square stop icon is rendered.
    */
   stopButtonContent?: React.ReactNode;
+
+  /**
+   * Enable debug logging to the browser console.
+   * Overrides the provider-level debug setting when provided.
+   * @default false
+   */
+  debug?: boolean;
+
+  /**
+   * Persist the selected conversation chatUid in localStorage.
+   * On mount, the last selected conversation is restored automatically.
+   * The storage key is derived from the assistantId.
+   * @default false
+   */
+  persistConversation?: boolean;
 }
 
 /**

@@ -170,17 +170,23 @@ export class DevicApiClient {
    */
   async listConversations(
     assistantId: string,
-    options?: { tenantId?: string },
-  ): Promise<ConversationSummary[]> {
+    options?: { tenantId?: string; offset?: number; limit?: number },
+  ): Promise<ListConversationsResponse> {
     const params = new URLSearchParams();
     if (options?.tenantId) {
       params.set("tenantId", options.tenantId);
     }
+    if (options?.offset != null) {
+      params.set("offset", String(options.offset));
+    }
+    if (options?.limit != null) {
+      params.set("limit", String(options.limit));
+    }
+    params.set("omitContent", "true");
     const query = params.toString();
-    const response = await this.request<ListConversationsResponse>(
+    return this.request<ListConversationsResponse>(
       `/api/v1/assistants/${assistantId}/chats${query ? `?${query}` : ""}`,
     );
-    return response.histories;
   }
 
   /**

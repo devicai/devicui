@@ -4,6 +4,8 @@ import { DevicApiClient } from '../../api/client';
 import type { ConversationSummary } from '../../api/types';
 import type { ConversationSelectorProps } from './ChatDrawer.types';
 
+const PAGE_SIZE = 10;
+
 export function ConversationSelector({
   assistantId,
   currentChatUid,
@@ -22,7 +24,10 @@ export function ConversationSelector({
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const clientRef = useRef<DevicApiClient | null>(null);
 
   if (!clientRef.current && apiKey) {
@@ -38,24 +43,47 @@ export function ConversationSelector({
     }
   }, [apiKey, baseUrl]);
 
-  const fetchConversations = useCallback(async () => {
+  const fetchConversations = useCallback(async (offset = 0, append = false) => {
     if (!clientRef.current) return;
-    setLoading(true);
+    if (offset === 0) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
     try {
-      const list = await clientRef.current.listConversations(assistantId, { tenantId });
-      setConversations(list);
+      const response = await clientRef.current.listConversations(assistantId, {
+        tenantId,
+        offset,
+        limit: PAGE_SIZE,
+      });
+      setConversations((prev) => append ? [...prev, ...response.histories] : response.histories);
+      setHasMore(offset + response.histories.length < response.total);
     } catch {
       // silently fail
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [assistantId, tenantId]);
 
   useEffect(() => {
     if (isOpen) {
-      fetchConversations();
+      fetchConversations(0);
     }
   }, [isOpen, fetchConversations]);
+
+  // Fetch conversations when currentChatUid changes so the selector label is correct
+  useEffect(() => {
+    if (currentChatUid && conversations.length === 0) {
+      fetchConversations(0);
+    }
+  }, [currentChatUid, conversations.length, fetchConversations]);
+
+  const handleLoadMore = useCallback(() => {
+    if (!loadingMore && hasMore) {
+      fetchConversations(conversations.length, true);
+    }
+  }, [loadingMore, hasMore, conversations.length, fetchConversations]);
 
   // Close on outside click
   useEffect(() => {
@@ -102,7 +130,10 @@ export function ConversationSelector({
             />
           </div>
 
-          <div className="devic-conversation-list">
+          <div
+            className="devic-conversation-list"
+            ref={listRef}
+          >
             {loading && (
               <div className="devic-conversation-loading">Loading...</div>
             )}
@@ -134,6 +165,18 @@ export function ConversationSelector({
                   </span>
                 </button>
               ))}
+            {loadingMore && (
+              <div className="devic-conversation-loading">Loading more...</div>
+            )}
+            {!loadingMore && hasMore && !loading && (
+              <button
+                className="devic-conversation-load-more"
+                type="button"
+                onClick={handleLoadMore}
+              >
+                Load more
+              </button>
+            )}
           </div>
 
           <button

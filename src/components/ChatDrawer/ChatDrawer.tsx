@@ -47,6 +47,8 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   handoffWidgetRenderer: undefined as any,
   toolGroups: undefined as any,
   stopButtonContent: undefined as any,
+  debug: false,
+  persistConversation: false,
 };
 
 /**
@@ -117,15 +119,40 @@ function ChatDrawerInner({
     [options]
   );
 
+  // localStorage key for persisting selected conversation
+  const storageKey = mergedOptions.persistConversation
+    ? `devic-ui-chatUid-${assistantId}`
+    : null;
+
+  // Resolve initial chatUid: prop takes priority, then localStorage
+  const resolvedInitialChatUid = useMemo(() => {
+    if (initialChatUid) return initialChatUid;
+    if (storageKey) {
+      try { return localStorage.getItem(storageKey) || undefined; } catch { return undefined; }
+    }
+    return undefined;
+  }, [initialChatUid, storageKey]);
+
   // Drawer open state (can be controlled or uncontrolled; inline mode is always open)
   const [internalIsOpen, setInternalIsOpen] = useState(mergedOptions.defaultOpen);
   const isInline = mode === 'inline';
   const isOpen = isInline ? true : (controlledIsOpen ?? internalIsOpen);
 
+  // Wrap onChatCreated to persist chatUid in localStorage
+  const handleChatCreated = useCallback(
+    (chatUid: string) => {
+      if (storageKey) {
+        try { localStorage.setItem(storageKey, chatUid); } catch {}
+      }
+      onChatCreated?.(chatUid);
+    },
+    [storageKey, onChatCreated]
+  );
+
   // Use chat hook
   const chat = useDevicChat({
     assistantId,
-    chatUid: initialChatUid,
+    chatUid: resolvedInitialChatUid,
     apiKey,
     baseUrl,
     tenantId,
@@ -136,7 +163,8 @@ function ChatDrawerInner({
     onMessageReceived,
     onToolCall,
     onError,
-    onChatCreated,
+    onChatCreated: handleChatCreated,
+    debug: mergedOptions.debug,
   });
 
   // Fetch assistant avatar when showAvatar is enabled
@@ -196,13 +224,19 @@ function ChatDrawerInner({
     (chatUid: string) => {
       chat.loadChat(chatUid);
       onConversationChange?.(chatUid);
+      if (storageKey) {
+        try { localStorage.setItem(storageKey, chatUid); } catch {}
+      }
     },
-    [chat, onConversationChange]
+    [chat, onConversationChange, storageKey]
   );
 
   const handleNewChat = useCallback(() => {
     chat.clearChat();
-  }, [chat]);
+    if (storageKey) {
+      try { localStorage.removeItem(storageKey); } catch {}
+    }
+  }, [chat, storageKey]);
 
   // Handle suggested message click
   const handleSuggestedClick = useCallback(

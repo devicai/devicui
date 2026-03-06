@@ -713,6 +713,25 @@
   color: var(--devic-text-muted);
 }
 
+.devic-conversation-load-more {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--devic-font-family);
+  color: var(--devic-text-muted);
+  text-align: center;
+  transition: background 0.15s;
+}
+
+.devic-conversation-load-more:hover {
+  background: var(--devic-bg-secondary);
+  color: var(--devic-primary);
+}
+
 .devic-conversation-new {
   display: block;
   width: 100%;
