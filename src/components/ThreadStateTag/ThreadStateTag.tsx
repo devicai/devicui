@@ -240,7 +240,7 @@ function Modal({
 }): JSX.Element | null {
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="devic-state-modal-overlay" onClick={onClose}>
       <div className="devic-state-modal" onClick={(e) => e.stopPropagation()}>
         <div className="devic-state-modal-header">
@@ -261,7 +261,8 @@ function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

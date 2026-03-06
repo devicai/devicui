@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from '../../api/client';
 import { AgentThreadState } from '../../api/types';
 import type { AgentThreadDto, AgentDto } from '../../api/types';
 import { ThreadStateTag } from '../ThreadStateTag';
+import { createLogger } from '../../utils/logger';
 
 const TERMINAL_STATES: AgentThreadState[] = [
   AgentThreadState.COMPLETED,
@@ -62,6 +63,8 @@ export function HandoffSubagentWidget({
   const context = useOptionalDevicContext();
   const resolvedApiKey = apiKey || context?.apiKey;
   const resolvedBaseUrl = baseUrl || context?.baseUrl || 'https://api.devic.ai';
+  const debug = context?.debug ?? false;
+  const log = useMemo(() => createLogger(debug), [debug]);
 
   const [thread, setThread] = useState<AgentThreadDto | null>(null);
   const [agent, setAgent] = useState<AgentDto | null>(null);
@@ -83,7 +86,7 @@ export function HandoffSubagentWidget({
 
     try {
       const data = await client.getThreadById(subThreadId, true);
-      console.log('[HandoffSubagentWidget] Thread loaded:', {
+      log.log('[HandoffSubagentWidget] Thread loaded:', {
         id: data._id,
         agentId: data.agentId,
         parentAgentId: data.parentAgentId,
@@ -101,7 +104,7 @@ export function HandoffSubagentWidget({
         onCompleted?.();
       }
     } catch (err) {
-      console.error('[HandoffSubagentWidget] Error fetching thread:', err);
+      log.error('[HandoffSubagentWidget] Error fetching thread:', err);
     }
   }, [subThreadId, getClient, onCompleted]);
 
@@ -120,16 +123,16 @@ export function HandoffSubagentWidget({
     if (!agentIdToFetch || agent) return;
     const client = getClient();
     if (!client) {
-      console.warn('[HandoffSubagentWidget] No API client available (missing apiKey?)');
+      log.warn('[HandoffSubagentWidget] No API client available (missing apiKey?)');
       return;
     }
 
-    console.log('[HandoffSubagentWidget] Fetching agent details for:', agentIdToFetch);
+    log.log('[HandoffSubagentWidget] Fetching agent details for:', agentIdToFetch);
     client.getAgentDetails(agentIdToFetch).then((data) => {
-      console.log('[HandoffSubagentWidget] Agent details loaded:', data?.name);
+      log.log('[HandoffSubagentWidget] Agent details loaded:', data?.name);
       setAgent(data);
     }).catch((err) => {
-      console.warn('[HandoffSubagentWidget] Could not fetch agent details:', err);
+      log.warn('[HandoffSubagentWidget] Could not fetch agent details:', err);
     });
   }, [agentIdToFetch, agent, getClient]);
 

@@ -1,4 +1,6 @@
 export { segmentToolCalls } from './toolGroups';
+export { createLogger } from './logger';
+export type { DevicLogger } from './logger';
 export type { ToolGroupSegment } from './toolGroups';
 
 /**

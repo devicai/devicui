@@ -25,6 +25,7 @@ export function DevicProvider({
   baseUrl = DEFAULT_BASE_URL,
   tenantId,
   tenantMetadata,
+  debug,
   children,
 }: DevicProviderProps): JSX.Element {
   const contextValue = useMemo<DevicContextValue>(() => {
@@ -40,8 +41,9 @@ export function DevicProvider({
       tenantId,
       tenantMetadata,
       isConfigured: !!apiKey,
+      debug,
     };
-  }, [apiKey, baseUrl, tenantId, tenantMetadata]);
+  }, [apiKey, baseUrl, tenantId, tenantMetadata, debug]);
 
   return (
     <DevicContext.Provider value={contextValue}>

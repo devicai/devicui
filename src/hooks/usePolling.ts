@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { RealtimeChatHistory, RealtimeStatus } from '../api/types';
+import { createLogger } from '../utils/logger';
 
 export interface UsePollingOptions {
   /**
@@ -34,6 +35,12 @@ export interface UsePollingOptions {
    * Callback on poll error
    */
   onError?: (error: Error) => void;
+
+  /**
+   * Enable debug logging
+   * @default false
+   */
+  debug?: boolean;
 }
 
 export interface UsePollingResult {
@@ -87,7 +94,12 @@ export function usePolling(
     onStop,
     onUpdate,
     onError,
+    debug = false,
   } = options;
+
+  const log = useMemo(() => createLogger(debug), [debug]);
+  const logRef = useRef(log);
+  logRef.current = log;
 
   const [data, setData] = useState<RealtimeChatHistory | null>(null);
   const [isPolling, setIsPolling] = useState(false);
@@ -123,13 +135,13 @@ export function usePolling(
   }, []);
 
   const fetchData = useCallback(async () => {
-    console.log('[usePolling] fetchData called, isMounted:', isMountedRef.current);
+    logRef.current.log('[usePolling] fetchData called, isMounted:', isMountedRef.current);
     if (!isMountedRef.current) return;
 
     try {
-      console.log('[usePolling] Fetching...');
+      logRef.current.log('[usePolling] Fetching...');
       const result = await fetchFnRef.current();
-      console.log('[usePolling] Fetch result:', { status: result.status, messageCount: result.chatHistory?.length });
+      logRef.current.log('[usePolling] Fetch result:', { status: result.status, messageCount: result.chatHistory?.length });
 
       if (!isMountedRef.current) return;
 
@@ -139,15 +151,15 @@ export function usePolling(
 
       // Check if we should stop polling
       const shouldStop = stopStatusesRef.current.includes(result.status);
-      console.log('[usePolling] Should stop?', shouldStop, 'stopStatuses:', stopStatusesRef.current, 'current status:', result.status);
+      logRef.current.log('[usePolling] Should stop?', shouldStop, 'stopStatuses:', stopStatusesRef.current, 'current status:', result.status);
       if (shouldStop) {
-        console.log('[usePolling] Stopping polling due to status:', result.status);
+        logRef.current.log('[usePolling] Stopping polling due to status:', result.status);
         clearPolling();
         setIsPolling(false);
         onStopRef.current?.(result);
       }
     } catch (err) {
-      console.error('[usePolling] Fetch error:', err);
+      logRef.current.error('[usePolling] Fetch error:', err);
       if (!isMountedRef.current) return;
 
       const error = err instanceof Error ? err : new Error(String(err));
@@ -185,10 +197,10 @@ export function usePolling(
 
   // Auto-start polling when enabled and chatUid is set
   useEffect(() => {
-    console.log('[usePolling] Auto-start effect triggered:', { enabled, chatUid, isPollingRef: isPollingRef.current, intervalRef: !!intervalRef.current });
+    logRef.current.log('[usePolling] Auto-start effect triggered:', { enabled, chatUid, isPollingRef: isPollingRef.current, intervalRef: !!intervalRef.current });
 
     if (!enabled || !chatUid) {
-      console.log('[usePolling] Not enabled or no chatUid, stopping if active');
+      logRef.current.log('[usePolling] Not enabled or no chatUid, stopping if active');
       // Stop polling if disabled or no chatUid
       if (isPollingRef.current) {
         clearPolling();
@@ -199,7 +211,7 @@ export function usePolling(
 
     // Start polling if not already polling
     if (!isPollingRef.current) {
-      console.log('[usePolling] Starting polling, interval:', intervalValueRef.current);
+      logRef.current.log('[usePolling] Starting polling, interval:', intervalValueRef.current);
       isPollingRef.current = true;
       setIsPolling(true);
       setError(null);
@@ -209,9 +221,9 @@ export function usePolling(
 
       // Set up interval
       intervalRef.current = setInterval(fetchData, intervalValueRef.current);
-      console.log('[usePolling] Interval set:', intervalRef.current);
+      logRef.current.log('[usePolling] Interval set:', intervalRef.current);
     } else {
-      console.log('[usePolling] Already polling, skipping start');
+      logRef.current.log('[usePolling] Already polling, skipping start');
     }
 
     // Only cleanup on unmount, not on every dependency change

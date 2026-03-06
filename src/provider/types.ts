@@ -24,6 +24,12 @@ export interface DevicProviderConfig {
    * Global tenant metadata
    */
   tenantMetadata?: Record<string, any>;
+
+  /**
+   * Enable debug logging to the browser console
+   * @default false
+   */
+  debug?: boolean;
 }
 
 /**
@@ -59,6 +65,11 @@ export interface DevicContextValue {
    * Whether the provider is properly configured
    */
   isConfigured: boolean;
+
+  /**
+   * Whether debug logging is enabled
+   */
+  debug?: boolean;
 }
 
 /**
