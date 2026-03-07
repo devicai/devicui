@@ -105,6 +105,7 @@ function ChatDrawerInner({
   onToolCall,
   onError,
   onChatCreated,
+  onFileUpload,
   onOpen,
   onClose,
   isOpen: controlledIsOpen,
@@ -164,6 +165,7 @@ function ChatDrawerInner({
     onToolCall,
     onError,
     onChatCreated: handleChatCreated,
+    onFileUpload,
     debug: mergedOptions.debug,
   });
 
@@ -213,7 +215,7 @@ function ChatDrawerInner({
 
   // Handle send message
   const handleSend = useCallback(
-    (message: string, files?: any[]) => {
+    (message: string, files?: File[]) => {
       chat.sendMessage(message, { files });
     },
     [chat]

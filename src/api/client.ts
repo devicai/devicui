@@ -334,6 +334,46 @@ export class DevicApiClient {
   }
 
   /**
+   * Upload a file and get a download URL
+   */
+  async uploadFile(
+    file: File,
+  ): Promise<{ name: string; downloadUrl: string; fileType: string }> {
+    const url = `${this.config.baseUrl}/api/v1/files/upload`;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.config.apiKey}`,
+        "devic-api-source": "ui",
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      let errorData: { statusCode: number; message: string };
+      try {
+        errorData = await response.json();
+      } catch {
+        errorData = {
+          statusCode: response.status,
+          message: response.statusText,
+        };
+      }
+      throw new DevicApiError(errorData);
+    }
+
+    const data = await response.json();
+    if (data && typeof data === "object" && "data" in data) {
+      return data.data;
+    }
+    return data;
+  }
+
+  /**
    * Get chat history content (full conversation after handoff)
    */
   async getChatHistoryContent(

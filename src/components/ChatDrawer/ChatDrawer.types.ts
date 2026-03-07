@@ -351,6 +351,13 @@ export interface ChatDrawerProps {
   onClose?: () => void;
 
   /**
+   * Custom file upload handler. When provided, replaces the default
+   * upload to Devic API. Receives the raw File objects selected by
+   * the user and must return an array of ChatFile with downloadUrl set.
+   */
+  onFileUpload?: (files: File[]) => Promise<ChatFile[]>;
+
+  /**
    * External control of open state
    */
   isOpen?: boolean;
@@ -404,7 +411,7 @@ export interface ChatMessagesProps {
  * Props for ChatInput component
  */
 export interface ChatInputProps {
-  onSend: (message: string, files?: ChatFile[]) => void;
+  onSend: (message: string, files?: File[]) => void;
   disabled?: boolean;
   placeholder?: string;
   enableFileUploads?: boolean;

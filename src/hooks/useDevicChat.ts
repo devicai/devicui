@@ -85,6 +85,13 @@ export interface UseDevicChatOptions {
   onChatCreated?: (chatUid: string) => void;
 
   /**
+   * Custom file upload handler. When provided, replaces the default
+   * upload to Devic API. Receives the raw File objects and must return
+   * an array of ChatFile with downloadUrl set.
+   */
+  onFileUpload?: (files: File[]) => Promise<ChatFile[]>;
+
+  /**
    * Enable debug logging to the browser console.
    * Overrides the provider-level debug setting when provided.
    * @default false
@@ -134,7 +141,7 @@ export interface UseDevicChatResult {
   sendMessage: (
     message: string,
     options?: {
-      files?: ChatFile[];
+      files?: File[];
       metadata?: Record<string, any>;
     }
   ) => Promise<void>;
@@ -200,6 +207,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     onToolCall,
     onError,
     onChatCreated,
+    onFileUpload,
     debug: propsDebug,
   } = options;
 
@@ -469,7 +477,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     async (
       message: string,
       sendOptions?: {
-        files?: ChatFile[];
+        files?: File[];
         metadata?: Record<string, any>;
       }
     ) => {
@@ -486,7 +494,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       setError(null);
       setStatus('processing');
 
-      // Add user message optimistically
+      // Add user message optimistically (show file names before upload)
       const userMessage: ChatMessage = {
         uid: `temp-${Date.now()}`,
         role: 'user',
@@ -494,8 +502,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           message,
           files: sendOptions?.files?.map((f) => ({
             name: f.name,
-            url: f.downloadUrl || '',
-            type: f.fileType || 'other',
+            url: '',
+            type: f.type.split('/')[0] || 'other',
           })),
         },
         timestamp: Date.now(),
@@ -505,11 +513,51 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       onMessageSent?.(userMessage);
 
       try {
+        // Upload files if provided
+        let uploadedFiles: ChatFile[] | undefined;
+        if (sendOptions?.files && sendOptions.files.length > 0) {
+          logRef.current.log('[useDevicChat] Uploading files...');
+          if (onFileUpload) {
+            // Use custom upload handler
+            uploadedFiles = await onFileUpload(sendOptions.files);
+          } else {
+            // Default: upload via Devic API
+            const uploadResults = await Promise.all(
+              sendOptions.files.map((file) => clientRef.current!.uploadFile(file))
+            );
+            uploadedFiles = uploadResults.map((r) => ({
+              name: r.name,
+              downloadUrl: r.downloadUrl,
+              fileType: r.fileType as ChatFile['fileType'],
+            }));
+          }
+          logRef.current.log('[useDevicChat] Files uploaded:', uploadedFiles);
+
+          // Update optimistic message with download URLs
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.uid === userMessage.uid
+                ? {
+                    ...m,
+                    content: {
+                      ...m.content,
+                      files: uploadedFiles!.map((f) => ({
+                        name: f.name,
+                        url: f.downloadUrl || '',
+                        type: f.fileType || 'other',
+                      })),
+                    },
+                  }
+                : m
+            )
+          );
+        }
+
         // Build request DTO
         const dto = {
           message,
           chatUid: chatUid || undefined,
-          files: sendOptions?.files,
+          files: uploadedFiles,
           metadata: {
             ...resolvedTenantMetadata,
             ...sendOptions?.metadata,
@@ -554,6 +602,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       resolvedTenantMetadata,
       toolSchemas,
       onMessageSent,
+      onFileUpload,
     ]
   );
 

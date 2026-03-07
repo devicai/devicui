@@ -1,6 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
 import type { ChatInputProps } from './ChatDrawer.types';
-import type { ChatFile } from '../../api/types';
 
 const FILE_TYPE_ACCEPT: Record<string, string[]> = {
   images: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
@@ -56,13 +55,7 @@ export function ChatInput({
     const trimmedMessage = message.trim();
     if (!trimmedMessage && files.length === 0) return;
 
-    // Convert File objects to ChatFile format
-    const chatFiles: ChatFile[] = files.map((file) => ({
-      name: file.name,
-      fileType: getFileType(file.type),
-    }));
-
-    onSend(trimmedMessage, chatFiles.length > 0 ? chatFiles : undefined);
+    onSend(trimmedMessage, files.length > 0 ? files : undefined);
     setMessage('');
     setFiles([]);
 
@@ -225,25 +218,6 @@ export function ChatInput({
       </div>
     </div>
   );
-}
-
-/**
- * Get file type category from MIME type
- */
-function getFileType(
-  mimeType: string
-): 'image' | 'document' | 'audio' | 'video' | 'other' {
-  if (mimeType.startsWith('image/')) return 'image';
-  if (mimeType.startsWith('audio/')) return 'audio';
-  if (mimeType.startsWith('video/')) return 'video';
-  if (
-    mimeType.startsWith('application/pdf') ||
-    mimeType.startsWith('application/msword') ||
-    mimeType.startsWith('text/')
-  ) {
-    return 'document';
-  }
-  return 'other';
 }
 
 /**
