@@ -49,6 +49,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   stopButtonContent: undefined as any,
   debug: false,
   persistConversation: false,
+  customPromptBox: undefined as any,
 };
 
 /**
@@ -504,19 +505,30 @@ function ChatDrawerInner({
         />
 
         {/* Input */}
-        <ChatInput
-          onSend={handleSend}
-          disabled={chat.isLoading || chat.handedOff}
-          placeholder={mergedOptions.inputPlaceholder}
-          enableFileUploads={mergedOptions.enableFileUploads}
-          allowedFileTypes={mergedOptions.allowedFileTypes}
-          maxFileSize={mergedOptions.maxFileSize}
-          sendButtonContent={mergedOptions.sendButtonContent}
-          disabledMessage={chat.handedOff ? 'Waiting for subagent to complete' : undefined}
-          isProcessing={chat.isLoading && !chat.handedOff}
-          onStop={chat.stopChat}
-          stopButtonContent={mergedOptions.stopButtonContent}
-        />
+        {mergedOptions.customPromptBox ? (
+          <div className="devic-input-area">
+            {mergedOptions.customPromptBox({
+              sendMessage: handleSend,
+              stop: chat.stopChat,
+              isLoading: chat.isLoading,
+              newConversation: chat.clearChat,
+            })}
+          </div>
+        ) : (
+          <ChatInput
+            onSend={handleSend}
+            disabled={chat.isLoading || chat.handedOff}
+            placeholder={mergedOptions.inputPlaceholder}
+            enableFileUploads={mergedOptions.enableFileUploads}
+            allowedFileTypes={mergedOptions.allowedFileTypes}
+            maxFileSize={mergedOptions.maxFileSize}
+            sendButtonContent={mergedOptions.sendButtonContent}
+            disabledMessage={chat.handedOff ? 'Waiting for subagent to complete' : undefined}
+            isProcessing={chat.isLoading && !chat.handedOff}
+            onStop={chat.stopChat}
+            stopButtonContent={mergedOptions.stopButtonContent}
+          />
+        )}
       </div>
 
       {/* Trigger button (drawer mode only, when closed) */}

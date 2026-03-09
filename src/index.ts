@@ -10,6 +10,7 @@ export type {
   ChatDrawerHandle,
   ChatMessagesProps,
   ChatInputProps,
+  CustomPromptBoxProps,
   ToolTimelineProps,
   AllowedFileTypes,
   ConversationSelectorProps,

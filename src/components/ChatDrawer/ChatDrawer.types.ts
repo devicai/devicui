@@ -1,6 +1,21 @@
 import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig } from '../../api/types';
 
 /**
+ * Props passed to a custom prompt box component.
+ * The component receives chat actions and state so it can drive the conversation.
+ */
+export interface CustomPromptBoxProps {
+  /** Send a message (optionally with file attachments) */
+  sendMessage: (message: string, files?: File[]) => void;
+  /** Stop the current assistant processing */
+  stop: () => void;
+  /** Whether the assistant is currently processing / polling for a response */
+  isLoading: boolean;
+  /** Clear the current conversation and start a new one */
+  newConversation: () => void;
+}
+
+/**
  * Allowed file types for upload
  */
 export interface AllowedFileTypes {
@@ -240,6 +255,18 @@ export interface ChatDrawerOptions {
    * @default false
    */
   persistConversation?: boolean;
+
+  /**
+   * Custom React component to replace the default prompt box (input area).
+   * Receives `sendMessage`, `stop`, and `isLoading` props so it can
+   * drive the conversation. Takes the full space of the default input area.
+   *
+   * @example
+   * ```tsx
+   * customPromptBox: (props) => <MyCustomInput {...props} />
+   * ```
+   */
+  customPromptBox?: (props: CustomPromptBoxProps) => React.ReactNode;
 }
 
 /**
