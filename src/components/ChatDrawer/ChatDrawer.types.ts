@@ -1,6 +1,17 @@
 import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig } from '../../api/types';
 
 /**
+ * A suggested message displayed as a quick action button.
+ * Supports React nodes for rich content rendering.
+ */
+export interface SuggestedMessage {
+  /** Content to render inside the button (supports React nodes) */
+  content: React.ReactNode;
+  /** The message text to send when the button is clicked */
+  message: string;
+}
+
+/**
  * Props passed to a custom prompt box component.
  * The component receives chat actions and state so it can drive the conversation.
  */
@@ -59,9 +70,10 @@ export interface ChatDrawerOptions {
   welcomeMessage?: string;
 
   /**
-   * Suggested messages to display as quick actions
+   * Suggested messages to display as quick actions.
+   * Accepts plain strings or SuggestedMessage objects with ReactNode content.
    */
-  suggestedMessages?: string[];
+  suggestedMessages?: (string | SuggestedMessage)[];
 
   /**
    * Enable file uploads
@@ -412,7 +424,7 @@ export interface ChatMessagesProps {
   allMessages: ChatMessage[];
   isLoading: boolean;
   welcomeMessage?: string;
-  suggestedMessages?: string[];
+  suggestedMessages?: (string | SuggestedMessage)[];
   onSuggestedClick?: (message: string) => void;
   showToolTimeline?: boolean;
   toolRenderers?: Record<string, (input: any, output: any) => React.ReactNode>;

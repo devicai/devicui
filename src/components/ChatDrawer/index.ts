@@ -14,5 +14,6 @@ export type {
   ToolTimelineProps,
   AllowedFileTypes,
   ConversationSelectorProps,
+  SuggestedMessage,
 } from './ChatDrawer.types';
 export type { HandoffSubagentWidgetProps } from './HandoffSubagentWidget';

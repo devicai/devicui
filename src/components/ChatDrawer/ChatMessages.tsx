@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Markdown from "markdown-to-jsx";
 import { MessageActions } from "../Feedback";
 import { HandoffSubagentWidget } from "./HandoffSubagentWidget";
-import type { ChatMessagesProps } from "./ChatDrawer.types";
+import type { ChatMessagesProps, SuggestedMessage } from "./ChatDrawer.types";
 import type { ChatMessage, ToolGroupConfig, ToolGroupCall } from "../../api/types";
 import type { FeedbackState } from "../Feedback";
 import { segmentToolCalls } from "../../utils/toolGroups";
@@ -417,15 +417,20 @@ export function ChatMessages({
             )}
             {suggestedMessages && suggestedMessages.length > 0 && (
               <div className="devic-suggested-messages">
-                {suggestedMessages.map((msg, idx) => (
-                  <button
-                    key={idx}
-                    className="devic-suggested-btn"
-                    onClick={() => onSuggestedClick?.(msg)}
-                  >
-                    {msg}
-                  </button>
-                ))}
+                {suggestedMessages.map((msg, idx) => {
+                  const isObject = typeof msg === "object" && msg !== null;
+                  const content = isObject ? (msg as SuggestedMessage).content : msg;
+                  const message = isObject ? (msg as SuggestedMessage).message : (msg as string);
+                  return (
+                    <button
+                      key={idx}
+                      className="devic-suggested-btn"
+                      onClick={() => onSuggestedClick?.(message)}
+                    >
+                      {content}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

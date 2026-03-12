@@ -15,6 +15,7 @@ export type {
   AllowedFileTypes,
   ConversationSelectorProps,
   HandoffSubagentWidgetProps,
+  SuggestedMessage,
 } from './components/ChatDrawer';
 
 // ThreadStateTag
