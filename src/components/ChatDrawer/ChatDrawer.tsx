@@ -50,6 +50,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   debug: false,
   persistConversation: false,
   customPromptBox: undefined as any,
+  conversationPreview: 'date',
 };
 
 /**
@@ -450,6 +451,7 @@ function ChatDrawerInner({
             apiKey={apiKey}
             baseUrl={baseUrl}
             tenantId={tenantId}
+            conversationPreview={mergedOptions.conversationPreview}
           />
           <div className="devic-drawer-header-actions">
             <button

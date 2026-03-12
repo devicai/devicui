@@ -14,6 +14,7 @@ export function ConversationSelector({
   apiKey: propsApiKey,
   baseUrl: propsBaseUrl,
   tenantId: propsTenantId,
+  conversationPreview,
 }: ConversationSelectorProps): JSX.Element {
   const context = useOptionalDevicContext();
   const apiKey = propsApiKey || context?.apiKey;
@@ -26,6 +27,8 @@ export function ConversationSelector({
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [firstMessages, setFirstMessages] = useState<Record<string, string | null>>({});
+  const fetchedChatsRef = useRef<Set<string>>(new Set());
   const dropdownRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const clientRef = useRef<DevicApiClient | null>(null);
@@ -85,6 +88,31 @@ export function ConversationSelector({
     }
   }, [loadingMore, hasMore, conversations.length, fetchConversations]);
 
+  // Lazy-fetch first user message for unnamed conversations
+  useEffect(() => {
+    if (conversationPreview !== 'firstMessage' || !clientRef.current || !isOpen) return;
+    const unnamed = conversations.filter((c) => !c.name && !fetchedChatsRef.current.has(c.chatUID));
+    if (unnamed.length === 0) return;
+
+    // Mark as loading (null = loading)
+    unnamed.forEach((c) => fetchedChatsRef.current.add(c.chatUID));
+    setFirstMessages((prev) => {
+      const next = { ...prev };
+      unnamed.forEach((c) => { next[c.chatUID] = null; });
+      return next;
+    });
+
+    unnamed.forEach((conv) => {
+      clientRef.current!.getChatHistory(assistantId, conv.chatUID, { tenantId }).then((history) => {
+        const firstUserMsg = history.chatContent?.find((m) => m.role === 'user');
+        const text = firstUserMsg?.content?.message || '';
+        setFirstMessages((prev) => ({ ...prev, [conv.chatUID]: text || '' }));
+      }).catch(() => {
+        setFirstMessages((prev) => ({ ...prev, [conv.chatUID]: '' }));
+      });
+    });
+  }, [conversations, isOpen, conversationPreview, assistantId, tenantId]);
+
   // Close on outside click
   useEffect(() => {
     if (!isOpen) return;
@@ -97,14 +125,31 @@ export function ConversationSelector({
     return () => document.removeEventListener('mousedown', handler);
   }, [isOpen]);
 
+  const getConversationLabel = (conv: ConversationSummary): string => {
+    if (conv.name) return conv.name;
+    if (conversationPreview === 'firstMessage') {
+      const msg = firstMessages[conv.chatUID];
+      if (msg === null) return '...';
+      if (msg) return msg;
+    }
+    return formatDate(conv.creationTimestampMs);
+  };
+
   const currentConv = conversations.find((c) => c.chatUID === currentChatUid);
   const currentName = currentConv
-    ? currentConv.name || formatDate(currentConv.creationTimestampMs)
+    ? getConversationLabel(currentConv)
     : 'New chat';
 
-  const filtered = conversations.filter((c) =>
-    !search || (c.name || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = conversations.filter((c) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    if ((c.name || '').toLowerCase().includes(q)) return true;
+    if (conversationPreview === 'firstMessage') {
+      const msg = firstMessages[c.chatUID];
+      if (msg && msg.toLowerCase().includes(q)) return true;
+    }
+    return false;
+  });
 
   return (
     <div className="devic-conversation-selector" ref={dropdownRef}>
@@ -158,7 +203,7 @@ export function ConversationSelector({
                     </span>
                   )}
                   <span className="devic-conversation-item-name">
-                    {conv.name || formatDate(conv.creationTimestampMs)}
+                    {getConversationLabel(conv)}
                   </span>
                   <span className="devic-conversation-item-date">
                     {formatDate(conv.lastEditTimestampMs || conv.creationTimestampMs)}

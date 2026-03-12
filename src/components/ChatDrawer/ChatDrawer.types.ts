@@ -267,6 +267,14 @@ export interface ChatDrawerOptions {
    * ```
    */
   customPromptBox?: (props: CustomPromptBoxProps) => React.ReactNode;
+
+  /**
+   * What to show as fallback when a conversation has no name.
+   * - 'date': show the creation date/time (default)
+   * - 'firstMessage': show the first user message truncated with ellipsis
+   * @default 'date'
+   */
+  conversationPreview?: 'date' | 'firstMessage';
 }
 
 /**
@@ -283,6 +291,7 @@ export interface ConversationSelectorProps {
   apiKey?: string;
   baseUrl?: string;
   tenantId?: string;
+  conversationPreview?: 'date' | 'firstMessage';
 }
 
 export interface ChatDrawerProps {
