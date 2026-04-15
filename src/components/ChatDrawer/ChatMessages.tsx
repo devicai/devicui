@@ -50,8 +50,8 @@ function groupMessages(
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
 
-    // Skip developer and tool response messages
-    if (msg.role === "developer" || msg.role === "tool") {
+    // Skip developer, system and tool response messages
+    if (msg.role === "developer" || msg.role === "system" || msg.role === "tool") {
       continue;
     }
 

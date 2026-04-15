@@ -39,7 +39,7 @@ export interface ToolCall {
  */
 export interface ChatMessage {
   uid: string;
-  role: 'user' | 'assistant' | 'developer' | 'tool';
+  role: 'user' | 'assistant' | 'developer' | 'system' | 'tool';
   content: MessageContent;
   timestamp: number;
   chatUid?: string;
