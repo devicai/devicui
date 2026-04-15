@@ -375,23 +375,35 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       onUpdate: async (data: RealtimeChatHistory) => {
         logRef.current.log('[useDevicChat] onUpdate called, status:', data.status);
 
-        // Merge realtime data with optimistic messages
+        // Merge realtime data with optimistic messages.
+        // When a server user message matches an optimistic one by text, adopt the
+        // optimistic uid so React's key stays stable (avoids unmount/remount flicker).
         setMessages((prev) => {
-          const realtimeUIDs = new Set(data.chatHistory.map((m) => m.uid));
-          const realtimeUserMessages = new Set(
-            data.chatHistory
-              .filter((m) => m.role === 'user')
-              .map((m) => m.content?.message)
+          const normalize = (t?: string) => (t ?? '').trim();
+          const optimisticUserByText = new Map(
+            prev
+              .filter((m) => m.role === 'user' && m.uid.startsWith('temp-'))
+              .map((m) => [normalize(m.content?.message), m.uid])
           );
 
-          // Keep optimistic messages not yet in realtime data
-          const optimistic = prev.filter((m) => {
-            if (realtimeUIDs.has(m.uid)) return false;
-            if (m.role === 'user' && realtimeUserMessages.has(m.content?.message)) return false;
-            return true;
+          const adoptedTempUids = new Set<string>();
+          const merged = data.chatHistory.map((m) => {
+            if (m.role === 'user') {
+              const tempUid = optimisticUserByText.get(normalize(m.content?.message));
+              if (tempUid) {
+                adoptedTempUids.add(tempUid);
+                return { ...m, uid: tempUid };
+              }
+            }
+            return m;
           });
 
-          return [...data.chatHistory, ...optimistic];
+          const mergedUIDs = new Set(merged.map((m) => m.uid));
+          const optimistic = prev.filter(
+            (m) => !mergedUIDs.has(m.uid) && !adoptedTempUids.has(m.uid)
+          );
+
+          return [...merged, ...optimistic];
         });
         setStatus(data.status);
 
