@@ -62,6 +62,8 @@ export type {
   UsePollingResult,
   UseModelInterfaceOptions,
   UseModelInterfaceResult,
+  PendingWidgetCall,
+  HandleToolCallsResult,
 } from './hooks';
 
 // API Client
@@ -88,6 +90,8 @@ export type {
   AssistantSpecialization,
   ModelInterfaceTool,
   ModelInterfaceToolSchema,
+  ResponseWidgetProps,
+  ResponseWidgetConfig,
   PreviousMessage,
   ApiError,
   ConversationSummary,

@@ -1028,6 +1028,24 @@
   margin-bottom: 4px;
 }
 
+/* Interactive response widgets */
+.devic-inline-widgets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
+}
+.devic-inline-widget {
+  background: var(--devic-bg-secondary);
+  border: 1px solid var(--devic-border);
+  border-radius: var(--devic-radius);
+  padding: 12px;
+}
+.devic-input-widget {
+  width: 100%;
+  padding: 8px;
+}
+
 /* Responsive */
 @media (max-width: 480px) {
   .devic-chat-drawer {

@@ -387,6 +387,9 @@ export function ChatMessages({
   toolGroups,
   apiKey,
   baseUrl,
+  pendingInlineWidgets,
+  onSubmitWidget,
+  onCancelWidget,
 }: ChatMessagesProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLengthRef = useRef(messages.length);
@@ -506,6 +509,28 @@ export function ChatMessages({
           </div>
         );
       })}
+
+      {pendingInlineWidgets && pendingInlineWidgets.length > 0 && (
+        <div className="devic-inline-widgets">
+          {pendingInlineWidgets.map((wc) => {
+            const WidgetComponent = wc.widget.component;
+            return (
+              <div
+                key={wc.toolCall.id}
+                className="devic-inline-widget"
+                data-tool-name={wc.toolName}
+              >
+                <WidgetComponent
+                  toolCall={wc.toolCall}
+                  params={wc.params}
+                  submit={(response) => onSubmitWidget?.(wc.toolCall.id, response)}
+                  cancel={(reason) => onCancelWidget?.(wc.toolCall.id, reason)}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {showLoadingDots &&
         (loadingIndicator ? (

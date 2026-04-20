@@ -5,7 +5,22 @@ import type {
   ToolCall,
   ToolCallResponse,
   ChatMessage,
+  ResponseWidgetConfig,
 } from '../api/types';
+
+export interface PendingWidgetCall {
+  toolCall: ToolCall;
+  params: any;
+  widget: ResponseWidgetConfig;
+  toolName: string;
+}
+
+export interface HandleToolCallsResult {
+  /** Responses ready to send back to the API (from callback-based tools) */
+  responses: ToolCallResponse[];
+  /** Tool calls that require user interaction via a response widget */
+  widgetCalls: PendingWidgetCall[];
+}
 
 export interface UseModelInterfaceOptions {
   /**
@@ -41,9 +56,21 @@ export interface UseModelInterfaceResult {
   isClientTool: (toolName: string) => boolean;
 
   /**
-   * Handle tool calls from the model, returns tool responses
+   * Check if a tool has a response widget (user-driven) instead of a callback
    */
-  handleToolCalls: (toolCalls: ToolCall[]) => Promise<ToolCallResponse[]>;
+  hasResponseWidget: (toolName: string) => boolean;
+
+  /**
+   * Get the tool definition by name
+   */
+  getTool: (toolName: string) => ModelInterfaceTool | undefined;
+
+  /**
+   * Handle tool calls from the model.
+   * Callback-based tools are executed immediately and their responses returned.
+   * Widget-based tools are returned as pending widget calls for user interaction.
+   */
+  handleToolCalls: (toolCalls: ToolCall[]) => Promise<HandleToolCallsResult>;
 
   /**
    * Process messages and extract pending tool calls that need client handling
@@ -104,39 +131,60 @@ export function useModelInterface(
     [toolMap]
   );
 
-  // Handle tool calls and execute client-side tools
+  const hasResponseWidget = useCallback(
+    (toolName: string): boolean => Boolean(toolMap.get(toolName)?.responseWidget),
+    [toolMap]
+  );
+
+  const getTool = useCallback(
+    (toolName: string): ModelInterfaceTool | undefined => toolMap.get(toolName),
+    [toolMap]
+  );
+
+  // Handle tool calls: execute callback tools, queue widget tools for user input
   const handleToolCalls = useCallback(
-    async (toolCalls: ToolCall[]): Promise<ToolCallResponse[]> => {
+    async (toolCalls: ToolCall[]): Promise<HandleToolCallsResult> => {
       const responses: ToolCallResponse[] = [];
+      const widgetCalls: PendingWidgetCall[] = [];
 
       for (const toolCall of toolCalls) {
         const toolName = toolCall.function.name;
         const tool = toolMap.get(toolName);
 
-        if (!tool) {
-          // Not a client-side tool, skip
+        if (!tool) continue;
+
+        let params: any = {};
+        try {
+          params = JSON.parse(toolCall.function.arguments || '{}');
+        } catch {
+          // Keep empty params if parsing fails
+        }
+
+        onToolExecute?.(toolName, params);
+
+        if (tool.responseWidget) {
+          widgetCalls.push({
+            toolCall,
+            params,
+            widget: tool.responseWidget,
+            toolName,
+          });
+          continue;
+        }
+
+        if (!tool.callback) {
+          // Neither callback nor widget — respond with error so the model can continue
+          responses.push({
+            tool_call_id: toolCall.id,
+            content: { error: `Tool "${toolName}" has no callback or responseWidget` },
+            role: 'tool',
+          });
           continue;
         }
 
         try {
-          // Parse arguments
-          let params: any = {};
-          try {
-            params = JSON.parse(toolCall.function.arguments || '{}');
-          } catch {
-            // Keep empty params if parsing fails
-          }
-
-          // Notify about execution
-          onToolExecute?.(toolName, params);
-
-          // Execute the tool callback
           const result = await tool.callback(params);
-
-          // Notify about completion
           onToolComplete?.(toolName, result);
-
-          // Add response
           responses.push({
             tool_call_id: toolCall.id,
             content: result,
@@ -144,11 +192,7 @@ export function useModelInterface(
           });
         } catch (err) {
           const error = err instanceof Error ? err : new Error(String(err));
-
-          // Notify about error
           onToolError?.(toolName, error);
-
-          // Add error response
           responses.push({
             tool_call_id: toolCall.id,
             content: { error: error.message },
@@ -157,7 +201,7 @@ export function useModelInterface(
         }
       }
 
-      return responses;
+      return { responses, widgetCalls };
     },
     [toolMap, onToolExecute, onToolComplete, onToolError]
   );
@@ -205,6 +249,8 @@ export function useModelInterface(
   return {
     toolSchemas,
     isClientTool,
+    hasResponseWidget,
+    getTool,
     handleToolCalls,
     extractPendingToolCalls,
   };

@@ -29,7 +29,26 @@ export function ChatInput({
   isProcessing = false,
   onStop,
   stopButtonContent,
+  pendingInputWidget,
+  onSubmitWidget,
+  onCancelWidget,
 }: ChatInputProps): JSX.Element {
+  // When a widget is pending as 'input', render it in place of the textarea
+  if (pendingInputWidget) {
+    const WidgetComponent = pendingInputWidget.widget.component;
+    return (
+      <div className="devic-input-area" data-widget-mode="input">
+        <div className="devic-input-widget" data-tool-name={pendingInputWidget.toolName}>
+          <WidgetComponent
+            toolCall={pendingInputWidget.toolCall}
+            params={pendingInputWidget.params}
+            submit={(response) => onSubmitWidget?.(pendingInputWidget.toolCall.id, response)}
+            cancel={(reason) => onCancelWidget?.(pendingInputWidget.toolCall.id, reason)}
+          />
+        </div>
+      </div>
+    );
+  }
   const [message, setMessage] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);

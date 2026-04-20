@@ -215,6 +215,20 @@ function ChatDrawerInner({
     },
   }), [handleOpen, handleClose, handleToggle, chat]);
 
+  // Partition pending widget calls by render mode
+  const { inlineWidgets, inputWidget } = useMemo(() => {
+    const inline: typeof chat.pendingWidgetCalls = [];
+    let input: typeof chat.pendingWidgetCalls[number] | null = null;
+    for (const wc of chat.pendingWidgetCalls) {
+      if (wc.widget.render === 'input' && !input) {
+        input = wc;
+      } else {
+        inline.push(wc);
+      }
+    }
+    return { inlineWidgets: inline, inputWidget: input };
+  }, [chat.pendingWidgetCalls]);
+
   // Handle send message
   const handleSend = useCallback(
     (message: string, files?: File[]) => {
@@ -504,6 +518,9 @@ function ChatDrawerInner({
           toolGroups={mergedOptions.toolGroups}
           apiKey={resolvedApiKey}
           baseUrl={resolvedBaseUrl}
+          pendingInlineWidgets={inlineWidgets}
+          onSubmitWidget={chat.submitWidgetResponse}
+          onCancelWidget={chat.cancelWidgetCall}
         />
 
         {/* Input */}
@@ -519,16 +536,25 @@ function ChatDrawerInner({
         ) : (
           <ChatInput
             onSend={handleSend}
-            disabled={chat.isLoading || chat.handedOff}
+            disabled={chat.isLoading || chat.handedOff || inlineWidgets.length > 0}
             placeholder={mergedOptions.inputPlaceholder}
             enableFileUploads={mergedOptions.enableFileUploads}
             allowedFileTypes={mergedOptions.allowedFileTypes}
             maxFileSize={mergedOptions.maxFileSize}
             sendButtonContent={mergedOptions.sendButtonContent}
-            disabledMessage={chat.handedOff ? 'Waiting for subagent to complete' : undefined}
+            disabledMessage={
+              chat.handedOff
+                ? 'Waiting for subagent to complete'
+                : inlineWidgets.length > 0
+                  ? 'Waiting for tool response'
+                  : undefined
+            }
             isProcessing={chat.isLoading && !chat.handedOff}
             onStop={chat.stopChat}
             stopButtonContent={mergedOptions.stopButtonContent}
+            pendingInputWidget={inputWidget}
+            onSubmitWidget={chat.submitWidgetResponse}
+            onCancelWidget={chat.cancelWidgetCall}
           />
         )}
       </div>

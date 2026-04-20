@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useOptionalDevicContext } from '../provider';
 import { DevicApiClient } from '../api/client';
 import { usePolling } from './usePolling';
-import { useModelInterface } from './useModelInterface';
+import { useModelInterface, type PendingWidgetCall } from './useModelInterface';
 import { createLogger } from '../utils/logger';
 import type {
   ChatMessage,
@@ -167,6 +167,23 @@ export interface UseDevicChatResult {
    * Stops polling and resets loading state.
    */
   stopChat: () => void;
+
+  /**
+   * Pending tool calls that require user interaction via a response widget
+   */
+  pendingWidgetCalls: PendingWidgetCall[];
+
+  /**
+   * Submit a response for a pending widget tool call.
+   * Sends the response to the API and resumes the conversation.
+   */
+  submitWidgetResponse: (toolCallId: string, response: any) => Promise<void>;
+
+  /**
+   * Cancel a pending widget tool call.
+   * Sends an error response so the model can continue.
+   */
+  cancelWidgetCall: (toolCallId: string, reason?: string) => Promise<void>;
 }
 
 /**
@@ -355,6 +372,13 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     onToolExecute: onToolCall,
   });
 
+  // Pending widget calls awaiting user interaction
+  const [pendingWidgetCalls, setPendingWidgetCalls] = useState<PendingWidgetCall[]>([]);
+  const pendingWidgetCallsRef = useRef<PendingWidgetCall[]>([]);
+  useEffect(() => {
+    pendingWidgetCallsRef.current = pendingWidgetCalls;
+  }, [pendingWidgetCalls]);
+
   // Polling hook - uses callbacks for side effects, return value not needed
   logRef.current.log('[useDevicChat] Render - shouldPoll:', shouldPoll, 'chatUid:', chatUid);
   usePolling(
@@ -464,16 +488,31 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       if (pendingCalls.length === 0) return;
 
       try {
-        // Execute client-side tools
-        const responses = await handleToolCalls(pendingCalls);
+        // Execute client-side tools (partitioned into immediate responses and widget-driven)
+        const { responses, widgetCalls } = await handleToolCalls(pendingCalls);
+
+        // Queue widget-driven tool calls for user interaction
+        if (widgetCalls.length > 0) {
+          const existingIds = new Set(pendingWidgetCallsRef.current.map((c) => c.toolCall.id));
+          const deduped = widgetCalls.filter((c) => !existingIds.has(c.toolCall.id));
+          const next = [...pendingWidgetCallsRef.current, ...deduped];
+          pendingWidgetCallsRef.current = next;
+          setPendingWidgetCalls(next);
+          // Stop polling while we wait for the user to submit the widget response.
+          // The widget submission will re-trigger polling via submitWidgetResponse.
+          setShouldPoll(false);
+          setIsLoading(false);
+        }
 
         if (responses.length > 0) {
           // Send tool responses back to the API
           await clientRef.current.sendToolResponses(assistantId, chatUid, responses);
 
-          // Resume polling
-          setShouldPoll(true);
-          setIsLoading(true);
+          // Only resume polling if no widgets are blocking
+          if (widgetCalls.length === 0) {
+            setShouldPoll(true);
+            setIsLoading(true);
+          }
         }
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
@@ -632,6 +671,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     setIsLoading(false);
     setStatus('idle');
     setError(null);
+    pendingWidgetCallsRef.current = [];
+    setPendingWidgetCalls([]);
   }, []);
 
   // Load existing chat
@@ -648,6 +689,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       setShouldPoll(false);
       setHandedOff(false);
       setHandedOffSubThreadId(null);
+      pendingWidgetCallsRef.current = [];
+    setPendingWidgetCalls([]);
       if (handoffPollRef.current) {
         clearInterval(handoffPollRef.current);
         handoffPollRef.current = null;
@@ -724,6 +767,52 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     setShouldPoll(true);
   }, []);
 
+  // Submit a response for a pending widget tool call
+  const submitWidgetResponse = useCallback(
+    async (toolCallId: string, response: any) => {
+      const uid = chatUidRef.current;
+      if (!clientRef.current || !uid) return;
+
+      // Check pending widgets via ref (state updates are async)
+      const current = pendingWidgetCallsRef.current;
+      const found = current.some((c) => c.toolCall.id === toolCallId);
+      if (!found) return;
+
+      // Remove the widget call from pending list
+      const remaining = current.filter((c) => c.toolCall.id !== toolCallId);
+      pendingWidgetCallsRef.current = remaining;
+      setPendingWidgetCalls(remaining);
+
+      try {
+        logRef.current.log('[useDevicChat] sending widget tool response', toolCallId);
+        await clientRef.current.sendToolResponses(assistantId, uid, [
+          { tool_call_id: toolCallId, content: response, role: 'tool' },
+        ]);
+        // Resume polling only if no more widget calls are blocking
+        if (remaining.length === 0) {
+          setShouldPoll(true);
+          setIsLoading(true);
+        }
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        logRef.current.error('[useDevicChat] submitWidgetResponse failed', error);
+        setError(error);
+        onErrorRef.current?.(error);
+      }
+    },
+    [assistantId]
+  );
+
+  // Cancel a pending widget tool call (sends an error response to the model)
+  const cancelWidgetCall = useCallback(
+    async (toolCallId: string, reason?: string) => {
+      await submitWidgetResponse(toolCallId, {
+        error: reason || 'User cancelled the tool call',
+      });
+    },
+    [submitWidgetResponse]
+  );
+
   // Stop current conversation — calls the server-side stop endpoint
   // then stops polling and resets loading state.
   const stopChat = useCallback(async () => {
@@ -755,5 +844,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     loadChat,
     onHandoffCompleted,
     stopChat,
+    pendingWidgetCalls,
+    submitWidgetResponse,
+    cancelWidgetCall,
   };
 }
