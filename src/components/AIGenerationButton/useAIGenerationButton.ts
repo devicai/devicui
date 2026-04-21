@@ -208,7 +208,7 @@ export function useAIGenerationButton(
       if (pendingCalls.length === 0) return;
 
       try {
-        const responses = await executeToolCalls(pendingCalls);
+        const { responses } = await executeToolCalls(pendingCalls);
         if (responses.length > 0) {
           await clientRef.current.sendToolResponses(assistantId, chatUid, responses);
           setShouldPoll(true);

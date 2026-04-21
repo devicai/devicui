@@ -73,12 +73,57 @@ export interface ModelInterfaceToolSchema {
 }
 
 /**
- * Model interface tool definition for client-side tools
+ * Props passed to a response widget component.
+ * The widget is responsible for collecting the user's response and
+ * calling `submit` with the payload to resolve the tool call.
+ */
+export interface ResponseWidgetProps {
+  /** The tool call this widget is responding to */
+  toolCall: ToolCall;
+  /** Parsed arguments from the tool call */
+  params: any;
+  /** Submit the tool response payload (sent as the tool call result to the model) */
+  submit: (response: any) => void;
+  /** Cancel the tool call. Sends an error response so the model can continue. */
+  cancel?: (reason?: string) => void;
+  /** Whether the widget is currently submitting */
+  isSubmitting?: boolean;
+}
+
+/**
+ * Interactive response widget configuration for a client-side tool.
+ *
+ * When the model calls a tool configured with a `responseWidget`, the
+ * widget is rendered in the chat UI instead of executing a callback.
+ * The user interacts with the widget, which calls `submit(response)` to
+ * define the tool response sent back to the model.
+ *
+ * - `render: 'inline'` renders the widget in the message thread at the
+ *   position of the tool call. The text input remains enabled.
+ * - `render: 'input'` replaces the chat input area with the widget
+ *   while it is pending. The text input is disabled until submission.
+ */
+export interface ResponseWidgetConfig {
+  /** Where to render the widget */
+  render: 'inline' | 'input';
+  /** The widget component */
+  component: React.ComponentType<ResponseWidgetProps>;
+}
+
+/**
+ * Model interface tool definition for client-side tools.
+ *
+ * A tool must provide either a `callback` (executed automatically when
+ * the model invokes the tool) or a `responseWidget` (renders UI for
+ * the user to produce the tool response). Providing both is an error.
  */
 export interface ModelInterfaceTool {
   toolName: string;
   schema: ModelInterfaceToolSchema;
-  callback: (params: any) => Promise<any> | any;
+  /** Executed automatically when the model calls this tool */
+  callback?: (params: any) => Promise<any> | any;
+  /** Interactive widget that collects the user's tool response */
+  responseWidget?: ResponseWidgetConfig;
 }
 
 /**

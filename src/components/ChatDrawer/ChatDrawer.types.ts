@@ -1,4 +1,5 @@
 import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig } from '../../api/types';
+import type { PendingWidgetCall } from '../../hooks/useModelInterface';
 
 /**
  * A suggested message displayed as a quick action button.
@@ -453,6 +454,12 @@ export interface ChatMessagesProps {
   baseUrl?: string;
   /** Tool group configurations for grouped rendering */
   toolGroups?: ToolGroupConfig[];
+  /** Pending widget tool calls to render inline in the message thread */
+  pendingInlineWidgets?: PendingWidgetCall[];
+  /** Called when a widget submits its response */
+  onSubmitWidget?: (toolCallId: string, response: any) => void;
+  /** Called when a widget cancels */
+  onCancelWidget?: (toolCallId: string, reason?: string) => void;
 }
 
 /**
@@ -474,6 +481,12 @@ export interface ChatInputProps {
   onStop?: () => void;
   /** Custom stop button content */
   stopButtonContent?: React.ReactNode;
+  /** Pending widget tool call to render replacing the input (render: 'input') */
+  pendingInputWidget?: PendingWidgetCall | null;
+  /** Called when the input widget submits */
+  onSubmitWidget?: (toolCallId: string, response: any) => void;
+  /** Called when the input widget cancels */
+  onCancelWidget?: (toolCallId: string, reason?: string) => void;
 }
 
 /**

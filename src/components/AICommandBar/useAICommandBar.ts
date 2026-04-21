@@ -469,7 +469,7 @@ export function useAICommandBar(options: UseAICommandBarOptions): UseAICommandBa
       if (pendingCalls.length === 0) return;
 
       try {
-        const responses = await executeToolCalls(pendingCalls);
+        const { responses } = await executeToolCalls(pendingCalls);
         if (responses.length > 0) {
           await clientRef.current.sendToolResponses(assistantId, chatUid, responses);
           setShouldPoll(true);
