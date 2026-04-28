@@ -32,6 +32,8 @@ export function ChatInput({
   pendingInputWidget,
   onSubmitWidget,
   onCancelWidget,
+  references,
+  onRemoveReference,
 }: ChatInputProps): JSX.Element {
   // When a widget is pending as 'input', render it in place of the textarea
   if (pendingInputWidget) {
@@ -130,6 +132,24 @@ export function ChatInput({
         <div className="devic-input-disabled-notice">
           <WaitingIcon />
           {disabledMessage}
+        </div>
+      )}
+      {references && references.length > 0 && (
+        <div className="devic-reference-chips">
+          {references.map((ref) => (
+            <div key={ref.id} className="devic-reference-chip" title={ref.label}>
+              <ReferenceIcon />
+              <span className="devic-reference-chip-label">"{ref.label}"</span>
+              <button
+                type="button"
+                className="devic-reference-chip-remove"
+                onClick={() => onRemoveReference?.(ref.id)}
+                aria-label="Quitar referencia"
+              >
+                &times;
+              </button>
+            </div>
+          ))}
         </div>
       )}
       {files.length > 0 && (
@@ -308,6 +328,27 @@ function StopIcon(): JSX.Element {
       fill="currentColor"
     >
       <rect x="4" y="4" width="16" height="16" rx="2" />
+    </svg>
+  );
+}
+
+/**
+ * Reference icon (corner-down-right arrow)
+ */
+function ReferenceIcon(): JSX.Element {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="15 10 20 15 15 20" />
+      <path d="M4 4v7a4 4 0 0 0 4 4h12" />
     </svg>
   );
 }

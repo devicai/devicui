@@ -1014,6 +1014,84 @@
   color: var(--devic-text-muted);
 }
 
+/* Reference chips inside a user message bubble (rendered above the bubble) */
+.devic-message[data-role='user'] .devic-message-references {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+  justify-content: flex-end;
+}
+
+.devic-message-reference-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--devic-bg-secondary);
+  border: 1px solid var(--devic-border);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--devic-text);
+  max-width: 220px;
+}
+
+.devic-message-reference-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--devic-primary);
+  font-weight: 500;
+}
+
+/* Reference chips (from AIElementWrapper, in the prompt input area) */
+.devic-reference-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+}
+
+.devic-reference-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 8px;
+  background: var(--devic-bg-secondary);
+  border: 1px solid var(--devic-border);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--devic-text);
+  max-width: 220px;
+}
+
+.devic-reference-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--devic-primary);
+  font-weight: 500;
+}
+
+.devic-reference-chip-remove {
+  background: transparent;
+  border: none;
+  color: var(--devic-text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+}
+
+.devic-reference-chip-remove:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--devic-text);
+}
+
 /* Disabled input notice */
 .devic-input-disabled-notice {
   display: flex;

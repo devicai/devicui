@@ -1,5 +1,6 @@
 import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig } from '../../api/types';
 import type { PendingWidgetCall } from '../../hooks/useModelInterface';
+import type { AIReference } from '../../provider/types';
 
 /**
  * A suggested message displayed as a quick action button.
@@ -25,6 +26,12 @@ export interface CustomPromptBoxProps {
   isLoading: boolean;
   /** Clear the current conversation and start a new one */
   newConversation: () => void;
+  /** Active references created by AIElementWrapper components */
+  references: AIReference[];
+  /** Remove a single reference by ID */
+  removeReference: (id: string) => void;
+  /** Clear all references */
+  clearReferences: () => void;
 }
 
 /**
@@ -487,6 +494,10 @@ export interface ChatInputProps {
   onSubmitWidget?: (toolCallId: string, response: any) => void;
   /** Called when the input widget cancels */
   onCancelWidget?: (toolCallId: string, reason?: string) => void;
+  /** Active references displayed as chips above the textarea */
+  references?: AIReference[];
+  /** Called when the user removes a reference chip */
+  onRemoveReference?: (id: string) => void;
 }
 
 /**
