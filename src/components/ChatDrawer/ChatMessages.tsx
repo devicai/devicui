@@ -460,11 +460,22 @@ export function ChatMessages({
         }
 
         const message = item.message;
-        const messageText = message.content?.message;
+        const rawText = message.content?.message;
         const hasFiles =
           message.content?.files && message.content.files.length > 0;
         const isAssistant = message.role === "assistant";
         const currentFeedback = feedbackMap?.get(message.uid) || "none";
+
+        // Extract reference chips from user messages (sent by AIElementWrapper).
+        // The ChatDrawer prefixes user messages with:
+        //   Elemento referenciado: "label1", "label2"\n\n<actual message>
+        // We render the labels as chips and only display the actual message
+        // text inside the bubble.
+        const parsed = !isAssistant && rawText
+          ? parseReferencedPrefix(rawText)
+          : null;
+        const messageText = parsed ? parsed.cleanContent : rawText;
+        const refLabels = parsed ? parsed.references : [];
 
         return (
           <div
@@ -472,6 +483,16 @@ export function ChatMessages({
             className="devic-message"
             data-role={message.role}
           >
+            {refLabels.length > 0 && (
+              <div className="devic-message-references">
+                {refLabels.map((lbl, i) => (
+                  <span key={i} className="devic-message-reference-chip" title={lbl}>
+                    <ReferenceChipIcon />
+                    <span className="devic-message-reference-chip-label">"{lbl}"</span>
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="devic-message-bubble">
               {messageText && isAssistant ? (
                 <Markdown options={{ overrides: markdownOverrides }}>
@@ -632,4 +653,42 @@ function FileIcon(): JSX.Element {
       <polyline points="14,2 14,8 20,8" />
     </svg>
   );
+}
+
+function ReferenceChipIcon(): JSX.Element {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="15 10 20 15 15 20" />
+      <path d="M4 4v7a4 4 0 0 0 4 4h12" />
+    </svg>
+  );
+}
+
+/**
+ * Extracts the "Elemento referenciado: ..." prefix that ChatDrawer prepends
+ * to user messages when AIElementWrapper references are active. Returns the
+ * parsed labels and the message text without the prefix. Returns null when
+ * the content does not start with the prefix.
+ */
+const REFERENCE_PREFIX_RE =
+  /^Elemento referenciado: ((?:"[^"]+")(?:, "[^"]+")*)\n\n([\s\S]*)$/;
+
+function parseReferencedPrefix(
+  content: string
+): { references: string[]; cleanContent: string } | null {
+  const m = content.match(REFERENCE_PREFIX_RE);
+  if (!m) return null;
+  const labels = (m[1].match(/"([^"]+)"/g) || []).map((s) =>
+    s.slice(1, -1)
+  );
+  return { references: labels, cleanContent: m[2] };
 }

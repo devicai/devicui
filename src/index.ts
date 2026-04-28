@@ -1,6 +1,12 @@
 // Provider
 export { DevicProvider, DevicContext, useDevicContext, useOptionalDevicContext } from './provider';
-export type { DevicProviderConfig, DevicProviderProps, DevicContextValue } from './provider';
+export type {
+  DevicProviderConfig,
+  DevicProviderProps,
+  DevicContextValue,
+  AIReference,
+  DrawerRegistration,
+} from './provider';
 
 // Components
 export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget } from './components/ChatDrawer';
@@ -42,6 +48,17 @@ export type {
   AIGenerationButtonMode,
   GenerationResult,
 } from './components/AIGenerationButton';
+
+// AIElementWrapper
+export { AIElementWrapper, useAIElementWrapper } from './components/AIElementWrapper';
+export type {
+  AIElementWrapperProps,
+  AIElementWrapperOptions,
+  AIElementWrapperHandle,
+  AIElementWrapperBehavior,
+  AIElementWrapperShowOn,
+  AIElementWrapperPlacement,
+} from './components/AIElementWrapper';
 
 // AutocompleteInput - WIP, not ready for public use
 // export { AutocompleteInput, useAutocomplete } from './components/AutocompleteInput';

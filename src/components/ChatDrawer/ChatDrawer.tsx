@@ -215,6 +215,18 @@ function ChatDrawerInner({
     },
   }), [handleOpen, handleClose, handleToggle, chat]);
 
+  // Register this drawer in the DevicProvider so AIElementWrapper can open it
+  useEffect(() => {
+    if (!context?.registerDrawer) return;
+    const unregister = context.registerDrawer({
+      open: handleOpen,
+      close: handleClose,
+      toggle: handleToggle,
+      sendMessage: (message: string) => chat.sendMessage(message),
+    });
+    return unregister;
+  }, [context, handleOpen, handleClose, handleToggle, chat]);
+
   // Partition pending widget calls by render mode
   const { inlineWidgets, inputWidget } = useMemo(() => {
     const inline: typeof chat.pendingWidgetCalls = [];
@@ -229,12 +241,30 @@ function ChatDrawerInner({
     return { inlineWidgets: inline, inputWidget: input };
   }, [chat.pendingWidgetCalls]);
 
-  // Handle send message
+  // Active references from DevicProvider (created by AIElementWrapper)
+  const references = context?.references ?? [];
+  const removeReference = useCallback(
+    (id: string) => {
+      context?.removeReference(id);
+    },
+    [context]
+  );
+  const clearReferences = useCallback(() => {
+    context?.clearReferences();
+  }, [context]);
+
+  // Handle send message — prefix references and clear them after sending
   const handleSend = useCallback(
     (message: string, files?: File[]) => {
-      chat.sendMessage(message, { files });
+      let finalMessage = message;
+      if (references.length > 0) {
+        const labels = references.map((r) => `"${r.label}"`).join(', ');
+        finalMessage = `Elemento referenciado: ${labels}\n\n${message}`;
+      }
+      chat.sendMessage(finalMessage, { files });
+      if (references.length > 0) clearReferences();
     },
-    [chat]
+    [chat, references, clearReferences]
   );
 
   // Handle conversation selection
@@ -531,6 +561,9 @@ function ChatDrawerInner({
               stop: chat.stopChat,
               isLoading: chat.isLoading,
               newConversation: chat.clearChat,
+              references,
+              removeReference,
+              clearReferences,
             })}
           </div>
         ) : (
@@ -555,6 +588,8 @@ function ChatDrawerInner({
             pendingInputWidget={inputWidget}
             onSubmitWidget={chat.submitWidgetResponse}
             onCancelWidget={chat.cancelWidgetCall}
+            references={references}
+            onRemoveReference={removeReference}
           />
         )}
       </div>
