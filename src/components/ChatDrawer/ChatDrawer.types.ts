@@ -1,4 +1,4 @@
-import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig } from '../../api/types';
+import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig, WhisperTranscriptionResponse } from '../../api/types';
 import type { PendingWidgetCall } from '../../hooks/useModelInterface';
 import type { AIReference } from '../../provider/types';
 
@@ -18,8 +18,26 @@ export interface SuggestedMessage {
  * The component receives chat actions and state so it can drive the conversation.
  */
 export interface CustomPromptBoxProps {
-  /** Send a message (optionally with file attachments) */
-  sendMessage: (message: string, files?: File[]) => void;
+  /**
+   * Send a message (optionally with file attachments).
+   * Pass `meta.transcriptId` to link the message to a speech-to-text transcript
+   * obtained from `transcribeAudio`.
+   */
+  sendMessage: (
+    message: string,
+    files?: File[],
+    meta?: { transcriptId?: string },
+  ) => void;
+  /**
+   * Transcribe audio to text via the Devic /whisper endpoint.
+   * Accepts either a binary (Blob/File, e.g. a recording) or a download URL
+   * string. Returns the transcribed text and a `transcriptId` to pass to
+   * `sendMessage` so the conversation keeps a link to the audio.
+   */
+  transcribeAudio: (
+    audio: Blob | string,
+    options?: { language?: string; messageUid?: string; chatUid?: string },
+  ) => Promise<WhisperTranscriptionResponse>;
   /** Stop the current assistant processing */
   stop: () => void;
   /** Whether the assistant is currently processing / polling for a response */

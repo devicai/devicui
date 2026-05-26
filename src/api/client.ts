@@ -375,19 +375,24 @@ export class DevicApiClient {
   }
 
   /**
-   * Transcribe an audio recording to text using the /whisper endpoint.
-   * The binary is sent as multipart/form-data; the backend stores it and runs
-   * speech-to-text with Devic's own OpenAI key. Returns the text and a
+   * Transcribe audio to text using the /whisper endpoint.
+   * Accepts either an audio binary (Blob/File, sent as multipart/form-data) or
+   * a download URL string (sent as `audioUrl`). The backend stores the binary
+   * and runs speech-to-text with Devic's own OpenAI key. Returns the text and a
    * `transcriptId` to attach to the resulting message.
    */
   async transcribeAudio(
-    audio: Blob,
+    audio: Blob | string,
     options?: { language?: string; messageUid?: string; chatUid?: string; fileName?: string },
   ): Promise<WhisperTranscriptionResponse> {
     const url = `${this.config.baseUrl}/api/v1/whisper`;
 
     const formData = new FormData();
-    formData.append("audio", audio, options?.fileName || "recording.webm");
+    if (typeof audio === "string") {
+      formData.append("audioUrl", audio);
+    } else {
+      formData.append("audio", audio, options?.fileName || "recording.webm");
+    }
     if (options?.language) formData.append("language", options.language);
     if (options?.messageUid) formData.append("messageUid", options.messageUid);
     if (options?.chatUid) formData.append("chatUid", options.chatUid);

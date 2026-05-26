@@ -189,6 +189,28 @@ function ChatDrawerInner({
     }).catch(() => {});
   }, [mergedOptions.showAvatar, assistantId, resolvedApiKey, resolvedBaseUrl]);
 
+  // Speech-to-text transcription, exposed to custom prompt boxes so a developer
+  // can transcribe audio (binary or URL) and attach the resulting transcriptId.
+  const transcribeAudio = useCallback(
+    (
+      audio: Blob | string,
+      transcribeOptions?: { language?: string; messageUid?: string; chatUid?: string },
+    ) => {
+      if (!resolvedApiKey) {
+        return Promise.reject(
+          new Error('API key not configured. Cannot transcribe audio.'),
+        );
+      }
+      const client = new DevicApiClient({ apiKey: resolvedApiKey, baseUrl: resolvedBaseUrl });
+      return client.transcribeAudio(audio, {
+        language: transcribeOptions?.language ?? mergedOptions.speechLanguage,
+        messageUid: transcribeOptions?.messageUid,
+        chatUid: transcribeOptions?.chatUid,
+      });
+    },
+    [resolvedApiKey, resolvedBaseUrl, mergedOptions.speechLanguage],
+  );
+
   // Handle open/close
   const handleOpen = useCallback(() => {
     setInternalIsOpen(true);
@@ -560,6 +582,7 @@ function ChatDrawerInner({
           <div className="devic-input-area">
             {mergedOptions.customPromptBox({
               sendMessage: handleSend,
+              transcribeAudio,
               stop: chat.stopChat,
               isLoading: chat.isLoading,
               newConversation: chat.clearChat,
