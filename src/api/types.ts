@@ -46,6 +46,13 @@ export interface ChatMessage {
   tool_calls?: ToolCall[];
   tool_call_id?: string;
   summary?: string;
+  /**
+   * Id of a speech-to-text transcript (from POST /api/v1/whisper) that seeded
+   * this message. Present on user messages dictated by voice; the chat can use
+   * it to fetch the source audio (GET /api/v1/whisper/:transcriptId) and offer
+   * playback.
+   */
+  transcriptId?: string;
 }
 
 /**

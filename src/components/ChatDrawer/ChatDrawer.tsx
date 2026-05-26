@@ -194,7 +194,12 @@ function ChatDrawerInner({
   const transcribeAudio = useCallback(
     (
       audio: Blob | string,
-      transcribeOptions?: { language?: string; messageUid?: string; chatUid?: string },
+      transcribeOptions?: {
+        language?: string;
+        messageUid?: string;
+        chatUid?: string;
+        tenantId?: string;
+      },
     ) => {
       if (!resolvedApiKey) {
         return Promise.reject(
@@ -206,9 +211,10 @@ function ChatDrawerInner({
         language: transcribeOptions?.language ?? mergedOptions.speechLanguage,
         messageUid: transcribeOptions?.messageUid,
         chatUid: transcribeOptions?.chatUid,
+        tenantId: transcribeOptions?.tenantId ?? tenantId,
       });
     },
-    [resolvedApiKey, resolvedBaseUrl, mergedOptions.speechLanguage],
+    [resolvedApiKey, resolvedBaseUrl, mergedOptions.speechLanguage, tenantId],
   );
 
   // Handle open/close
@@ -601,6 +607,7 @@ function ChatDrawerInner({
             maxFileSize={mergedOptions.maxFileSize}
             enableSpeechToText={mergedOptions.enableSpeechToText}
             speechLanguage={mergedOptions.speechLanguage}
+            speechTenantId={tenantId}
             apiKey={resolvedApiKey}
             baseUrl={resolvedBaseUrl}
             sendButtonContent={mergedOptions.sendButtonContent}

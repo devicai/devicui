@@ -6,6 +6,7 @@ import type { ChatMessagesProps, SuggestedMessage } from "./ChatDrawer.types";
 import type { ChatMessage, ToolGroupConfig, ToolGroupCall } from "../../api/types";
 import type { FeedbackState } from "../Feedback";
 import { segmentToolCalls } from "../../utils/toolGroups";
+import { DevicApiClient } from "../../api/client";
 import "../Feedback/Feedback.css";
 
 /**
@@ -16,6 +17,160 @@ function formatTime(timestamp: number): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function MicGlyph(): JSX.Element {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="23" />
+    </svg>
+  );
+}
+
+function PlayGlyph(): JSX.Element {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M8 5v14l11-7z" />
+    </svg>
+  );
+}
+
+function PauseGlyph(): JSX.Element {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <rect x="6" y="5" width="4" height="14" rx="1" />
+      <rect x="14" y="5" width="4" height="14" rx="1" />
+    </svg>
+  );
+}
+
+/**
+ * Compact playback control shown on user messages that were dictated by voice
+ * (i.e. carry a `transcriptId`). The source audio URL is resolved lazily on the
+ * first play via GET /api/v1/whisper/:transcriptId, so listing a conversation
+ * never triggers extra requests until the user actually wants to listen.
+ */
+function TranscriptPlayback({
+  transcriptId,
+  apiKey,
+  baseUrl,
+}: {
+  transcriptId: string;
+  apiKey?: string;
+  baseUrl?: string;
+}): JSX.Element {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  const resolveAudio = async (): Promise<HTMLAudioElement | null> => {
+    if (audioRef.current) return audioRef.current;
+    let url = audioUrlRef.current;
+    if (!url) {
+      if (!apiKey) {
+        setError("Unavailable");
+        return null;
+      }
+      setIsLoading(true);
+      setError(null);
+      try {
+        const client = new DevicApiClient({
+          apiKey,
+          baseUrl: baseUrl || "https://api.devic.ai",
+        });
+        const transcript = await client.getTranscript(transcriptId);
+        url = transcript.audioUrl || null;
+        audioUrlRef.current = url;
+      } catch {
+        setError("Audio unavailable");
+        return null;
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    if (!url) {
+      setError("Audio unavailable");
+      return null;
+    }
+    const audio = new Audio(url);
+    audio.onplay = () => setIsPlaying(true);
+    audio.onpause = () => setIsPlaying(false);
+    audio.onended = () => setIsPlaying(false);
+    audio.onerror = () => {
+      setError("Playback failed");
+      setIsPlaying(false);
+    };
+    audioRef.current = audio;
+    return audio;
+  };
+
+  const toggle = async () => {
+    if (isPlaying && audioRef.current) {
+      audioRef.current.pause();
+      return;
+    }
+    const audio = await resolveAudio();
+    if (audio) {
+      try {
+        await audio.play();
+      } catch {
+        setError("Playback failed");
+      }
+    }
+  };
+
+  return (
+    <div
+      className="devic-transcript-playback"
+      data-playing={isPlaying ? "true" : "false"}
+      title="Dictated by voice"
+    >
+      <button
+        type="button"
+        className="devic-transcript-btn"
+        onClick={toggle}
+        disabled={isLoading}
+        aria-label={isPlaying ? "Pause recording" : "Play recording"}
+      >
+        {isLoading ? (
+          <span className="devic-transcript-spinner" aria-hidden="true" />
+        ) : isPlaying ? (
+          <PauseGlyph />
+        ) : (
+          <PlayGlyph />
+        )}
+      </button>
+      <span className="devic-transcript-icon" aria-hidden="true">
+        <MicGlyph />
+      </span>
+      <span className="devic-transcript-label">
+        {error || "Voice message"}
+      </span>
+    </div>
+  );
 }
 
 /**
@@ -510,6 +665,13 @@ export function ChatMessages({
                     </div>
                   ))}
                 </div>
+              )}
+              {!isAssistant && message.transcriptId && (
+                <TranscriptPlayback
+                  transcriptId={message.transcriptId}
+                  apiKey={apiKey}
+                  baseUrl={baseUrl}
+                />
               )}
             </div>
             <div className="devic-message-footer">

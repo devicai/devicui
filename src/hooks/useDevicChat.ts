@@ -561,6 +561,9 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           })),
         },
         timestamp: Date.now(),
+        ...(sendOptions?.transcriptId && {
+          transcriptId: sendOptions.transcriptId,
+        }),
       };
 
       setMessages((prev) => [...prev, userMessage]);

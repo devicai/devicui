@@ -383,7 +383,13 @@ export class DevicApiClient {
    */
   async transcribeAudio(
     audio: Blob | string,
-    options?: { language?: string; messageUid?: string; chatUid?: string; fileName?: string },
+    options?: {
+      language?: string;
+      messageUid?: string;
+      chatUid?: string;
+      tenantId?: string;
+      fileName?: string;
+    },
   ): Promise<WhisperTranscriptionResponse> {
     const url = `${this.config.baseUrl}/api/v1/whisper`;
 
@@ -396,6 +402,7 @@ export class DevicApiClient {
     if (options?.language) formData.append("language", options.language);
     if (options?.messageUid) formData.append("messageUid", options.messageUid);
     if (options?.chatUid) formData.append("chatUid", options.chatUid);
+    if (options?.tenantId) formData.append("tenantId", options.tenantId);
 
     const response = await fetch(url, {
       method: "POST",
@@ -424,6 +431,19 @@ export class DevicApiClient {
       return data.data;
     }
     return data;
+  }
+
+  /**
+   * Fetch a single speech-to-text transcript by its id (the `transcriptId`
+   * stored on a message). Returns the transcribed text and the download URL of
+   * the source audio so the chat can offer playback of a dictated message.
+   */
+  async getTranscript(
+    transcriptId: string,
+  ): Promise<WhisperTranscriptionResponse> {
+    return this.request<WhisperTranscriptionResponse>(
+      `/api/v1/whisper/${encodeURIComponent(transcriptId)}`,
+    );
   }
 
   /**
