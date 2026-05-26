@@ -548,6 +548,73 @@
   flex-shrink: 0;
 }
 
+/* Playback control on a dictated (voice) user message */
+.devic-transcript-playback {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 3px 8px 3px 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 12px;
+  line-height: 1;
+  max-width: 100%;
+}
+
+.devic-message[data-role="assistant"] .devic-transcript-playback {
+  background: var(--devic-bg-secondary, rgba(0, 0, 0, 0.05));
+}
+
+.devic-transcript-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--devic-primary, #6c5ce7);
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  transition: background 0.15s ease;
+}
+
+.devic-transcript-btn:hover:not(:disabled) {
+  background: #fff;
+}
+
+.devic-transcript-btn:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.devic-transcript-icon {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.85;
+}
+
+.devic-transcript-playback[data-playing="true"] .devic-transcript-icon {
+  animation: devic-pulse 1.2s ease-in-out infinite;
+}
+
+.devic-transcript-label {
+  white-space: nowrap;
+  opacity: 0.9;
+}
+
+.devic-transcript-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(108, 92, 231, 0.3);
+  border-top-color: var(--devic-primary, #6c5ce7);
+  border-radius: 50%;
+  animation: devic-spin 0.8s linear infinite;
+}
+
 /* Equalizer bars driven by live amplitude levels (inline height) */
 .devic-equalizer {
   display: flex;

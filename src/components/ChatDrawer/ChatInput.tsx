@@ -28,6 +28,7 @@ export function ChatInput({
   maxFileSize = 10 * 1024 * 1024, // 10MB
   enableSpeechToText = false,
   speechLanguage,
+  speechTenantId,
   apiKey,
   baseUrl,
   sendButtonContent,
@@ -138,6 +139,7 @@ export function ChatInput({
     try {
       const result = await transcribeClient.transcribeAudio(blob, {
         language: speechLanguage,
+        tenantId: speechTenantId,
       });
       const text = (result.text || '').trim();
       setMessage((prev) => (prev ? `${prev} ${text}`.trim() : text));
@@ -158,7 +160,7 @@ export function ChatInput({
     } finally {
       setIsTranscribing(false);
     }
-  }, [transcribeClient, recording, speechLanguage]);
+  }, [transcribeClient, recording, speechLanguage, speechTenantId]);
 
   // Handle key press
   const handleKeyDown = useCallback(

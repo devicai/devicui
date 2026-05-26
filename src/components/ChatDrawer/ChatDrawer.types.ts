@@ -36,7 +36,12 @@ export interface CustomPromptBoxProps {
    */
   transcribeAudio: (
     audio: Blob | string,
-    options?: { language?: string; messageUid?: string; chatUid?: string },
+    options?: {
+      language?: string;
+      messageUid?: string;
+      chatUid?: string;
+      tenantId?: string;
+    },
   ) => Promise<WhisperTranscriptionResponse>;
   /** Stop the current assistant processing */
   stop: () => void;
@@ -520,6 +525,8 @@ export interface ChatInputProps {
   enableSpeechToText?: boolean;
   /** ISO-639-1 language hint for speech-to-text. */
   speechLanguage?: string;
+  /** Optional tenant id sent with the /whisper transcription request. */
+  speechTenantId?: string;
   /** API key used to call the /whisper endpoint (overrides provider). */
   apiKey?: string;
   /** Base URL used to call the /whisper endpoint (overrides provider). */
