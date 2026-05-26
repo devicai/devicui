@@ -11,3 +11,10 @@ export type {
   PendingWidgetCall,
   HandleToolCallsResult,
 } from './useModelInterface';
+
+export { useSpeechRecording } from './useSpeechRecording';
+export type {
+  UseSpeechRecordingOptions,
+  UseSpeechRecordingResult,
+  SpeechRecordingStatus,
+} from './useSpeechRecording';

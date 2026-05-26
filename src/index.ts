@@ -71,7 +71,7 @@ export type {
 // } from './components/AutocompleteInput';
 
 // Hooks
-export { useDevicChat, usePolling, useModelInterface } from './hooks';
+export { useDevicChat, usePolling, useModelInterface, useSpeechRecording } from './hooks';
 export type {
   UseDevicChatOptions,
   UseDevicChatResult,
@@ -81,6 +81,9 @@ export type {
   UseModelInterfaceResult,
   PendingWidgetCall,
   HandleToolCallsResult,
+  UseSpeechRecordingOptions,
+  UseSpeechRecordingResult,
+  SpeechRecordingStatus,
 } from './hooks';
 
 // API Client
@@ -120,6 +123,7 @@ export type {
   HandOffToolResponse,
   ToolGroupCall,
   ToolGroupConfig,
+  WhisperTranscriptionResponse,
 } from './api/types';
 
 // Feedback Components

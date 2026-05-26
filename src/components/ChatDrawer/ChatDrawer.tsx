@@ -19,6 +19,8 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   enableFileUploads: false,
   allowedFileTypes: { images: true, documents: true },
   maxFileSize: 10 * 1024 * 1024,
+  enableSpeechToText: false,
+  speechLanguage: undefined as any,
   inputPlaceholder: 'Type a message...',
   title: 'Chat',
   showAvatar: false,
@@ -255,13 +257,13 @@ function ChatDrawerInner({
 
   // Handle send message — prefix references and clear them after sending
   const handleSend = useCallback(
-    (message: string, files?: File[]) => {
+    (message: string, files?: File[], meta?: { transcriptId?: string }) => {
       let finalMessage = message;
       if (references.length > 0) {
         const labels = references.map((r) => `"${r.label}"`).join(', ');
         finalMessage = `Elemento referenciado: ${labels}\n\n${message}`;
       }
-      chat.sendMessage(finalMessage, { files });
+      chat.sendMessage(finalMessage, { files, transcriptId: meta?.transcriptId });
       if (references.length > 0) clearReferences();
     },
     [chat, references, clearReferences]
@@ -574,6 +576,10 @@ function ChatDrawerInner({
             enableFileUploads={mergedOptions.enableFileUploads}
             allowedFileTypes={mergedOptions.allowedFileTypes}
             maxFileSize={mergedOptions.maxFileSize}
+            enableSpeechToText={mergedOptions.enableSpeechToText}
+            speechLanguage={mergedOptions.speechLanguage}
+            apiKey={resolvedApiKey}
+            baseUrl={resolvedBaseUrl}
             sendButtonContent={mergedOptions.sendButtonContent}
             disabledMessage={
               chat.handedOff

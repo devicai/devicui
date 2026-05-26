@@ -90,6 +90,21 @@ export interface ChatDrawerOptions {
   enableFileUploads?: boolean;
 
   /**
+   * Enable speech-to-text in the prompt box. Adds a microphone button that
+   * records audio, shows a live equalizer while recording, transcribes via the
+   * Devic /whisper endpoint and fills the input with the result for review
+   * before sending.
+   * @default false
+   */
+  enableSpeechToText?: boolean;
+
+  /**
+   * Optional ISO-639-1 language hint for speech-to-text (e.g. 'es', 'en').
+   * Improves transcription accuracy when the language is known.
+   */
+  speechLanguage?: string;
+
+  /**
    * Allowed file types for upload
    */
   allowedFileTypes?: AllowedFileTypes;
@@ -473,12 +488,24 @@ export interface ChatMessagesProps {
  * Props for ChatInput component
  */
 export interface ChatInputProps {
-  onSend: (message: string, files?: File[]) => void;
+  onSend: (
+    message: string,
+    files?: File[],
+    meta?: { transcriptId?: string },
+  ) => void;
   disabled?: boolean;
   placeholder?: string;
   enableFileUploads?: boolean;
   allowedFileTypes?: AllowedFileTypes;
   maxFileSize?: number;
+  /** Enable the speech-to-text microphone control. */
+  enableSpeechToText?: boolean;
+  /** ISO-639-1 language hint for speech-to-text. */
+  speechLanguage?: string;
+  /** API key used to call the /whisper endpoint (overrides provider). */
+  apiKey?: string;
+  /** Base URL used to call the /whisper endpoint (overrides provider). */
+  baseUrl?: string;
   sendButtonContent?: React.ReactNode;
   /** Message shown when input is disabled due to handoff */
   disabledMessage?: string;
