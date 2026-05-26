@@ -143,6 +143,8 @@ export interface UseDevicChatResult {
     options?: {
       files?: File[];
       metadata?: Record<string, any>;
+      /** Id of a speech-to-text transcript that seeded this message. */
+      transcriptId?: string;
     }
   ) => Promise<void>;
 
@@ -530,6 +532,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       sendOptions?: {
         files?: File[];
         metadata?: Record<string, any>;
+        transcriptId?: string;
       }
     ) => {
       if (!clientRef.current) {
@@ -617,6 +620,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           enabledTools,
           // Include model interface tools if any
           ...(toolSchemas.length > 0 && { tools: toolSchemas }),
+          // Link to the speech-to-text transcript that seeded this message, if any
+          ...(sendOptions?.transcriptId && { transcriptId: sendOptions.transcriptId }),
         };
 
         // Send message in async mode

@@ -157,6 +157,27 @@ export interface ProcessMessageDto {
   tools?: ModelInterfaceToolSchema[];
   applicationState?: Record<string, any>;
   skipSummarization?: boolean;
+  /**
+   * Id of a speech-to-text transcript (from POST /api/v1/whisper) that seeded
+   * this message. Sent so the conversation keeps a link to the original audio.
+   */
+  transcriptId?: string;
+}
+
+/**
+ * Response from the /whisper speech-to-text endpoint.
+ */
+export interface WhisperTranscriptionResponse {
+  /** Public id of the transcript; send it back as ProcessMessageDto.transcriptId. */
+  transcriptId: string;
+  /** Transcribed text. */
+  text: string;
+  /** Language hint used, if any. */
+  language?: string;
+  /** Download URL of the source audio. */
+  audioUrl?: string;
+  /** Transcription model used. */
+  model?: string;
 }
 
 /**

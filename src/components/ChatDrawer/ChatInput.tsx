@@ -1,5 +1,7 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import type { ChatInputProps } from './ChatDrawer.types';
+import { useSpeechRecording } from '../../hooks/useSpeechRecording';
+import { DevicApiClient } from '../../api/client';
 
 const FILE_TYPE_ACCEPT: Record<string, string[]> = {
   images: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
@@ -24,6 +26,10 @@ export function ChatInput({
   enableFileUploads = false,
   allowedFileTypes = { images: true, documents: true },
   maxFileSize = 10 * 1024 * 1024, // 10MB
+  enableSpeechToText = false,
+  speechLanguage,
+  apiKey,
+  baseUrl,
   sendButtonContent,
   disabledMessage,
   isProcessing = false,
@@ -56,6 +62,25 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Speech-to-text state
+  const [transcriptId, setTranscriptId] = useState<string | undefined>();
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
+  const recording = useSpeechRecording({ bars: 5 });
+
+  // Client used only for the /whisper transcription call.
+  const transcribeClient = useMemo(() => {
+    if (!enableSpeechToText || !apiKey) return null;
+    return new DevicApiClient({
+      apiKey,
+      baseUrl: baseUrl || 'https://api.devic.ai',
+    });
+  }, [enableSpeechToText, apiKey, baseUrl]);
+
+  const speechEnabled =
+    enableSpeechToText && recording.isSupported && !!transcribeClient;
+  const isRecordingActive = recording.isRecording || recording.isPaused;
+
   // Calculate accepted file types
   const acceptedTypes = Object.entries(allowedFileTypes)
     .filter(([, enabled]) => enabled)
@@ -76,15 +101,64 @@ export function ChatInput({
     const trimmedMessage = message.trim();
     if (!trimmedMessage && files.length === 0) return;
 
-    onSend(trimmedMessage, files.length > 0 ? files : undefined);
+    onSend(
+      trimmedMessage,
+      files.length > 0 ? files : undefined,
+      transcriptId ? { transcriptId } : undefined,
+    );
     setMessage('');
     setFiles([]);
+    setTranscriptId(undefined);
 
     // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-  }, [message, files, onSend]);
+  }, [message, files, onSend, transcriptId]);
+
+  // --- Speech-to-text handlers ---
+
+  const startRecording = useCallback(() => {
+    setSpeechError(null);
+    void recording.start();
+  }, [recording]);
+
+  const cancelRecording = useCallback(() => {
+    recording.cancel();
+  }, [recording]);
+
+  // Stop recording, transcribe the audio and fill the input for review.
+  const confirmRecording = useCallback(async () => {
+    if (!transcribeClient) return;
+    const blob = await recording.stop();
+    if (!blob || blob.size === 0) return;
+
+    setIsTranscribing(true);
+    setSpeechError(null);
+    try {
+      const result = await transcribeClient.transcribeAudio(blob, {
+        language: speechLanguage,
+      });
+      const text = (result.text || '').trim();
+      setMessage((prev) => (prev ? `${prev} ${text}`.trim() : text));
+      setTranscriptId(result.transcriptId);
+      // Resize textarea and focus for review/edit.
+      requestAnimationFrame(() => {
+        const textarea = textareaRef.current;
+        if (textarea) {
+          textarea.style.height = 'auto';
+          textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+          textarea.focus();
+        }
+      });
+    } catch (e) {
+      setSpeechError(
+        `Could not transcribe the audio: ${(e as Error)?.message || 'unknown error'}`,
+      );
+    } finally {
+      setIsTranscribing(false);
+    }
+  }, [transcribeClient, recording, speechLanguage]);
 
   // Handle key press
   const handleKeyDown = useCallback(
@@ -134,6 +208,11 @@ export function ChatInput({
           {disabledMessage}
         </div>
       )}
+      {speechError && (
+        <div className="devic-speech-error" role="alert">
+          {speechError}
+        </div>
+      )}
       {references && references.length > 0 && (
         <div className="devic-reference-chips">
           {references.map((ref) => (
@@ -171,92 +250,182 @@ export function ChatInput({
       )}
 
       <div className="devic-input-wrapper">
-        {enableFileUploads && (
-          <>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={acceptedTypes}
-              multiple
-              onChange={handleFileSelect}
-              style={{ display: 'none' }}
-            />
+        {isTranscribing ? (
+          <div className="devic-speech-panel" data-state="processing">
+            <span className="devic-speech-spinner" aria-hidden="true" />
+            <span className="devic-speech-status">Transcribing…</span>
+          </div>
+        ) : isRecordingActive ? (
+          <div className="devic-speech-panel" data-state="recording">
+            <button
+              className="devic-input-btn devic-speech-cancel"
+              onClick={cancelRecording}
+              type="button"
+              title="Cancel recording"
+            >
+              <CloseIcon />
+            </button>
+            <div className="devic-speech-live">
+              <Equalizer levels={recording.levels} paused={recording.isPaused} />
+              <span className="devic-speech-timer">
+                {formatDuration(recording.durationMs)}
+              </span>
+            </div>
             <button
               className="devic-input-btn"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={disabled}
+              onClick={recording.isPaused ? recording.resume : recording.pause}
               type="button"
-              title="Attach file"
+              title={recording.isPaused ? 'Resume' : 'Pause'}
             >
-              <AttachIcon />
+              {recording.isPaused ? <PlayIcon /> : <PauseIcon />}
             </button>
-          </>
-        )}
-
-        <textarea
-          ref={textareaRef}
-          className="devic-input"
-          value={message}
-          onChange={(e) => {
-            setMessage(e.target.value);
-            handleInput();
-          }}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          disabled={disabled}
-          rows={1}
-        />
-
-        {isProcessing ? (
-          stopButtonContent ? (
-            <div className="devic-send-btn-wrapper">
-              <div className="devic-send-btn-custom" aria-hidden="true">
-                {stopButtonContent}
-              </div>
-              <button
-                className="devic-send-btn-overlay"
-                onClick={onStop}
-                type="button"
-                title="Stop"
-              />
-            </div>
-          ) : (
             <button
-              className="devic-input-btn devic-stop-btn"
-              onClick={onStop}
+              className="devic-input-btn devic-speech-confirm"
+              onClick={() => void confirmRecording()}
               type="button"
-              title="Stop"
+              title="Confirm"
             >
-              <StopIcon />
+              <CheckIcon />
             </button>
-          )
-        ) : sendButtonContent ? (
-          <div className="devic-send-btn-wrapper">
-            <div className="devic-send-btn-custom" aria-hidden="true">
-              {sendButtonContent}
-            </div>
-            <button
-              className="devic-send-btn-overlay"
-              onClick={handleSend}
-              disabled={disabled || (!message.trim() && files.length === 0)}
-              type="button"
-              title="Send message"
-            />
           </div>
         ) : (
-          <button
-            className="devic-input-btn devic-send-btn"
-            onClick={handleSend}
-            disabled={disabled || (!message.trim() && files.length === 0)}
-            type="button"
-            title="Send message"
-          >
-            <SendIcon />
-          </button>
+          <>
+            {enableFileUploads && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={acceptedTypes}
+                  multiple
+                  onChange={handleFileSelect}
+                  style={{ display: 'none' }}
+                />
+                <button
+                  className="devic-input-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={disabled}
+                  type="button"
+                  title="Attach file"
+                >
+                  <AttachIcon />
+                </button>
+              </>
+            )}
+
+            {speechEnabled && (
+              <button
+                className="devic-input-btn devic-speech-mic"
+                onClick={startRecording}
+                disabled={disabled || isProcessing}
+                type="button"
+                title="Record voice message"
+              >
+                <MicIcon />
+              </button>
+            )}
+
+            <textarea
+              ref={textareaRef}
+              className="devic-input"
+              value={message}
+              onChange={(e) => {
+                const value = e.target.value;
+                setMessage(value);
+                // If the user clears the field, drop the transcript link so a fresh
+                // message isn't wrongly attributed to the previous transcription.
+                if (transcriptId && value.trim() === '') setTranscriptId(undefined);
+                handleInput();
+              }}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              disabled={disabled}
+              rows={1}
+            />
+
+            {isProcessing ? (
+              stopButtonContent ? (
+                <div className="devic-send-btn-wrapper">
+                  <div className="devic-send-btn-custom" aria-hidden="true">
+                    {stopButtonContent}
+                  </div>
+                  <button
+                    className="devic-send-btn-overlay"
+                    onClick={onStop}
+                    type="button"
+                    title="Stop"
+                  />
+                </div>
+              ) : (
+                <button
+                  className="devic-input-btn devic-stop-btn"
+                  onClick={onStop}
+                  type="button"
+                  title="Stop"
+                >
+                  <StopIcon />
+                </button>
+              )
+            ) : sendButtonContent ? (
+              <div className="devic-send-btn-wrapper">
+                <div className="devic-send-btn-custom" aria-hidden="true">
+                  {sendButtonContent}
+                </div>
+                <button
+                  className="devic-send-btn-overlay"
+                  onClick={handleSend}
+                  disabled={disabled || (!message.trim() && files.length === 0)}
+                  type="button"
+                  title="Send message"
+                />
+              </div>
+            ) : (
+              <button
+                className="devic-input-btn devic-send-btn"
+                onClick={handleSend}
+                disabled={disabled || (!message.trim() && files.length === 0)}
+                type="button"
+                title="Send message"
+              >
+                <SendIcon />
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
   );
+}
+
+/**
+ * Live equalizer rendered from the recording amplitude levels (0..1 per bar).
+ * When paused, bars collapse to a flat baseline.
+ */
+function Equalizer({
+  levels,
+  paused,
+}: {
+  levels: number[];
+  paused: boolean;
+}): JSX.Element {
+  return (
+    <div className="devic-equalizer" aria-hidden="true" data-paused={paused}>
+      {levels.map((level, i) => (
+        <span
+          key={i}
+          className="devic-equalizer-bar"
+          style={{ height: `${Math.max(10, Math.round((paused ? 0 : level) * 100))}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Formats milliseconds as m:ss. */
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 /**
@@ -312,6 +481,93 @@ function FileIcon(): JSX.Element {
     >
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
       <polyline points="14,2 14,8 20,8" />
+    </svg>
+  );
+}
+
+/**
+ * Microphone icon
+ */
+function MicIcon(): JSX.Element {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="23" />
+      <line x1="8" y1="23" x2="16" y2="23" />
+    </svg>
+  );
+}
+
+/**
+ * Pause icon (two bars)
+ */
+function PauseIcon(): JSX.Element {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <rect x="6" y="4" width="4" height="16" rx="1" />
+      <rect x="14" y="4" width="4" height="16" rx="1" />
+    </svg>
+  );
+}
+
+/**
+ * Play icon (triangle)
+ */
+function PlayIcon(): JSX.Element {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M8 5v14l11-7z" />
+    </svg>
+  );
+}
+
+/**
+ * Check icon (confirm)
+ */
+function CheckIcon(): JSX.Element {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+/**
+ * Close icon (cancel)
+ */
+function CloseIcon(): JSX.Element {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   );
 }

@@ -19,6 +19,8 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   enableFileUploads: false,
   allowedFileTypes: { images: true, documents: true },
   maxFileSize: 10 * 1024 * 1024,
+  enableSpeechToText: false,
+  speechLanguage: undefined as any,
   inputPlaceholder: 'Type a message...',
   title: 'Chat',
   showAvatar: false,
@@ -187,6 +189,28 @@ function ChatDrawerInner({
     }).catch(() => {});
   }, [mergedOptions.showAvatar, assistantId, resolvedApiKey, resolvedBaseUrl]);
 
+  // Speech-to-text transcription, exposed to custom prompt boxes so a developer
+  // can transcribe audio (binary or URL) and attach the resulting transcriptId.
+  const transcribeAudio = useCallback(
+    (
+      audio: Blob | string,
+      transcribeOptions?: { language?: string; messageUid?: string; chatUid?: string },
+    ) => {
+      if (!resolvedApiKey) {
+        return Promise.reject(
+          new Error('API key not configured. Cannot transcribe audio.'),
+        );
+      }
+      const client = new DevicApiClient({ apiKey: resolvedApiKey, baseUrl: resolvedBaseUrl });
+      return client.transcribeAudio(audio, {
+        language: transcribeOptions?.language ?? mergedOptions.speechLanguage,
+        messageUid: transcribeOptions?.messageUid,
+        chatUid: transcribeOptions?.chatUid,
+      });
+    },
+    [resolvedApiKey, resolvedBaseUrl, mergedOptions.speechLanguage],
+  );
+
   // Handle open/close
   const handleOpen = useCallback(() => {
     setInternalIsOpen(true);
@@ -255,13 +279,13 @@ function ChatDrawerInner({
 
   // Handle send message — prefix references and clear them after sending
   const handleSend = useCallback(
-    (message: string, files?: File[]) => {
+    (message: string, files?: File[], meta?: { transcriptId?: string }) => {
       let finalMessage = message;
       if (references.length > 0) {
         const labels = references.map((r) => `"${r.label}"`).join(', ');
         finalMessage = `Elemento referenciado: ${labels}\n\n${message}`;
       }
-      chat.sendMessage(finalMessage, { files });
+      chat.sendMessage(finalMessage, { files, transcriptId: meta?.transcriptId });
       if (references.length > 0) clearReferences();
     },
     [chat, references, clearReferences]
@@ -558,6 +582,7 @@ function ChatDrawerInner({
           <div className="devic-input-area">
             {mergedOptions.customPromptBox({
               sendMessage: handleSend,
+              transcribeAudio,
               stop: chat.stopChat,
               isLoading: chat.isLoading,
               newConversation: chat.clearChat,
@@ -574,6 +599,10 @@ function ChatDrawerInner({
             enableFileUploads={mergedOptions.enableFileUploads}
             allowedFileTypes={mergedOptions.allowedFileTypes}
             maxFileSize={mergedOptions.maxFileSize}
+            enableSpeechToText={mergedOptions.enableSpeechToText}
+            speechLanguage={mergedOptions.speechLanguage}
+            apiKey={resolvedApiKey}
+            baseUrl={resolvedBaseUrl}
             sendButtonContent={mergedOptions.sendButtonContent}
             disabledMessage={
               chat.handedOff
