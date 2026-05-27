@@ -30,6 +30,7 @@ export function ChatInput({
   speechLanguage,
   speechTenantId,
   speechAutoStop = true,
+  speechAutoStopCountdownMs,
   apiKey,
   baseUrl,
   sendButtonContent,
@@ -74,6 +75,9 @@ export function ChatInput({
   const recording = useSpeechRecording({
     bars: 5,
     autoStop: speechAutoStop,
+    ...(speechAutoStopCountdownMs != null && {
+      autoStopCountdownMs: speechAutoStopCountdownMs,
+    }),
     onAutoStop: () => confirmRef.current(),
   });
 
