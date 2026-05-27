@@ -23,6 +23,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   speechLanguage: undefined as any,
   speechAutoStop: true,
   speechAutoStopCountdownMs: 1000,
+  speechHandoff: false,
   inputPlaceholder: 'Type a message...',
   title: 'Chat',
   showAvatar: false,
@@ -612,6 +613,7 @@ function ChatDrawerInner({
             speechTenantId={tenantId}
             speechAutoStop={mergedOptions.speechAutoStop}
             speechAutoStopCountdownMs={mergedOptions.speechAutoStopCountdownMs}
+            speechHandoff={mergedOptions.speechHandoff}
             apiKey={resolvedApiKey}
             baseUrl={resolvedBaseUrl}
             sendButtonContent={mergedOptions.sendButtonContent}

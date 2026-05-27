@@ -16,6 +16,10 @@ const FILE_TYPE_ACCEPT: Record<string, string[]> = {
   video: ['video/mp4', 'video/webm', 'video/ogg'],
 };
 
+// Handoff (hands-free) loop timings.
+const HANDOFF_PENDING_MS = 1000; // cancellable countdown before auto-send
+const HANDOFF_INACTIVITY_MS = 6000; // silence (no speech) that ends the loop
+
 /**
  * Chat input component with file upload support
  */
@@ -31,6 +35,7 @@ export function ChatInput({
   speechTenantId,
   speechAutoStop = true,
   speechAutoStopCountdownMs,
+  speechHandoff = false,
   apiKey,
   baseUrl,
   sendButtonContent,
@@ -81,6 +86,19 @@ export function ChatInput({
     onAutoStop: () => confirmRef.current(),
   });
 
+  // --- Handoff (hands-free loop) state ---
+  const [handoffActive, setHandoffActive] = useState(false);
+  const [pendingSend, setPendingSend] = useState(false);
+  const [pendingProgress, setPendingProgress] = useState(1);
+  // Ref mirror so async callbacks (rAF, timers, document listeners) read the
+  // live value without going stale.
+  const handoffActiveRef = useRef(false);
+  const pendingRafRef = useRef<number | null>(null);
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevProcessingRef = useRef(isProcessing);
+  // Always-fresh send fn so the deferred auto-send uses the latest message.
+  const handleSendRef = useRef<() => void>(() => {});
+
   // Client used only for the /whisper transcription call.
   const transcribeClient = useMemo(() => {
     if (!enableSpeechToText || !apiKey) return null;
@@ -128,23 +146,52 @@ export function ChatInput({
       textareaRef.current.style.height = 'auto';
     }
   }, [message, files, onSend, transcriptId]);
+  // Keep a fresh send fn for the deferred handoff auto-send.
+  handleSendRef.current = handleSend;
 
   // --- Speech-to-text handlers ---
 
+  const clearPending = useCallback(() => {
+    if (pendingRafRef.current !== null) {
+      cancelAnimationFrame(pendingRafRef.current);
+      pendingRafRef.current = null;
+    }
+    setPendingSend(false);
+    setPendingProgress(1);
+  }, []);
+
+  // Fully exit the hands-free loop and stop any recording in progress.
+  const cancelHandoff = useCallback(() => {
+    handoffActiveRef.current = false;
+    setHandoffActive(false);
+    clearPending();
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
+    recording.cancel();
+  }, [clearPending, recording]);
+
   const startRecording = useCallback(() => {
     setSpeechError(null);
+    if (speechHandoff) {
+      handoffActiveRef.current = true;
+      setHandoffActive(true);
+    }
     void recording.start();
-  }, [recording]);
+  }, [recording, speechHandoff]);
 
   const cancelRecording = useCallback(() => {
-    recording.cancel();
-  }, [recording]);
+    cancelHandoff();
+  }, [cancelHandoff]);
 
   // Stop recording, transcribe the audio and fill the input for review.
-  const confirmRecording = useCallback(async () => {
-    if (!transcribeClient) return;
+  // Returns the trimmed transcription (or null if nothing was transcribed) so
+  // the handoff loop can decide whether to auto-send or end.
+  const confirmRecording = useCallback(async (): Promise<string | null> => {
+    if (!transcribeClient) return null;
     const blob = await recording.stop();
-    if (!blob || blob.size === 0) return;
+    if (!blob || blob.size === 0) return null;
 
     setIsTranscribing(true);
     setSpeechError(null);
@@ -154,8 +201,10 @@ export function ChatInput({
         tenantId: speechTenantId,
       });
       const text = (result.text || '').trim();
-      setMessage((prev) => (prev ? `${prev} ${text}`.trim() : text));
-      setTranscriptId(result.transcriptId);
+      if (text) {
+        setMessage((prev) => (prev ? `${prev} ${text}`.trim() : text));
+        setTranscriptId(result.transcriptId);
+      }
       // Resize textarea and focus for review/edit.
       requestAnimationFrame(() => {
         const textarea = textareaRef.current;
@@ -165,19 +214,124 @@ export function ChatInput({
           textarea.focus();
         }
       });
+      return text;
     } catch (e) {
       setSpeechError(
         `Could not transcribe the audio: ${(e as Error)?.message || 'unknown error'}`,
       );
+      return null;
     } finally {
       setIsTranscribing(false);
     }
   }, [transcribeClient, recording, speechLanguage, speechTenantId]);
 
-  // Keep the auto-stop callback pointed at the latest confirmRecording.
+  // Cancellable countdown, then auto-send. Handoff stays active across the send
+  // so the loop can continue after the assistant replies.
+  const startPendingSend = useCallback(() => {
+    setPendingSend(true);
+    setPendingProgress(1);
+    const startedAt = Date.now();
+    const step = () => {
+      const elapsed = Date.now() - startedAt;
+      setPendingProgress(Math.max(0, 1 - elapsed / HANDOFF_PENDING_MS));
+      if (elapsed >= HANDOFF_PENDING_MS) {
+        pendingRafRef.current = null;
+        setPendingSend(false);
+        setPendingProgress(1);
+        handleSendRef.current(); // auto-send with the freshest message
+        return;
+      }
+      pendingRafRef.current = requestAnimationFrame(step);
+    };
+    pendingRafRef.current = requestAnimationFrame(step);
+  }, []);
+
+  // Drives both the mic auto-stop and the manual confirm button, branching on
+  // whether the hands-free loop is active.
+  const handleConfirm = useCallback(async () => {
+    const text = await confirmRecording();
+    if (!handoffActiveRef.current) return; // normal mode: input already filled
+    if (!text) {
+      // Silent / empty turn → end the hands-free loop.
+      cancelHandoff();
+      setMessage('');
+      setTranscriptId(undefined);
+      return;
+    }
+    startPendingSend();
+  }, [confirmRecording, cancelHandoff, startPendingSend]);
+
+  // Auto-stop fires handleConfirm with the freshest closure.
   useEffect(() => {
-    confirmRef.current = () => void confirmRecording();
-  }, [confirmRecording]);
+    confirmRef.current = () => void handleConfirm();
+  }, [handleConfirm]);
+
+  // Any interaction during the pending countdown cancels the auto-send and
+  // exits the loop (the user is taking manual control); text stays for editing.
+  useEffect(() => {
+    if (!pendingSend) return;
+    const onInteract = () => {
+      clearPending();
+      handoffActiveRef.current = false;
+      setHandoffActive(false);
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    };
+    document.addEventListener('mousedown', onInteract, true);
+    document.addEventListener('keydown', onInteract, true);
+    return () => {
+      document.removeEventListener('mousedown', onInteract, true);
+      document.removeEventListener('keydown', onInteract, true);
+    };
+  }, [pendingSend, clearPending]);
+
+  // When the assistant finishes (isProcessing falls) while the loop is active,
+  // re-activate listening for the next turn.
+  useEffect(() => {
+    const wasProcessing = prevProcessingRef.current;
+    prevProcessingRef.current = isProcessing;
+    if (
+      handoffActive &&
+      wasProcessing &&
+      !isProcessing &&
+      !disabled &&
+      !pendingSend &&
+      !isTranscribing &&
+      !recording.isRecording &&
+      !recording.isPaused
+    ) {
+      void recording.start();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProcessing, handoffActive, disabled, pendingSend, isTranscribing]);
+
+  // While listening in handoff with no speech yet, end the loop after a silence
+  // window (an open mic with nothing said means the user is done).
+  useEffect(() => {
+    if (!(handoffActive && recording.isRecording && !recording.speechDetected)) {
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+        inactivityTimerRef.current = null;
+      }
+      return;
+    }
+    inactivityTimerRef.current = setTimeout(() => {
+      if (handoffActiveRef.current && !recording.speechDetected) cancelHandoff();
+    }, HANDOFF_INACTIVITY_MS);
+    return () => {
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+        inactivityTimerRef.current = null;
+      }
+    };
+  }, [handoffActive, recording.isRecording, recording.speechDetected, cancelHandoff]);
+
+  // Cleanup deferred work on unmount.
+  useEffect(() => {
+    return () => {
+      if (pendingRafRef.current !== null) cancelAnimationFrame(pendingRafRef.current);
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    };
+  }, []);
 
   // Handle key press
   const handleKeyDown = useCallback(
@@ -232,6 +386,23 @@ export function ChatInput({
           {speechError}
         </div>
       )}
+      {handoffActive && (
+        <div className="devic-handoff-bar" data-waiting={isProcessing ? 'true' : 'false'}>
+          <span className="devic-handoff-dot" aria-hidden="true" />
+          <span className="devic-handoff-label">
+            {isProcessing ? 'Hands-free · waiting for reply' : 'Hands-free on'}
+          </span>
+          <button
+            type="button"
+            className="devic-handoff-stop"
+            onClick={cancelHandoff}
+            title="Stop hands-free"
+            aria-label="Stop hands-free"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+      )}
       {references && references.length > 0 && (
         <div className="devic-reference-chips">
           {references.map((ref) => (
@@ -269,7 +440,24 @@ export function ChatInput({
       )}
 
       <div className="devic-input-wrapper">
-        {isTranscribing ? (
+        {pendingSend ? (
+          <div className="devic-speech-panel" data-state="pending">
+            <div className="devic-handoff-pending">
+              <div className="devic-handoff-pending-icon">
+                <SendCountdownRing progress={pendingProgress} />
+                <SendIcon />
+              </div>
+              <div className="devic-handoff-pending-text">
+                <span className="devic-handoff-pending-title">
+                  Sending… interact to cancel
+                </span>
+                {message.trim() && (
+                  <span className="devic-handoff-pending-preview">{message.trim()}</span>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : isTranscribing ? (
           <div className="devic-speech-panel" data-state="processing">
             <span className="devic-speech-spinner" aria-hidden="true" />
             <span className="devic-speech-status">Transcribing…</span>
@@ -307,7 +495,7 @@ export function ChatInput({
               )}
               <button
                 className="devic-input-btn devic-speech-confirm"
-                onClick={() => void confirmRecording()}
+                onClick={() => void handleConfirm()}
                 type="button"
                 title={
                   recording.isAutoStopping
@@ -472,6 +660,28 @@ function AutoStopRing({ progress }: { progress: number }): JSX.Element {
         className="devic-autostop-ring-progress"
         cx="20"
         cy="20"
+        r={AUTOSTOP_RING_R}
+        style={{
+          strokeDasharray: AUTOSTOP_RING_C,
+          strokeDashoffset: AUTOSTOP_RING_C * (1 - progress),
+        }}
+      />
+    </svg>
+  );
+}
+
+/**
+ * Draining ring around the send icon during the handoff pending countdown.
+ * Visually distinct from the auto-stop ring (slate→primary track, larger).
+ */
+function SendCountdownRing({ progress }: { progress: number }): JSX.Element {
+  return (
+    <svg className="devic-handoff-ring" viewBox="0 0 44 44" aria-hidden="true">
+      <circle className="devic-handoff-ring-track" cx="22" cy="22" r={AUTOSTOP_RING_R} />
+      <circle
+        className="devic-handoff-ring-progress"
+        cx="22"
+        cy="22"
         r={AUTOSTOP_RING_R}
         style={{
           strokeDasharray: AUTOSTOP_RING_C,

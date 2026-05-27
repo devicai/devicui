@@ -574,6 +574,150 @@
   }
 }
 
+/* --- Handoff (hands-free) --- */
+
+/* Status bar shown above the input while the loop is active. */
+.devic-handoff-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  margin-bottom: 6px;
+  border-radius: 8px;
+  background: var(--devic-primary-light, #e6f7ff);
+  color: var(--devic-primary);
+  font-size: 12px;
+}
+
+.devic-handoff-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--devic-primary);
+  flex-shrink: 0;
+  animation: devic-handoff-blink 1.2s ease-in-out infinite;
+}
+
+.devic-handoff-bar[data-waiting='true'] .devic-handoff-dot {
+  animation-duration: 0.7s;
+}
+
+@keyframes devic-handoff-blink {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.7);
+  }
+}
+
+.devic-handoff-label {
+  flex: 1;
+  font-weight: 500;
+}
+
+.devic-handoff-stop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.devic-handoff-stop:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* Pending auto-send panel (the "another animation"). */
+.devic-handoff-pending {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-height: 24px;
+  animation: devic-handoff-pending-in 0.18s ease-out;
+}
+
+@keyframes devic-handoff-pending-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.devic-handoff-pending-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  color: var(--devic-primary);
+  animation: devic-autostop-pulse 1s ease-in-out infinite;
+}
+
+.devic-handoff-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.devic-handoff-ring-track {
+  fill: none;
+  stroke: var(--devic-primary);
+  stroke-opacity: 0.18;
+  stroke-width: 3;
+}
+
+.devic-handoff-ring-progress {
+  fill: none;
+  stroke: var(--devic-primary);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 90ms linear;
+}
+
+.devic-handoff-pending-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.devic-handoff-pending-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--devic-primary);
+}
+
+.devic-handoff-pending-preview {
+  font-size: 12px;
+  color: var(--devic-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .devic-speech-cancel {
   color: var(--devic-text-muted);
 }

@@ -146,6 +146,16 @@ export interface ChatDrawerOptions {
   speechAutoStopCountdownMs?: number;
 
   /**
+   * Enable the hands-free (handoff) conversation loop on the voice input.
+   * When on, pressing the mic starts a loop: record → auto-stop transcribes →
+   * a short cancellable countdown → the message is sent automatically → once
+   * the assistant finishes, listening re-activates. Any click/keystroke during
+   * the countdown, or a silent turn, exits the loop.
+   * @default false
+   */
+  speechHandoff?: boolean;
+
+  /**
    * Allowed file types for upload
    */
   allowedFileTypes?: AllowedFileTypes;
@@ -552,6 +562,8 @@ export interface ChatInputProps {
   speechAutoStop?: boolean;
   /** Duration (ms) of the auto-stop circular countdown. @default 1000 */
   speechAutoStopCountdownMs?: number;
+  /** Enable hands-free (handoff) conversation loop on the mic. @default false */
+  speechHandoff?: boolean;
   /** API key used to call the /whisper endpoint (overrides provider). */
   apiKey?: string;
   /** Base URL used to call the /whisper endpoint (overrides provider). */
