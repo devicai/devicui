@@ -26,9 +26,22 @@ export interface UseSpeechRecordingOptions {
   autoStopSilenceMs?: number;
   /** Duration (ms) of the auto-stop countdown shown before firing. @default 1000 */
   autoStopCountdownMs?: number;
-  /** Normalized peak level (0..1) at/below which audio is treated as silence. @default 0.04 */
+  /**
+   * Silence is **adaptive**: the threshold is this fraction of the loudest
+   * speech observed in the recording (e.g. 0.1 = 10% of peak voice). This makes
+   * it robust to ambient noise — a quiet room and a loud one calibrate
+   * differently. @default 0.1
+   */
+  autoStopSilenceRatio?: number;
+  /**
+   * Absolute floor (0..1) for the adaptive silence threshold, so it never drops
+   * so low that background hiss reads as "sound". @default 0.02
+   */
   autoStopSilenceLevel?: number;
-  /** Normalized peak level (0..1) above which we consider the user has spoken. @default 0.12 */
+  /**
+   * Absolute floor (0..1) a peak must clear to first count as speech (arms the
+   * detector / calibrates the reference loudness). @default 0.12
+   */
   autoStopSpeechLevel?: number;
   /**
    * Fired when the silence countdown completes. The consumer decides what
@@ -100,7 +113,8 @@ export function useSpeechRecording(
     autoStop = true,
     autoStopSilenceMs = 1000,
     autoStopCountdownMs = 1000,
-    autoStopSilenceLevel = 0.04,
+    autoStopSilenceRatio = 0.1,
+    autoStopSilenceLevel = 0.02,
     autoStopSpeechLevel = 0.12,
     onAutoStop,
   } = options;
@@ -131,6 +145,7 @@ export function useSpeechRecording(
   // --- Auto-stop (silence detection) state, all kept in refs so the rAF loop
   // reads it without forcing `tick` to re-subscribe. ---
   const hasSpeechRef = useRef(false); // user has spoken at least once
+  const loudestRef = useRef(0); // loudest peak seen (reference for adaptive silence)
   const silenceStartRef = useRef<number | null>(null); // when current silence began
   const autoStopStartRef = useRef<number | null>(null); // when the countdown started
   const autoStopFiredRef = useRef(false); // guard against re-firing before stop
@@ -139,6 +154,7 @@ export function useSpeechRecording(
     autoStop,
     autoStopSilenceMs,
     autoStopCountdownMs,
+    autoStopSilenceRatio,
     autoStopSilenceLevel,
     autoStopSpeechLevel,
     onAutoStop,
@@ -147,6 +163,7 @@ export function useSpeechRecording(
     autoStop,
     autoStopSilenceMs,
     autoStopCountdownMs,
+    autoStopSilenceRatio,
     autoStopSilenceLevel,
     autoStopSpeechLevel,
     onAutoStop,
@@ -155,7 +172,10 @@ export function useSpeechRecording(
   // Reset all auto-stop tracking. `keepSpeech` preserves the "user has spoken"
   // flag across a pause/resume so it doesn't re-arm from scratch.
   const resetAutoStop = useCallback((keepSpeech = false) => {
-    if (!keepSpeech) hasSpeechRef.current = false;
+    if (!keepSpeech) {
+      hasSpeechRef.current = false;
+      loudestRef.current = 0;
+    }
     silenceStartRef.current = null;
     autoStopStartRef.current = null;
     autoStopFiredRef.current = false;
@@ -170,9 +190,31 @@ export function useSpeechRecording(
     if (!cfg.autoStop || autoStopFiredRef.current) return;
     const now = Date.now();
 
-    if (peak >= cfg.autoStopSpeechLevel) {
-      // Speaking: remember it and cancel any pending silence/countdown.
-      hasSpeechRef.current = true;
+    // 1) Arm only once a real voice peak (absolute floor) has been heard. This
+    //    also seeds the reference loudness so ambient noise alone can't arm it.
+    if (!hasSpeechRef.current) {
+      if (peak >= cfg.autoStopSpeechLevel) {
+        hasSpeechRef.current = true;
+        loudestRef.current = peak;
+      }
+      return;
+    }
+
+    // 2) Track the loudest voice so the silence threshold scales with how loud
+    //    the user actually speaks (robust to ambient noise).
+    if (peak > loudestRef.current) loudestRef.current = peak;
+
+    // 3) Adaptive thresholds: silence = ratio of the loudest voice (with an
+    //    absolute floor); activity sits above it for hysteresis, so background
+    //    noise between the two doesn't keep cancelling the countdown.
+    const silenceThreshold = Math.max(
+      cfg.autoStopSilenceLevel,
+      cfg.autoStopSilenceRatio * loudestRef.current,
+    );
+    const activityThreshold = silenceThreshold * 1.8;
+
+    if (peak >= activityThreshold) {
+      // Talking again: reset silence and cancel any pending countdown.
       silenceStartRef.current = null;
       if (autoStopStartRef.current !== null) {
         autoStopStartRef.current = null;
@@ -182,10 +224,7 @@ export function useSpeechRecording(
       return;
     }
 
-    // Only ever arm once the user has actually spoken.
-    if (!hasSpeechRef.current) return;
-
-    if (peak <= cfg.autoStopSilenceLevel) {
+    if (peak <= silenceThreshold) {
       if (silenceStartRef.current === null) silenceStartRef.current = now;
 
       if (autoStopStartRef.current === null) {
@@ -210,7 +249,7 @@ export function useSpeechRecording(
         }
       }
     }
-    // Deadzone (silence < peak < speech): keep the timers running as-is.
+    // Hysteresis deadzone (silence < peak < activity): keep timers running.
   }, []);
 
   const cleanupAudioGraph = useCallback(() => {
