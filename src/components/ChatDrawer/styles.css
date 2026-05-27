@@ -525,6 +525,55 @@
   color: #237804;
 }
 
+/* Auto-stop: inverted circular countdown drawn around the confirm button. */
+.devic-speech-confirm-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.devic-autostop-ring {
+  position: absolute;
+  inset: -3px;
+  width: calc(100% + 6px);
+  height: calc(100% + 6px);
+  /* Start the ring at 12 o'clock. */
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.devic-autostop-ring-track {
+  fill: none;
+  stroke: #389e0d;
+  stroke-opacity: 0.18;
+  stroke-width: 3;
+}
+
+.devic-autostop-ring-progress {
+  fill: none;
+  stroke: #389e0d;
+  stroke-width: 3;
+  stroke-linecap: round;
+  /* Smooth the per-frame drain so it doesn't look jittery. */
+  transition: stroke-dashoffset 90ms linear;
+}
+
+.devic-speech-confirm-wrap[data-autostop='true'] .devic-speech-confirm {
+  animation: devic-autostop-pulse 1s ease-in-out infinite;
+}
+
+@keyframes devic-autostop-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
 .devic-speech-cancel {
   color: var(--devic-text-muted);
 }
