@@ -17,7 +17,7 @@ const FILE_TYPE_ACCEPT: Record<string, string[]> = {
 };
 
 // Handoff (hands-free) loop timings.
-const HANDOFF_PENDING_MS = 1000; // cancellable countdown before auto-send
+const HANDOFF_PENDING_MS = 1000; // default cancellable countdown before auto-send
 const HANDOFF_INACTIVITY_MS = 6000; // silence (no speech) that ends the loop
 
 /**
@@ -36,6 +36,7 @@ export function ChatInput({
   speechAutoStop = true,
   speechAutoStopCountdownMs,
   speechHandoff = false,
+  speechHandoffSendDelayMs,
   apiKey,
   baseUrl,
   sendButtonContent,
@@ -228,13 +229,14 @@ export function ChatInput({
   // Cancellable countdown, then auto-send. Handoff stays active across the send
   // so the loop can continue after the assistant replies.
   const startPendingSend = useCallback(() => {
+    const totalMs = speechHandoffSendDelayMs ?? HANDOFF_PENDING_MS;
     setPendingSend(true);
     setPendingProgress(1);
     const startedAt = Date.now();
     const step = () => {
       const elapsed = Date.now() - startedAt;
-      setPendingProgress(Math.max(0, 1 - elapsed / HANDOFF_PENDING_MS));
-      if (elapsed >= HANDOFF_PENDING_MS) {
+      setPendingProgress(Math.max(0, 1 - elapsed / totalMs));
+      if (elapsed >= totalMs) {
         pendingRafRef.current = null;
         setPendingSend(false);
         setPendingProgress(1);
@@ -244,7 +246,7 @@ export function ChatInput({
       pendingRafRef.current = requestAnimationFrame(step);
     };
     pendingRafRef.current = requestAnimationFrame(step);
-  }, []);
+  }, [speechHandoffSendDelayMs]);
 
   // Drives both the mic auto-stop and the manual confirm button, branching on
   // whether the hands-free loop is active.
