@@ -138,6 +138,14 @@ export interface ChatDrawerOptions {
   speechAutoStop?: boolean;
 
   /**
+   * Duration (ms) of the auto-stop circular countdown drawn around the confirm
+   * button — i.e. how long the ring takes to drain (and how long the user has
+   * to resume talking) before the recording is auto-confirmed.
+   * @default 1000
+   */
+  speechAutoStopCountdownMs?: number;
+
+  /**
    * Allowed file types for upload
    */
   allowedFileTypes?: AllowedFileTypes;
@@ -542,6 +550,8 @@ export interface ChatInputProps {
    * detected). Set to false to require pressing the confirm button. @default true
    */
   speechAutoStop?: boolean;
+  /** Duration (ms) of the auto-stop circular countdown. @default 1000 */
+  speechAutoStopCountdownMs?: number;
   /** API key used to call the /whisper endpoint (overrides provider). */
   apiKey?: string;
   /** Base URL used to call the /whisper endpoint (overrides provider). */
