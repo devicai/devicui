@@ -67,6 +67,8 @@ export interface UseSpeechRecordingResult {
   isAutoStopping: boolean;
   /** Auto-stop countdown progress, 1 (full) → 0 (empty), for an inverted ring. */
   autoStopProgress: number;
+  /** True once a real voice peak was detected in the current recording. */
+  speechDetected: boolean;
   /** Request mic access and start recording. */
   start: () => Promise<void>;
   /** Pause an active recording. */
@@ -130,6 +132,7 @@ export function useSpeechRecording(
   const [error, setError] = useState<string | null>(null);
   const [isAutoStopping, setIsAutoStopping] = useState(false);
   const [autoStopProgress, setAutoStopProgress] = useState(1);
+  const [speechDetected, setSpeechDetected] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -175,6 +178,7 @@ export function useSpeechRecording(
     if (!keepSpeech) {
       hasSpeechRef.current = false;
       loudestRef.current = 0;
+      setSpeechDetected(false);
     }
     silenceStartRef.current = null;
     autoStopStartRef.current = null;
@@ -196,6 +200,7 @@ export function useSpeechRecording(
       if (peak >= cfg.autoStopSpeechLevel) {
         hasSpeechRef.current = true;
         loudestRef.current = peak;
+        setSpeechDetected(true);
       }
       return;
     }
@@ -444,6 +449,7 @@ export function useSpeechRecording(
     error,
     isAutoStopping,
     autoStopProgress,
+    speechDetected,
     start,
     pause,
     resume,
