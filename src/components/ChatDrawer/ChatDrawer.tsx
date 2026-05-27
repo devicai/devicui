@@ -21,6 +21,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   maxFileSize: 10 * 1024 * 1024,
   enableSpeechToText: false,
   speechLanguage: undefined as any,
+  speechAutoStop: true,
   inputPlaceholder: 'Type a message...',
   title: 'Chat',
   showAvatar: false,
@@ -608,6 +609,7 @@ function ChatDrawerInner({
             enableSpeechToText={mergedOptions.enableSpeechToText}
             speechLanguage={mergedOptions.speechLanguage}
             speechTenantId={tenantId}
+            speechAutoStop={mergedOptions.speechAutoStop}
             apiKey={resolvedApiKey}
             baseUrl={resolvedBaseUrl}
             sendButtonContent={mergedOptions.sendButtonContent}

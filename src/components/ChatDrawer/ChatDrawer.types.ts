@@ -128,6 +128,16 @@ export interface ChatDrawerOptions {
   speechLanguage?: string;
 
   /**
+   * Automatically confirm (transcribe) the voice recording after a short
+   * silence, but only once speech has actually been detected. While the
+   * silence elapses, an inverted circular progress drains around the confirm
+   * button; talking again cancels it. Opt-out: set to false to always require
+   * pressing the confirm button manually.
+   * @default true
+   */
+  speechAutoStop?: boolean;
+
+  /**
    * Allowed file types for upload
    */
   allowedFileTypes?: AllowedFileTypes;
@@ -527,6 +537,11 @@ export interface ChatInputProps {
   speechLanguage?: string;
   /** Optional tenant id sent with the /whisper transcription request. */
   speechTenantId?: string;
+  /**
+   * Auto-confirm the recording after a short silence (only once speech has been
+   * detected). Set to false to require pressing the confirm button. @default true
+   */
+  speechAutoStop?: boolean;
   /** API key used to call the /whisper endpoint (overrides provider). */
   apiKey?: string;
   /** Base URL used to call the /whisper endpoint (overrides provider). */

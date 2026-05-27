@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import type { ChatInputProps } from './ChatDrawer.types';
 import { useSpeechRecording } from '../../hooks/useSpeechRecording';
 import { DevicApiClient } from '../../api/client';
@@ -29,6 +29,7 @@ export function ChatInput({
   enableSpeechToText = false,
   speechLanguage,
   speechTenantId,
+  speechAutoStop = true,
   apiKey,
   baseUrl,
   sendButtonContent,
@@ -67,7 +68,14 @@ export function ChatInput({
   const [transcriptId, setTranscriptId] = useState<string | undefined>();
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
-  const recording = useSpeechRecording({ bars: 5 });
+  // Holds the latest confirmRecording so the auto-stop callback (created before
+  // confirmRecording is defined) always calls the current closure.
+  const confirmRef = useRef<() => void>(() => {});
+  const recording = useSpeechRecording({
+    bars: 5,
+    autoStop: speechAutoStop,
+    onAutoStop: () => confirmRef.current(),
+  });
 
   // Client used only for the /whisper transcription call.
   const transcribeClient = useMemo(() => {
@@ -161,6 +169,11 @@ export function ChatInput({
       setIsTranscribing(false);
     }
   }, [transcribeClient, recording, speechLanguage, speechTenantId]);
+
+  // Keep the auto-stop callback pointed at the latest confirmRecording.
+  useEffect(() => {
+    confirmRef.current = () => void confirmRecording();
+  }, [confirmRecording]);
 
   // Handle key press
   const handleKeyDown = useCallback(
@@ -281,14 +294,26 @@ export function ChatInput({
             >
               {recording.isPaused ? <PlayIcon /> : <PauseIcon />}
             </button>
-            <button
-              className="devic-input-btn devic-speech-confirm"
-              onClick={() => void confirmRecording()}
-              type="button"
-              title="Confirm"
+            <div
+              className="devic-speech-confirm-wrap"
+              data-autostop={recording.isAutoStopping ? 'true' : 'false'}
             >
-              <CheckIcon />
-            </button>
+              {recording.isAutoStopping && (
+                <AutoStopRing progress={recording.autoStopProgress} />
+              )}
+              <button
+                className="devic-input-btn devic-speech-confirm"
+                onClick={() => void confirmRecording()}
+                type="button"
+                title={
+                  recording.isAutoStopping
+                    ? 'Auto-sending… keep talking to cancel'
+                    : 'Confirm'
+                }
+              >
+                <CheckIcon />
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -419,6 +444,37 @@ function Equalizer({
         />
       ))}
     </div>
+  );
+}
+
+// Geometry for the auto-stop ring drawn around the confirm button.
+const AUTOSTOP_RING_R = 18;
+const AUTOSTOP_RING_C = 2 * Math.PI * AUTOSTOP_RING_R;
+
+/**
+ * Inverted circular progress drawn around the confirm button. Driven by
+ * `progress` (1 → 0): a full ring that drains to empty over the countdown.
+ */
+function AutoStopRing({ progress }: { progress: number }): JSX.Element {
+  return (
+    <svg className="devic-autostop-ring" viewBox="0 0 40 40" aria-hidden="true">
+      <circle
+        className="devic-autostop-ring-track"
+        cx="20"
+        cy="20"
+        r={AUTOSTOP_RING_R}
+      />
+      <circle
+        className="devic-autostop-ring-progress"
+        cx="20"
+        cy="20"
+        r={AUTOSTOP_RING_R}
+        style={{
+          strokeDasharray: AUTOSTOP_RING_C,
+          strokeDashoffset: AUTOSTOP_RING_C * (1 - progress),
+        }}
+      />
+    </svg>
   );
 }
 
