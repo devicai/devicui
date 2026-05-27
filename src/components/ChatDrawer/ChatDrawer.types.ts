@@ -156,6 +156,14 @@ export interface ChatDrawerOptions {
   speechHandoff?: boolean;
 
   /**
+   * In hands-free mode, the delay (ms) between the transcription being ready
+   * and the message being auto-sent — i.e. the cancellable pending countdown.
+   * Any click/keystroke during this window cancels the auto-send.
+   * @default 1000
+   */
+  speechHandoffSendDelayMs?: number;
+
+  /**
    * Allowed file types for upload
    */
   allowedFileTypes?: AllowedFileTypes;
@@ -564,6 +572,8 @@ export interface ChatInputProps {
   speechAutoStopCountdownMs?: number;
   /** Enable hands-free (handoff) conversation loop on the mic. @default false */
   speechHandoff?: boolean;
+  /** Delay (ms) in handoff from transcription ready to auto-send. @default 1000 */
+  speechHandoffSendDelayMs?: number;
   /** API key used to call the /whisper endpoint (overrides provider). */
   apiKey?: string;
   /** Base URL used to call the /whisper endpoint (overrides provider). */
