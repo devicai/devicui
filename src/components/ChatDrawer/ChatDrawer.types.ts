@@ -146,6 +146,32 @@ export interface ChatDrawerOptions {
   speechAutoStopCountdownMs?: number;
 
   /**
+   * Continuous silence (ms) that must elapse — after speech was detected —
+   * before the auto-stop countdown begins. Lower it to react faster to the end
+   * of speech. @default 1000
+   */
+  speechAutoStopSilenceMs?: number;
+
+  /**
+   * Adaptive silence threshold as a fraction of the loudest speech observed
+   * (e.g. 0.1 = 10% of peak voice). Calibrates to ambient noise. @default 0.1
+   */
+  speechAutoStopSilenceRatio?: number;
+
+  /**
+   * Absolute floor (0..1) for the adaptive silence threshold, so it never drops
+   * so low that background hiss reads as "sound". @default 0.02
+   */
+  speechAutoStopSilenceLevel?: number;
+
+  /**
+   * Absolute floor (0..1) a peak must clear to first count as speech (arms the
+   * detector / calibrates the reference loudness). Lower it to pick up quieter
+   * voices / softer mics. @default 0.12
+   */
+  speechAutoStopSpeechLevel?: number;
+
+  /**
    * Enable the hands-free (handoff) conversation loop on the voice input.
    * When on, pressing the mic starts a loop: record → auto-stop transcribes →
    * a short cancellable countdown → the message is sent automatically → once
@@ -436,6 +462,16 @@ export interface ChatDrawerProps {
   tenantMetadata?: Record<string, any>;
 
   /**
+   * Subtenant ID (overrides provider)
+   */
+  subtenantId?: string;
+
+  /**
+   * Subtenant metadata (overrides provider)
+   */
+  subtenantMetadata?: Record<string, any>;
+
+  /**
    * API key (overrides provider)
    */
   apiKey?: string;
@@ -570,6 +606,14 @@ export interface ChatInputProps {
   speechAutoStop?: boolean;
   /** Duration (ms) of the auto-stop circular countdown. @default 1000 */
   speechAutoStopCountdownMs?: number;
+  /** Continuous silence (ms) after speech before the auto-stop countdown. @default 1000 */
+  speechAutoStopSilenceMs?: number;
+  /** Adaptive silence threshold as a fraction of peak voice. @default 0.1 */
+  speechAutoStopSilenceRatio?: number;
+  /** Absolute floor (0..1) for the adaptive silence threshold. @default 0.02 */
+  speechAutoStopSilenceLevel?: number;
+  /** Absolute floor (0..1) a peak must clear to count as speech. @default 0.12 */
+  speechAutoStopSpeechLevel?: number;
   /** Enable hands-free (handoff) conversation loop on the mic. @default false */
   speechHandoff?: boolean;
   /** Delay (ms) in handoff from transcription ready to auto-send. @default 1000 */

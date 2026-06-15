@@ -26,6 +26,18 @@ export interface DevicProviderConfig {
   tenantMetadata?: Record<string, any>;
 
   /**
+   * Global subtenant ID identifying a user/entity inside the tenant
+   * (e.g. an end user of a SaaS that integrates Devic).
+   */
+  subtenantId?: string;
+
+  /**
+   * Global subtenant metadata (e.g. { id, name, email }). Used for
+   * per-subtenant cost attribution and automatic tenant domain detection.
+   */
+  subtenantMetadata?: Record<string, any>;
+
+  /**
    * Enable debug logging to the browser console
    * @default false
    */
@@ -86,6 +98,16 @@ export interface DevicContextValue {
    * Global tenant metadata
    */
   tenantMetadata?: Record<string, any>;
+
+  /**
+   * Global subtenant ID
+   */
+  subtenantId?: string;
+
+  /**
+   * Global subtenant metadata
+   */
+  subtenantMetadata?: Record<string, any>;
 
   /**
    * Whether the provider is properly configured

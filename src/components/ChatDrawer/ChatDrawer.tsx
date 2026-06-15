@@ -23,6 +23,10 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   speechLanguage: undefined as any,
   speechAutoStop: true,
   speechAutoStopCountdownMs: 1000,
+  speechAutoStopSilenceMs: 1000,
+  speechAutoStopSilenceRatio: 0.1,
+  speechAutoStopSilenceLevel: 0.02,
+  speechAutoStopSpeechLevel: 0.12,
   speechHandoff: false,
   speechHandoffSendDelayMs: 1000,
   inputPlaceholder: 'Type a message...',
@@ -106,6 +110,8 @@ function ChatDrawerInner({
   modelInterfaceTools,
   tenantId,
   tenantMetadata,
+  subtenantId,
+  subtenantMetadata,
   apiKey,
   baseUrl,
   onMessageSent,
@@ -166,6 +172,8 @@ function ChatDrawerInner({
     baseUrl,
     tenantId,
     tenantMetadata,
+    subtenantId,
+    subtenantMetadata,
     enabledTools,
     modelInterfaceTools,
     onMessageSent,
@@ -614,6 +622,10 @@ function ChatDrawerInner({
             speechTenantId={tenantId}
             speechAutoStop={mergedOptions.speechAutoStop}
             speechAutoStopCountdownMs={mergedOptions.speechAutoStopCountdownMs}
+            speechAutoStopSilenceMs={mergedOptions.speechAutoStopSilenceMs}
+            speechAutoStopSilenceRatio={mergedOptions.speechAutoStopSilenceRatio}
+            speechAutoStopSilenceLevel={mergedOptions.speechAutoStopSilenceLevel}
+            speechAutoStopSpeechLevel={mergedOptions.speechAutoStopSpeechLevel}
             speechHandoff={mergedOptions.speechHandoff}
             speechHandoffSendDelayMs={mergedOptions.speechHandoffSendDelayMs}
             apiKey={resolvedApiKey}

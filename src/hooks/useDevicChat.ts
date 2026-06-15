@@ -44,6 +44,16 @@ export interface UseDevicChatOptions {
   tenantMetadata?: Record<string, any>;
 
   /**
+   * Subtenant ID identifying a user/entity inside the tenant
+   */
+  subtenantId?: string;
+
+  /**
+   * Subtenant metadata (e.g. { id, name, email })
+   */
+  subtenantMetadata?: Record<string, any>;
+
+  /**
    * Tools enabled from the assistant's configured tool groups
    */
   enabledTools?: string[];
@@ -218,6 +228,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     baseUrl: propsBaseUrl,
     tenantId,
     tenantMetadata,
+    subtenantId,
+    subtenantMetadata,
     enabledTools,
     modelInterfaceTools = [],
     pollingInterval = 1000,
@@ -238,6 +250,11 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   const baseUrl = propsBaseUrl || context?.baseUrl || 'https://api.devic.ai';
   const resolvedTenantId = tenantId || context?.tenantId;
   const resolvedTenantMetadata = { ...context?.tenantMetadata, ...tenantMetadata };
+  const resolvedSubtenantId = subtenantId || context?.subtenantId;
+  const resolvedSubtenantMetadata = {
+    ...context?.subtenantMetadata,
+    ...subtenantMetadata,
+  };
   const debug = propsDebug ?? context?.debug ?? false;
   const log = useMemo(() => createLogger(debug), [debug]);
   const logRef = useRef(log);
@@ -611,15 +628,22 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         }
 
         // Build request DTO
+        const hasSubtenantMetadata =
+          resolvedSubtenantMetadata &&
+          Object.keys(resolvedSubtenantMetadata).length > 0;
         const dto = {
           message,
           chatUid: chatUid || undefined,
           files: uploadedFiles,
           metadata: {
             ...resolvedTenantMetadata,
+            ...(hasSubtenantMetadata && {
+              subtenantMetadata: resolvedSubtenantMetadata,
+            }),
             ...sendOptions?.metadata,
           },
           tenantId: resolvedTenantId,
+          ...(resolvedSubtenantId && { subtenantId: resolvedSubtenantId }),
           enabledTools,
           // Include model interface tools if any
           ...(toolSchemas.length > 0 && { tools: toolSchemas }),
@@ -659,6 +683,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       enabledTools,
       resolvedTenantId,
       resolvedTenantMetadata,
+      resolvedSubtenantId,
+      resolvedSubtenantMetadata,
       toolSchemas,
       onMessageSent,
       onFileUpload,
