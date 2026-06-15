@@ -35,6 +35,10 @@ export function ChatInput({
   speechTenantId,
   speechAutoStop = true,
   speechAutoStopCountdownMs,
+  speechAutoStopSilenceMs,
+  speechAutoStopSilenceRatio,
+  speechAutoStopSilenceLevel,
+  speechAutoStopSpeechLevel,
   speechHandoff = false,
   speechHandoffSendDelayMs,
   apiKey,
@@ -83,6 +87,18 @@ export function ChatInput({
     autoStop: speechAutoStop,
     ...(speechAutoStopCountdownMs != null && {
       autoStopCountdownMs: speechAutoStopCountdownMs,
+    }),
+    ...(speechAutoStopSilenceMs != null && {
+      autoStopSilenceMs: speechAutoStopSilenceMs,
+    }),
+    ...(speechAutoStopSilenceRatio != null && {
+      autoStopSilenceRatio: speechAutoStopSilenceRatio,
+    }),
+    ...(speechAutoStopSilenceLevel != null && {
+      autoStopSilenceLevel: speechAutoStopSilenceLevel,
+    }),
+    ...(speechAutoStopSpeechLevel != null && {
+      autoStopSpeechLevel: speechAutoStopSpeechLevel,
     }),
     onAutoStop: () => confirmRef.current(),
   });

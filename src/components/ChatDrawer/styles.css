@@ -645,6 +645,7 @@
   align-items: center;
   gap: 10px;
   flex: 1;
+  min-width: 0;
   min-height: 24px;
   animation: devic-handoff-pending-in 0.18s ease-out;
 }
@@ -713,9 +714,14 @@
 .devic-handoff-pending-preview {
   font-size: 12px;
   color: var(--devic-text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Envuelve el texto transcrito en varias líneas en lugar de truncarlo /
+     desbordar. Rompe palabras/URLs largas y limita la altura con scroll para
+     que una transcripción larga no empuje el layout durante la cuenta atrás. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-height: 4.5em;
+  overflow-y: auto;
 }
 
 .devic-speech-cancel {
