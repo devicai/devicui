@@ -6,6 +6,8 @@ import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
 import { ConversationSelector } from './ConversationSelector';
 import { ChatDrawerErrorBoundary } from './ErrorBoundary';
+import { UsageBar } from './UsageBar';
+import { LimitBanner } from './LimitBanner';
 import type { ChatDrawerProps, ChatDrawerOptions, ChatDrawerHandle } from './ChatDrawer.types';
 import './styles.css';
 
@@ -23,6 +25,10 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   speechLanguage: undefined as any,
   speechAutoStop: true,
   speechAutoStopCountdownMs: 1000,
+  speechAutoStopSilenceMs: 1000,
+  speechAutoStopSilenceRatio: 0.1,
+  speechAutoStopSilenceLevel: 0.02,
+  speechAutoStopSpeechLevel: 0.12,
   speechHandoff: false,
   speechHandoffSendDelayMs: 1000,
   inputPlaceholder: 'Type a message...',
@@ -57,6 +63,10 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   persistConversation: false,
   customPromptBox: undefined as any,
   conversationPreview: 'date',
+  showUsageBar: false,
+  usageBarMetric: undefined as any,
+  hideLimitBanner: false,
+  limitBannerRenderer: undefined as any,
 };
 
 /**
@@ -106,6 +116,8 @@ function ChatDrawerInner({
   modelInterfaceTools,
   tenantId,
   tenantMetadata,
+  subtenantId,
+  subtenantMetadata,
   apiKey,
   baseUrl,
   onMessageSent,
@@ -166,6 +178,8 @@ function ChatDrawerInner({
     baseUrl,
     tenantId,
     tenantMetadata,
+    subtenantId,
+    subtenantMetadata,
     enabledTools,
     modelInterfaceTools,
     onMessageSent,
@@ -192,6 +206,36 @@ function ChatDrawerInner({
       if (a.imgUrl) setAvatarUrl(a.imgUrl);
     }).catch(() => {});
   }, [mergedOptions.showAvatar, assistantId, resolvedApiKey, resolvedBaseUrl]);
+
+  // Tenant/subtenant resolution mirrors useDevicChat (prop overrides provider).
+  const resolvedTenantId = tenantId || context?.tenantId;
+  const resolvedSubtenantId = subtenantId || context?.subtenantId;
+
+  // Usage bar (above the input) — only when enabled and a tenant is known.
+  // Refetches after each turn via the message count as refresh key.
+  const usageBarNode =
+    mergedOptions.showUsageBar && resolvedTenantId ? (
+      <UsageBar
+        apiKey={resolvedApiKey}
+        baseUrl={resolvedBaseUrl}
+        tenantId={resolvedTenantId}
+        subtenantId={resolvedSubtenantId}
+        mode={mergedOptions.showUsageBar === 'onDemand' ? 'onDemand' : 'always'}
+        metric={mergedOptions.usageBarMetric}
+        color={mergedOptions.color}
+        refreshKey={chat.messages.length}
+        debug={mergedOptions.debug}
+      />
+    ) : null;
+
+  // Default usage-limit banner (above the input) — opt-out via hideLimitBanner,
+  // override via limitBannerRenderer.
+  const limitBannerNode =
+    chat.limitExceeded && !mergedOptions.hideLimitBanner
+      ? mergedOptions.limitBannerRenderer
+        ? mergedOptions.limitBannerRenderer(chat.limitExceeded)
+        : <LimitBanner limit={chat.limitExceeded} />
+      : null;
 
   // Speech-to-text transcription, exposed to custom prompt boxes so a developer
   // can transcribe audio (binary or URL) and attach the resulting transcriptId.
@@ -590,6 +634,8 @@ function ChatDrawerInner({
         {/* Input */}
         {mergedOptions.customPromptBox ? (
           <div className="devic-input-area">
+            {limitBannerNode}
+            {usageBarNode}
             {mergedOptions.customPromptBox({
               sendMessage: handleSend,
               transcribeAudio,
@@ -599,12 +645,18 @@ function ChatDrawerInner({
               references,
               removeReference,
               clearReferences,
+              limitExceeded: chat.limitExceeded,
             })}
           </div>
         ) : (
           <ChatInput
             onSend={handleSend}
-            disabled={chat.isLoading || chat.handedOff || inlineWidgets.length > 0}
+            disabled={
+              chat.isLoading ||
+              chat.handedOff ||
+              inlineWidgets.length > 0 ||
+              !!chat.limitExceeded
+            }
             placeholder={mergedOptions.inputPlaceholder}
             enableFileUploads={mergedOptions.enableFileUploads}
             allowedFileTypes={mergedOptions.allowedFileTypes}
@@ -614,6 +666,10 @@ function ChatDrawerInner({
             speechTenantId={tenantId}
             speechAutoStop={mergedOptions.speechAutoStop}
             speechAutoStopCountdownMs={mergedOptions.speechAutoStopCountdownMs}
+            speechAutoStopSilenceMs={mergedOptions.speechAutoStopSilenceMs}
+            speechAutoStopSilenceRatio={mergedOptions.speechAutoStopSilenceRatio}
+            speechAutoStopSilenceLevel={mergedOptions.speechAutoStopSilenceLevel}
+            speechAutoStopSpeechLevel={mergedOptions.speechAutoStopSpeechLevel}
             speechHandoff={mergedOptions.speechHandoff}
             speechHandoffSendDelayMs={mergedOptions.speechHandoffSendDelayMs}
             apiKey={resolvedApiKey}
@@ -634,6 +690,8 @@ function ChatDrawerInner({
             onCancelWidget={chat.cancelWidgetCall}
             references={references}
             onRemoveReference={removeReference}
+            usageBar={usageBarNode}
+            limitBanner={limitBannerNode}
           />
         )}
       </div>

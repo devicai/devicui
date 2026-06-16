@@ -14,6 +14,9 @@ import type {
   AgentThreadDto,
   AgentDto,
   WhisperTranscriptionResponse,
+  TenantUsage,
+  TenantUsageHistoryRow,
+  TenantUsageHistoryQuery,
 } from "./types";
 
 export interface DevicApiClientConfig {
@@ -457,6 +460,46 @@ export class DevicApiClient {
       `/api/v1/assistants/${assistantId}/chats/${chatUid}/content`,
     );
   }
+
+  /**
+   * Get the current usage limits + consumption for a tenant (or a specific
+   * subtenant). Read-only — backed by `GET /api/v1/tenant-usage/:tenantId`
+   * (or `/:tenantId/subtenants/:subtenantId`), which is part of the devic-ui
+   * key preset. Returns the effective rules with their live consumption and the
+   * active tier. Use it to render a usage bar.
+   */
+  async getTenantUsage(
+    tenantId: string,
+    subtenantId?: string,
+  ): Promise<TenantUsage> {
+    const path = subtenantId
+      ? `/api/v1/tenant-usage/${encodeURIComponent(tenantId)}/subtenants/${encodeURIComponent(subtenantId)}`
+      : `/api/v1/tenant-usage/${encodeURIComponent(tenantId)}`;
+    return this.request<TenantUsage>(path);
+  }
+
+  /**
+   * Get the durable per-window usage history for a tenant (or subtenant).
+   * Read-only — backed by `GET /api/v1/tenant-usage/:tenantId/history`.
+   */
+  async getTenantUsageHistory(
+    tenantId: string,
+    options?: TenantUsageHistoryQuery,
+  ): Promise<TenantUsageHistoryRow[]> {
+    const params = new URLSearchParams();
+    if (options?.subtenantId) params.set("subtenantId", options.subtenantId);
+    if (options?.scope) params.set("scope", options.scope);
+    if (options?.metric) params.set("metric", options.metric);
+    if (options?.windowUnit) params.set("windowUnit", options.windowUnit);
+    if (options?.from != null) params.set("from", String(options.from));
+    if (options?.to != null) params.set("to", String(options.to));
+    if (options?.limit != null) params.set("limit", String(options.limit));
+    if (options?.skip != null) params.set("skip", String(options.skip));
+    const query = params.toString();
+    return this.request<TenantUsageHistoryRow[]>(
+      `/api/v1/tenant-usage/${encodeURIComponent(tenantId)}/history${query ? `?${query}` : ""}`,
+    );
+  }
 }
 
 /**
@@ -465,11 +508,14 @@ export class DevicApiClient {
 export class DevicApiError extends Error {
   public statusCode: number;
   public errorType?: string;
+  /** Structured error details (e.g. usage-limit blocking info on a 429). */
+  public details?: any;
 
   constructor(error: ApiError) {
     super(error.message);
     this.name = "DevicApiError";
     this.statusCode = error.statusCode;
     this.errorType = error.error;
+    this.details = error.details;
   }
 }

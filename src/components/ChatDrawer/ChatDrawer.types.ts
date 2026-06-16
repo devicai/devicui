@@ -1,4 +1,4 @@
-import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig, WhisperTranscriptionResponse } from '../../api/types';
+import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig, WhisperTranscriptionResponse, TenantLimitExceeded } from '../../api/types';
 import type { PendingWidgetCall } from '../../hooks/useModelInterface';
 import type { AIReference } from '../../provider/types';
 
@@ -55,6 +55,12 @@ export interface CustomPromptBoxProps {
   removeReference: (id: string) => void;
   /** Clear all references */
   clearReferences: () => void;
+  /**
+   * Set when the last message was blocked by a tenant/subtenant usage limit.
+   * `null` otherwise. Custom prompt boxes can read it to disable input or show
+   * their own notice.
+   */
+  limitExceeded?: TenantLimitExceeded | null;
 }
 
 /**
@@ -144,6 +150,32 @@ export interface ChatDrawerOptions {
    * @default 1000
    */
   speechAutoStopCountdownMs?: number;
+
+  /**
+   * Continuous silence (ms) that must elapse — after speech was detected —
+   * before the auto-stop countdown begins. Lower it to react faster to the end
+   * of speech. @default 1000
+   */
+  speechAutoStopSilenceMs?: number;
+
+  /**
+   * Adaptive silence threshold as a fraction of the loudest speech observed
+   * (e.g. 0.1 = 10% of peak voice). Calibrates to ambient noise. @default 0.1
+   */
+  speechAutoStopSilenceRatio?: number;
+
+  /**
+   * Absolute floor (0..1) for the adaptive silence threshold, so it never drops
+   * so low that background hiss reads as "sound". @default 0.02
+   */
+  speechAutoStopSilenceLevel?: number;
+
+  /**
+   * Absolute floor (0..1) a peak must clear to first count as speech (arms the
+   * detector / calibrates the reference loudness). Lower it to pick up quieter
+   * voices / softer mics. @default 0.12
+   */
+  speechAutoStopSpeechLevel?: number;
 
   /**
    * Enable the hands-free (handoff) conversation loop on the voice input.
@@ -369,6 +401,40 @@ export interface ChatDrawerOptions {
    * @default 'date'
    */
   conversationPreview?: 'date' | 'firstMessage';
+
+  /**
+   * Show a usage bar above the input with the current tenant/subtenant usage
+   * (most utilized window). Requires a `tenantId` (and reads it via the public
+   * read-only `/api/v1/tenant-usage` endpoint).
+   * - `true`: the bar is always visible.
+   * - `'onDemand'`: a small "Usage" toggle button is shown; the bar appears on click.
+   * - `false` (default): no usage bar.
+   *
+   * Renders nothing when the tenant has no usage limits configured.
+   * @default false
+   */
+  showUsageBar?: boolean | 'onDemand';
+
+  /**
+   * Restrict the usage bar to a single metric ('tokens' or 'cost'). When
+   * omitted, the most utilized window across all metrics is shown.
+   */
+  usageBarMetric?: 'tokens' | 'cost';
+
+  /**
+   * Hide the default banner shown above the input when a message is blocked by
+   * a usage limit. Use together with `useDevicChat().limitExceeded` (or
+   * `onError`) to render your own UI.
+   * @default false
+   */
+  hideLimitBanner?: boolean;
+
+  /**
+   * Custom renderer for the usage-limit banner. Receives the limit details and
+   * returns the node rendered above the input (replacing the default banner).
+   * The input is disabled regardless while the limit is active.
+   */
+  limitBannerRenderer?: (limit: TenantLimitExceeded) => React.ReactNode;
 }
 
 /**
@@ -434,6 +500,16 @@ export interface ChatDrawerProps {
    * Tenant metadata (overrides provider)
    */
   tenantMetadata?: Record<string, any>;
+
+  /**
+   * Subtenant ID (overrides provider)
+   */
+  subtenantId?: string;
+
+  /**
+   * Subtenant metadata (overrides provider)
+   */
+  subtenantMetadata?: Record<string, any>;
 
   /**
    * API key (overrides provider)
@@ -570,6 +646,14 @@ export interface ChatInputProps {
   speechAutoStop?: boolean;
   /** Duration (ms) of the auto-stop circular countdown. @default 1000 */
   speechAutoStopCountdownMs?: number;
+  /** Continuous silence (ms) after speech before the auto-stop countdown. @default 1000 */
+  speechAutoStopSilenceMs?: number;
+  /** Adaptive silence threshold as a fraction of peak voice. @default 0.1 */
+  speechAutoStopSilenceRatio?: number;
+  /** Absolute floor (0..1) for the adaptive silence threshold. @default 0.02 */
+  speechAutoStopSilenceLevel?: number;
+  /** Absolute floor (0..1) a peak must clear to count as speech. @default 0.12 */
+  speechAutoStopSpeechLevel?: number;
   /** Enable hands-free (handoff) conversation loop on the mic. @default false */
   speechHandoff?: boolean;
   /** Delay (ms) in handoff from transcription ready to auto-send. @default 1000 */
@@ -597,6 +681,13 @@ export interface ChatInputProps {
   references?: AIReference[];
   /** Called when the user removes a reference chip */
   onRemoveReference?: (id: string) => void;
+  /** Usage bar node rendered at the top of the input area (above the textarea). */
+  usageBar?: React.ReactNode;
+  /**
+   * Usage-limit banner node rendered above the textarea when a message was
+   * blocked by a usage limit. When present, the input is disabled.
+   */
+  limitBanner?: React.ReactNode;
 }
 
 /**

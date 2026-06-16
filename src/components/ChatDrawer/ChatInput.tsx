@@ -35,6 +35,10 @@ export function ChatInput({
   speechTenantId,
   speechAutoStop = true,
   speechAutoStopCountdownMs,
+  speechAutoStopSilenceMs,
+  speechAutoStopSilenceRatio,
+  speechAutoStopSilenceLevel,
+  speechAutoStopSpeechLevel,
   speechHandoff = false,
   speechHandoffSendDelayMs,
   apiKey,
@@ -49,6 +53,8 @@ export function ChatInput({
   onCancelWidget,
   references,
   onRemoveReference,
+  usageBar,
+  limitBanner,
 }: ChatInputProps): JSX.Element {
   // When a widget is pending as 'input', render it in place of the textarea
   if (pendingInputWidget) {
@@ -83,6 +89,18 @@ export function ChatInput({
     autoStop: speechAutoStop,
     ...(speechAutoStopCountdownMs != null && {
       autoStopCountdownMs: speechAutoStopCountdownMs,
+    }),
+    ...(speechAutoStopSilenceMs != null && {
+      autoStopSilenceMs: speechAutoStopSilenceMs,
+    }),
+    ...(speechAutoStopSilenceRatio != null && {
+      autoStopSilenceRatio: speechAutoStopSilenceRatio,
+    }),
+    ...(speechAutoStopSilenceLevel != null && {
+      autoStopSilenceLevel: speechAutoStopSilenceLevel,
+    }),
+    ...(speechAutoStopSpeechLevel != null && {
+      autoStopSpeechLevel: speechAutoStopSpeechLevel,
     }),
     onAutoStop: () => confirmRef.current(),
   });
@@ -377,6 +395,8 @@ export function ChatInput({
 
   return (
     <div className="devic-input-area">
+      {limitBanner}
+      {usageBar}
       {disabledMessage && disabled && (
         <div className="devic-input-disabled-notice">
           <WaitingIcon />

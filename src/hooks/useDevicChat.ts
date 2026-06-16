@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useOptionalDevicContext } from '../provider';
-import { DevicApiClient } from '../api/client';
+import { DevicApiClient, DevicApiError } from '../api/client';
 import { usePolling } from './usePolling';
 import { useModelInterface, type PendingWidgetCall } from './useModelInterface';
 import { createLogger } from '../utils/logger';
@@ -10,6 +10,7 @@ import type {
   ModelInterfaceTool,
   RealtimeChatHistory,
   RealtimeStatus,
+  TenantLimitExceeded,
 } from '../api/types';
 
 export interface UseDevicChatOptions {
@@ -42,6 +43,16 @@ export interface UseDevicChatOptions {
    * Tenant metadata
    */
   tenantMetadata?: Record<string, any>;
+
+  /**
+   * Subtenant ID identifying a user/entity inside the tenant
+   */
+  subtenantId?: string;
+
+  /**
+   * Subtenant metadata (e.g. { id, name, email })
+   */
+  subtenantMetadata?: Record<string, any>;
 
   /**
    * Tools enabled from the assistant's configured tool groups
@@ -124,6 +135,14 @@ export interface UseDevicChatResult {
    * Last error
    */
   error: Error | null;
+
+  /**
+   * Set when the last message was blocked by a tenant/subtenant usage limit
+   * (HTTP 429 / realtime status `limit_exceeded`). Carries the blocking rule,
+   * current vs. limit and when the window resets. `null` while not limited.
+   * Cleared when a new message is sent or the chat is cleared.
+   */
+  limitExceeded: TenantLimitExceeded | null;
 
   /**
    * Whether the assistant has handed off to a subagent
@@ -218,6 +237,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     baseUrl: propsBaseUrl,
     tenantId,
     tenantMetadata,
+    subtenantId,
+    subtenantMetadata,
     enabledTools,
     modelInterfaceTools = [],
     pollingInterval = 1000,
@@ -238,6 +259,11 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   const baseUrl = propsBaseUrl || context?.baseUrl || 'https://api.devic.ai';
   const resolvedTenantId = tenantId || context?.tenantId;
   const resolvedTenantMetadata = { ...context?.tenantMetadata, ...tenantMetadata };
+  const resolvedSubtenantId = subtenantId || context?.subtenantId;
+  const resolvedSubtenantMetadata = {
+    ...context?.subtenantMetadata,
+    ...subtenantMetadata,
+  };
   const debug = propsDebug ?? context?.debug ?? false;
   const log = useMemo(() => createLogger(debug), [debug]);
   const logRef = useRef(log);
@@ -249,6 +275,9 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<RealtimeStatus | 'idle'>('idle');
   const [error, setError] = useState<Error | null>(null);
+  const [limitExceeded, setLimitExceeded] = useState<TenantLimitExceeded | null>(
+    null
+  );
 
   // Handoff state
   const [handedOff, setHandedOff] = useState(false);
@@ -397,7 +426,13 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     {
       interval: pollingInterval,
       enabled: shouldPoll,
-      stopStatuses: ['completed', 'error', 'waiting_for_tool_response', 'handed_off'],
+      stopStatuses: [
+        'completed',
+        'error',
+        'waiting_for_tool_response',
+        'handed_off',
+        'limit_exceeded',
+      ],
       onUpdate: async (data: RealtimeChatHistory) => {
         logRef.current.log('[useDevicChat] onUpdate called, status:', data.status);
 
@@ -448,7 +483,22 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         logRef.current.log('[useDevicChat] onStop called, status:', data?.status);
         setShouldPoll(false);
 
-        if (data?.status === 'error') {
+        if (data?.status === 'limit_exceeded') {
+          // The message was blocked by a tenant/subtenant usage limit before
+          // reaching the LLM. Surface the details so the UI can show a banner.
+          setIsLoading(false);
+          const details: TenantLimitExceeded = data.limitExceeded || {
+            message: 'Usage limit reached.',
+          };
+          setLimitExceeded(details);
+          const err = new Error(
+            details.message || 'Usage limit reached.'
+          ) as Error & { errorType?: string; details?: TenantLimitExceeded };
+          err.errorType = 'TENANT_LIMIT_EXCEEDED';
+          err.details = details;
+          setError(err);
+          onErrorRef.current?.(err);
+        } else if (data?.status === 'error') {
           setIsLoading(false);
           const err = new Error('Chat processing failed');
           setError(err);
@@ -546,6 +596,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
 
       setIsLoading(true);
       setError(null);
+      setLimitExceeded(null);
       setStatus('processing');
 
       // Add user message optimistically (show file names before upload)
@@ -611,15 +662,22 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         }
 
         // Build request DTO
+        const hasSubtenantMetadata =
+          resolvedSubtenantMetadata &&
+          Object.keys(resolvedSubtenantMetadata).length > 0;
         const dto = {
           message,
           chatUid: chatUid || undefined,
           files: uploadedFiles,
           metadata: {
             ...resolvedTenantMetadata,
+            ...(hasSubtenantMetadata && {
+              subtenantMetadata: resolvedSubtenantMetadata,
+            }),
             ...sendOptions?.metadata,
           },
           tenantId: resolvedTenantId,
+          ...(resolvedSubtenantId && { subtenantId: resolvedSubtenantId }),
           enabledTools,
           // Include model interface tools if any
           ...(toolSchemas.length > 0 && { tools: toolSchemas }),
@@ -644,6 +702,20 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         setShouldPoll(true);
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
+
+        // A synchronous usage-limit block surfaces as HTTP 429 /
+        // TENANT_LIMIT_EXCEEDED (sync send path). Async sends surface it via the
+        // realtime `limit_exceeded` status instead — both are handled.
+        if (
+          err instanceof DevicApiError &&
+          (err.statusCode === 429 || err.errorType === 'TENANT_LIMIT_EXCEEDED')
+        ) {
+          const details: TenantLimitExceeded =
+            (err.details as TenantLimitExceeded) || { message: err.message };
+          if (!details.message) details.message = err.message;
+          setLimitExceeded(details);
+        }
+
         setError(error);
         setIsLoading(false);
         setStatus('error');
@@ -659,6 +731,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       enabledTools,
       resolvedTenantId,
       resolvedTenantMetadata,
+      resolvedSubtenantId,
+      resolvedSubtenantMetadata,
       toolSchemas,
       onMessageSent,
       onFileUpload,
@@ -679,6 +753,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     setIsLoading(false);
     setStatus('idle');
     setError(null);
+    setLimitExceeded(null);
     pendingWidgetCallsRef.current = [];
     setPendingWidgetCalls([]);
   }, []);
@@ -845,6 +920,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     isLoading,
     status,
     error,
+    limitExceeded,
     handedOff,
     handedOffSubThreadId,
     sendMessage,
