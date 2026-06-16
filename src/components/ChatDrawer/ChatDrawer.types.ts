@@ -1,4 +1,4 @@
-import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig, WhisperTranscriptionResponse } from '../../api/types';
+import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig, WhisperTranscriptionResponse, TenantLimitExceeded } from '../../api/types';
 import type { PendingWidgetCall } from '../../hooks/useModelInterface';
 import type { AIReference } from '../../provider/types';
 
@@ -55,6 +55,12 @@ export interface CustomPromptBoxProps {
   removeReference: (id: string) => void;
   /** Clear all references */
   clearReferences: () => void;
+  /**
+   * Set when the last message was blocked by a tenant/subtenant usage limit.
+   * `null` otherwise. Custom prompt boxes can read it to disable input or show
+   * their own notice.
+   */
+  limitExceeded?: TenantLimitExceeded | null;
 }
 
 /**
@@ -395,6 +401,40 @@ export interface ChatDrawerOptions {
    * @default 'date'
    */
   conversationPreview?: 'date' | 'firstMessage';
+
+  /**
+   * Show a usage bar above the input with the current tenant/subtenant usage
+   * (most utilized window). Requires a `tenantId` (and reads it via the public
+   * read-only `/api/v1/tenant-usage` endpoint).
+   * - `true`: the bar is always visible.
+   * - `'onDemand'`: a small "Usage" toggle button is shown; the bar appears on click.
+   * - `false` (default): no usage bar.
+   *
+   * Renders nothing when the tenant has no usage limits configured.
+   * @default false
+   */
+  showUsageBar?: boolean | 'onDemand';
+
+  /**
+   * Restrict the usage bar to a single metric ('tokens' or 'cost'). When
+   * omitted, the most utilized window across all metrics is shown.
+   */
+  usageBarMetric?: 'tokens' | 'cost';
+
+  /**
+   * Hide the default banner shown above the input when a message is blocked by
+   * a usage limit. Use together with `useDevicChat().limitExceeded` (or
+   * `onError`) to render your own UI.
+   * @default false
+   */
+  hideLimitBanner?: boolean;
+
+  /**
+   * Custom renderer for the usage-limit banner. Receives the limit details and
+   * returns the node rendered above the input (replacing the default banner).
+   * The input is disabled regardless while the limit is active.
+   */
+  limitBannerRenderer?: (limit: TenantLimitExceeded) => React.ReactNode;
 }
 
 /**
@@ -641,6 +681,13 @@ export interface ChatInputProps {
   references?: AIReference[];
   /** Called when the user removes a reference chip */
   onRemoveReference?: (id: string) => void;
+  /** Usage bar node rendered at the top of the input area (above the textarea). */
+  usageBar?: React.ReactNode;
+  /**
+   * Usage-limit banner node rendered above the textarea when a message was
+   * blocked by a usage limit. When present, the input is disabled.
+   */
+  limitBanner?: React.ReactNode;
 }
 
 /**

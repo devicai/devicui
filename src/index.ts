@@ -9,7 +9,7 @@ export type {
 } from './provider';
 
 // Components
-export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget } from './components/ChatDrawer';
+export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, UsageBar, LimitBanner } from './components/ChatDrawer';
 export type {
   ChatDrawerProps,
   ChatDrawerOptions,
@@ -22,6 +22,8 @@ export type {
   ConversationSelectorProps,
   HandoffSubagentWidgetProps,
   SuggestedMessage,
+  UsageBarProps,
+  LimitBannerProps,
 } from './components/ChatDrawer';
 
 // ThreadStateTag
@@ -124,6 +126,11 @@ export type {
   ToolGroupCall,
   ToolGroupConfig,
   WhisperTranscriptionResponse,
+  TenantLimitExceeded,
+  TenantUsage,
+  TenantUsageRule,
+  TenantUsageHistoryRow,
+  TenantUsageHistoryQuery,
 } from './api/types';
 
 // Feedback Components

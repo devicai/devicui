@@ -53,6 +53,8 @@ export function ChatInput({
   onCancelWidget,
   references,
   onRemoveReference,
+  usageBar,
+  limitBanner,
 }: ChatInputProps): JSX.Element {
   // When a widget is pending as 'input', render it in place of the textarea
   if (pendingInputWidget) {
@@ -393,6 +395,8 @@ export function ChatInput({
 
   return (
     <div className="devic-input-area">
+      {limitBanner}
+      {usageBar}
       {disabledMessage && disabled && (
         <div className="devic-input-disabled-notice">
           <WaitingIcon />

@@ -1482,6 +1482,115 @@
   padding: 8px;
 }
 
+/* ---- Usage-limit banner (above the input) ---- */
+.devic-limit-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #ad4e00;
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  border-radius: var(--devic-radius);
+}
+.devic-limit-banner-icon {
+  display: inline-flex;
+  color: #fa8c16;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.devic-limit-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.35;
+}
+.devic-limit-banner-title {
+  font-weight: 600;
+}
+.devic-limit-banner-reset {
+  font-size: 12px;
+  color: var(--devic-text-secondary);
+}
+
+/* ---- Usage bar (above the input) ---- */
+.devic-usage-bar-wrap {
+  margin-bottom: 8px;
+}
+.devic-usage-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: var(--devic-text-secondary);
+  background: var(--devic-bg-secondary);
+  border-radius: var(--devic-radius);
+}
+.devic-usage-bar[data-empty='true'] {
+  justify-content: space-between;
+  color: var(--devic-text-muted);
+}
+.devic-usage-bar-label {
+  white-space: nowrap;
+  font-weight: 500;
+}
+.devic-usage-bar-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--devic-border);
+  overflow: hidden;
+}
+.devic-usage-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width var(--devic-transition), background-color var(--devic-transition);
+}
+.devic-usage-bar-reset {
+  white-space: nowrap;
+  color: var(--devic-text-muted);
+}
+.devic-usage-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--devic-text-secondary);
+  background: var(--devic-bg-secondary);
+  border: 1px solid var(--devic-border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background var(--devic-transition), color var(--devic-transition);
+}
+.devic-usage-toggle:hover {
+  color: var(--devic-text);
+  background: var(--devic-border);
+}
+.devic-usage-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--devic-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--devic-radius-sm);
+  cursor: pointer;
+}
+.devic-usage-collapse:hover {
+  color: var(--devic-text);
+  background: var(--devic-border);
+}
+
 /* Responsive */
 @media (max-width: 480px) {
   .devic-chat-drawer {

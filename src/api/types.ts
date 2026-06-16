@@ -207,9 +207,42 @@ export interface AsyncResponse {
 }
 
 /**
- * Real-time chat history status
+ * Real-time chat history status.
+ * `limit_exceeded` means the message was blocked before reaching the LLM
+ * because a configured tenant/subtenant usage limit was reached.
  */
-export type RealtimeStatus = 'processing' | 'completed' | 'error' | 'waiting_for_tool_response' | 'handed_off';
+export type RealtimeStatus =
+  | 'processing'
+  | 'completed'
+  | 'error'
+  | 'waiting_for_tool_response'
+  | 'handed_off'
+  | 'limit_exceeded';
+
+/**
+ * Details of a tenant/subtenant usage limit that blocked a message.
+ * Returned on the realtime endpoint when status is `limit_exceeded`, and on
+ * the HTTP 429 body (`details`) when a synchronous request is blocked.
+ */
+export interface TenantLimitExceeded {
+  /** Human-readable message describing the block. */
+  message?: string;
+  /** The rule that triggered the block (scope, metric, window, limit…). */
+  blockingRule?: {
+    scope?: 'tenant' | 'subtenant';
+    subtenantId?: string;
+    metric?: 'tokens' | 'cost';
+    windowUnit?: 'hour' | 'day' | 'week' | 'month';
+    windowEvery?: number;
+    limit?: number;
+  };
+  /** Current consumption in the blocking window. */
+  current?: number;
+  /** The limit that was reached. */
+  limit?: number;
+  /** Epoch ms when the blocking window resets and usage is allowed again. */
+  resetsAt?: number;
+}
 
 /**
  * Real-time chat history response
@@ -222,6 +255,85 @@ export interface RealtimeChatHistory {
   lastUpdatedAt: number;
   pendingToolCalls?: ToolCall[];
   handedOffSubThreadId?: string;
+  /** Present only when status is `limit_exceeded`. */
+  limitExceeded?: TenantLimitExceeded;
+}
+
+/**
+ * A single usage rule with its current consumption (from GET
+ * /api/v1/tenant-usage/:tenantId[/subtenants/:subtenantId]).
+ */
+export interface TenantUsageRule {
+  scope: 'tenant' | 'subtenant';
+  subtenantId?: string;
+  metric: 'tokens' | 'cost';
+  windowUnit: 'hour' | 'day' | 'week' | 'month';
+  windowEvery: number;
+  /** Configured limit for the window. */
+  limit: number;
+  /** Current consumption in the active window. */
+  current: number;
+  /** Utilization percentage (0..100, capped). */
+  percent: number;
+  /** Epoch ms when the active window resets. */
+  resetsAt?: number;
+  /** Where the rule comes from ('tier' | 'adhoc'). */
+  origin?: string;
+  /** Tier the rule belongs to, if any. */
+  tierId?: string;
+}
+
+/**
+ * Response of GET /api/v1/tenant-usage/:tenantId[/subtenants/:subtenantId]:
+ * the effective usage rules with their current consumption + the active tier.
+ */
+export interface TenantUsage {
+  tenantId: string;
+  subtenantId?: string;
+  tierId?: string;
+  usage: TenantUsageRule[];
+}
+
+/**
+ * A durable per-window usage history row (from GET
+ * /api/v1/tenant-usage/:tenantId/history).
+ */
+export interface TenantUsageHistoryRow {
+  clientUID: string;
+  tenantId: string;
+  subtenantId: string;
+  scope: 'tenant' | 'subtenant';
+  metric: 'tokens' | 'cost';
+  windowUnit: 'hour' | 'day' | 'week' | 'month';
+  windowEvery: number;
+  windowKey: string;
+  windowStart: number;
+  windowEnd: number;
+  /** Counted consumption (enforced). */
+  consumption: number;
+  /** Exempt consumption that did not count toward the limit, if any. */
+  exemptConsumption?: number;
+  limit: number;
+  percent: number;
+  tierId?: string;
+  origin?: string;
+  capturedAt: number;
+}
+
+/**
+ * Options for querying tenant usage history.
+ */
+export interface TenantUsageHistoryQuery {
+  subtenantId?: string;
+  scope?: 'tenant' | 'subtenant';
+  metric?: 'tokens' | 'cost';
+  windowUnit?: 'hour' | 'day' | 'week' | 'month';
+  /** Epoch ms lower bound (windowEnd >= from). */
+  from?: number;
+  /** Epoch ms upper bound (windowEnd <= to). */
+  to?: number;
+  limit?: number;
+  skip?: number;
 }
 
 /**
@@ -294,6 +406,8 @@ export interface ApiError {
   statusCode: number;
   message: string;
   error?: string;
+  /** Optional structured details (e.g. usage-limit blocking info on a 429). */
+  details?: any;
 }
 
 /**
