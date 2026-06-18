@@ -1,6 +1,49 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { DevicApiClient } from '../../api/client';
-import type { TenantUsageRule } from '../../api/types';
+import type { TenantUsage, TenantUsageRule } from '../../api/types';
+
+/**
+ * Controls what each usage row renders. All flags compose, so a developer can,
+ * for example, show absolute values together with the percentage and the tier.
+ */
+export interface UsageBarDisplay {
+  /**
+   * Show the absolute amount of the active window: `current / limit metric`
+   * (e.g. `1,200 / 5,000 tokens`).
+   * @default false
+   */
+  showValues?: boolean;
+  /**
+   * Show the utilization percentage (e.g. `24%`).
+   * @default true
+   */
+  showPercent?: boolean;
+  /**
+   * Show the temporal dimension of the window (e.g. `per 3h`, `every 3 hours`).
+   * @default true
+   */
+  showWindow?: boolean;
+  /**
+   * Show the tier (plan) the limits come from, as a chip above the bar(s).
+   * @default false
+   */
+  showTier?: boolean;
+  /**
+   * When more than one limit rule applies, render every rule (`true`) or only
+   * the single most restrictive one (`false`, highest utilization). The
+   * per-row presentation still follows the flags above.
+   * @default true
+   */
+  showAllRules?: boolean;
+}
+
+const DEFAULT_DISPLAY: Required<UsageBarDisplay> = {
+  showValues: false,
+  showPercent: true,
+  showWindow: true,
+  showTier: false,
+  showAllRules: true,
+};
 
 /**
  * Props for the UsageBar component.
@@ -20,8 +63,13 @@ export interface UsageBarProps {
    * - 'onDemand': a small toggle button is shown; the bar appears on click.
    */
   mode?: 'always' | 'onDemand';
-  /** Restrict the bar to a single metric. When omitted, the most utilized rule wins. */
+  /** Restrict the bar to a single metric. When omitted, all applicable rules are considered. */
   metric?: 'tokens' | 'cost';
+  /**
+   * What to render per rule (values / percentage / window / tier) and whether
+   * to render all applicable rules or only the most restrictive one.
+   */
+  display?: UsageBarDisplay;
   /** Primary color for the bar fill (below the warning threshold). */
   color?: string;
   /**
@@ -66,19 +114,15 @@ function resetLabel(resetsAt?: number): string {
 }
 
 /**
- * Pick the rule with the highest utilization (optionally filtered by metric).
+ * Pick the rule with the highest utilization (the most restrictive).
  */
-function pickRule(
-  rules: TenantUsageRule[],
-  metric?: 'tokens' | 'cost',
-): TenantUsageRule | null {
-  const pool = metric ? rules.filter((r) => r.metric === metric) : rules;
-  if (pool.length === 0) return null;
-  return pool.reduce((max, r) => (r.percent > max.percent ? r : max), pool[0]);
+function mostRestrictive(rules: TenantUsageRule[]): TenantUsageRule | null {
+  if (rules.length === 0) return null;
+  return rules.reduce((max, r) => (r.percent > max.percent ? r : max), rules[0]);
 }
 
 /**
- * A thin usage bar showing the most utilized tenant/subtenant usage window.
+ * A thin usage bar showing the current tenant/subtenant usage window(s).
  * Rendered above the chat input. Antd-free — styled via `.devic-usage-*` classes.
  * Renders nothing when there are no usage limits configured for the tenant.
  */
@@ -89,10 +133,13 @@ export function UsageBar({
   subtenantId,
   mode = 'always',
   metric,
+  display,
   color = '#1890ff',
   refreshKey,
   debug = false,
 }: UsageBarProps): JSX.Element | null {
+  const cfg = useMemo(() => ({ ...DEFAULT_DISPLAY, ...display }), [display]);
+
   const client = useMemo(() => {
     if (!apiKey) return null;
     return new DevicApiClient({
@@ -101,7 +148,7 @@ export function UsageBar({
     });
   }, [apiKey, baseUrl]);
 
-  const [rule, setRule] = useState<TenantUsageRule | null>(null);
+  const [usage, setUsage] = useState<TenantUsage | null>(null);
   const [loaded, setLoaded] = useState(false);
   // onDemand starts hidden; 'always' is effectively visible from the start.
   const [visible, setVisible] = useState(mode !== 'onDemand');
@@ -110,19 +157,33 @@ export function UsageBar({
     if (!client || !tenantId) return;
     try {
       const data = await client.getTenantUsage(tenantId, subtenantId);
-      setRule(pickRule(data?.usage || [], metric));
+      setUsage(data || null);
     } catch (err) {
       if (debug) console.warn('[UsageBar] getTenantUsage failed:', err);
-      setRule(null);
+      setUsage(null);
     } finally {
       setLoaded(true);
     }
-  }, [client, tenantId, subtenantId, metric, debug]);
+  }, [client, tenantId, subtenantId, debug]);
 
   useEffect(() => {
     if (!visible) return;
     void fetchUsage();
   }, [visible, fetchUsage, refreshKey]);
+
+  // Applicable rules: filter by metric, sort most-restrictive first, then keep
+  // either all of them or just the single most restrictive.
+  const rules = useMemo(() => {
+    const pool = (usage?.usage || []).filter(
+      (r) => !metric || r.metric === metric,
+    );
+    const sorted = [...pool].sort((a, b) => b.percent - a.percent);
+    if (cfg.showAllRules) return sorted;
+    const top = mostRestrictive(sorted);
+    return top ? [top] : [];
+  }, [usage, metric, cfg.showAllRules]);
+
+  const tierId = usage?.tierId || rules[0]?.tierId;
 
   if (!tenantId || !client) return null;
 
@@ -146,7 +207,7 @@ export function UsageBar({
   // No configured limits (or not loaded yet with nothing to show): render nothing
   // in 'always' mode; in expanded onDemand, show a subtle note so the toggle isn't
   // confusing.
-  if (!rule) {
+  if (rules.length === 0) {
     if (mode === 'onDemand' && loaded) {
       return (
         <div className="devic-usage-bar-wrap" data-mode="onDemand">
@@ -168,30 +229,20 @@ export function UsageBar({
     return null;
   }
 
-  const pct = Math.min(100, Math.round(rule.percent));
-  const fill = fillColor(pct, color);
-  const amount = `${formatAmount(rule.current, rule.metric)} / ${formatAmount(
-    rule.limit,
-    rule.metric,
-  )} ${rule.metric}`;
-  const reset = resetLabel(rule.resetsAt);
-  const title = `${amount} · ${windowLabel(rule.windowUnit, rule.windowEvery)}${
-    reset ? ` · ${reset}` : ''
-  }`;
-
-  return (
-    <div className="devic-usage-bar-wrap" data-mode={mode}>
-      <div className="devic-usage-bar" title={title} data-state={pct >= 100 ? 'exceeded' : 'ok'}>
-        <span className="devic-usage-bar-label">
-          {rule.scope === 'subtenant' ? 'Your usage' : 'Usage'} {pct}%
-        </span>
-        <div className="devic-usage-bar-track">
-          <div
-            className="devic-usage-bar-fill"
-            style={{ width: `${pct}%`, backgroundColor: fill }}
-          />
-        </div>
-        {reset && <span className="devic-usage-bar-reset">{reset}</span>}
+  const showTierChip = cfg.showTier && !!tierId;
+  const multi = rules.length > 1;
+  // A header carries the tier chip and/or the onDemand collapse control, so the
+  // collapse "×" has a stable home regardless of how many rows render below.
+  const header =
+    showTierChip || mode === 'onDemand' ? (
+      <div className="devic-usage-bar-head">
+        {showTierChip ? (
+          <span className="devic-usage-tier" title={`Tier: ${tierId}`}>
+            {tierId}
+          </span>
+        ) : (
+          <span />
+        )}
         {mode === 'onDemand' && (
           <button
             type="button"
@@ -204,6 +255,57 @@ export function UsageBar({
           </button>
         )}
       </div>
+    ) : null;
+
+  return (
+    <div className="devic-usage-bar-wrap" data-mode={mode}>
+      {header}
+      {rules.map((rule, i) => {
+        const pct = Math.min(100, Math.round(rule.percent));
+        const fill = fillColor(pct, color);
+        const valuesText = `${formatAmount(rule.current, rule.metric)} / ${formatAmount(
+          rule.limit,
+          rule.metric,
+        )} ${rule.metric}`;
+        // Distinguish rows by metric when several render; otherwise use the
+        // scope-aware label so single-rule mode reads "Usage 24%".
+        const prefix = multi
+          ? rule.metric === 'cost'
+            ? 'Cost'
+            : 'Tokens'
+          : rule.scope === 'subtenant'
+            ? 'Your usage'
+            : 'Usage';
+        const main: string[] = [];
+        if (cfg.showPercent) main.push(`${pct}%`);
+        if (cfg.showValues) main.push(valuesText);
+        if (main.length === 0) main.push(`${pct}%`);
+        const label = `${prefix} ${main.join(' · ')}`.trim();
+        const reset = resetLabel(rule.resetsAt);
+        const win = windowLabel(rule.windowUnit, rule.windowEvery);
+        const title = `${valuesText} · ${win}${reset ? ` · ${reset}` : ''}`;
+
+        return (
+          <div
+            key={`${rule.metric}-${rule.windowUnit}-${rule.windowEvery}-${rule.scope}-${i}`}
+            className="devic-usage-bar"
+            title={title}
+            data-state={pct >= 100 ? 'exceeded' : 'ok'}
+          >
+            <span className="devic-usage-bar-label">{label}</span>
+            <div className="devic-usage-bar-track">
+              <div
+                className="devic-usage-bar-fill"
+                style={{ width: `${pct}%`, backgroundColor: fill }}
+              />
+            </div>
+            {cfg.showWindow && (
+              <span className="devic-usage-bar-window">{win}</span>
+            )}
+            {reset && <span className="devic-usage-bar-reset">{reset}</span>}
+          </div>
+        );
+      })}
     </div>
   );
 }

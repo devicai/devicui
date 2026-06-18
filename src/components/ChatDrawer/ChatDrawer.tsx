@@ -65,6 +65,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   conversationPreview: 'date',
   showUsageBar: false,
   usageBarMetric: undefined as any,
+  usageBarDisplay: undefined as any,
   hideLimitBanner: false,
   limitBannerRenderer: undefined as any,
 };
@@ -222,6 +223,7 @@ function ChatDrawerInner({
         subtenantId={resolvedSubtenantId}
         mode={mergedOptions.showUsageBar === 'onDemand' ? 'onDemand' : 'always'}
         metric={mergedOptions.usageBarMetric}
+        display={mergedOptions.usageBarDisplay}
         color={mergedOptions.color}
         refreshKey={chat.messages.length}
         debug={mergedOptions.debug}

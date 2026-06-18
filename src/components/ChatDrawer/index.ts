@@ -5,7 +5,7 @@ export { ToolTimeline } from './ToolTimeline';
 export { ConversationSelector } from './ConversationSelector';
 export { HandoffSubagentWidget } from './HandoffSubagentWidget';
 export { UsageBar } from './UsageBar';
-export type { UsageBarProps } from './UsageBar';
+export type { UsageBarProps, UsageBarDisplay } from './UsageBar';
 export { LimitBanner } from './LimitBanner';
 export type { LimitBannerProps } from './LimitBanner';
 export type {

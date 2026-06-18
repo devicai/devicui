@@ -1517,7 +1517,34 @@
 
 /* ---- Usage bar (above the input) ---- */
 .devic-usage-bar-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin-bottom: 8px;
+}
+.devic-usage-bar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.devic-usage-tier {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--devic-text-secondary);
+  background: var(--devic-bg-secondary);
+  border: 1px solid var(--devic-border);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.devic-usage-bar-window {
+  white-space: nowrap;
+  color: var(--devic-text-muted);
 }
 .devic-usage-bar {
   display: flex;

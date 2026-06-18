@@ -23,6 +23,7 @@ export type {
   HandoffSubagentWidgetProps,
   SuggestedMessage,
   UsageBarProps,
+  UsageBarDisplay,
   LimitBannerProps,
 } from './components/ChatDrawer';
 

@@ -1,6 +1,7 @@
 import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig, WhisperTranscriptionResponse, TenantLimitExceeded } from '../../api/types';
 import type { PendingWidgetCall } from '../../hooks/useModelInterface';
 import type { AIReference } from '../../provider/types';
+import type { UsageBarDisplay } from './UsageBar';
 
 /**
  * A suggested message displayed as a quick action button.
@@ -417,9 +418,20 @@ export interface ChatDrawerOptions {
 
   /**
    * Restrict the usage bar to a single metric ('tokens' or 'cost'). When
-   * omitted, the most utilized window across all metrics is shown.
+   * omitted, all applicable windows are considered.
    */
   usageBarMetric?: 'tokens' | 'cost';
+
+  /**
+   * Fine-grained control over what the usage bar renders: absolute values,
+   * percentage, the temporal window, the tier, and whether to show every
+   * applicable limit or only the most restrictive one.
+   *
+   * Defaults (when omitted): percentage + window, all rules, no values, no tier
+   * — i.e. `{ showPercent: true, showWindow: true, showAllRules: true,
+   * showValues: false, showTier: false }`.
+   */
+  usageBarDisplay?: UsageBarDisplay;
 
   /**
    * Hide the default banner shown above the input when a message is blocked by
