@@ -1546,6 +1546,19 @@
   white-space: nowrap;
   color: var(--devic-text-muted);
 }
+.devic-usage-bar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 10px;
+  background: var(--devic-bg-secondary);
+  border-radius: var(--devic-radius);
+}
+/* Rows inside the shared container drop their own box; the group provides it. */
+.devic-usage-bar-group .devic-usage-bar {
+  padding: 0;
+  background: transparent;
+}
 .devic-usage-bar {
   display: flex;
   align-items: center;
