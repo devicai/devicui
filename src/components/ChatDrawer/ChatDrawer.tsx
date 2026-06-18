@@ -66,6 +66,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   showUsageBar: false,
   usageBarMetric: undefined as any,
   usageBarDisplay: undefined as any,
+  customUsageBar: undefined as any,
   hideLimitBanner: false,
   limitBannerRenderer: undefined as any,
 };
@@ -215,7 +216,9 @@ function ChatDrawerInner({
   // Usage bar (above the input) — only when enabled and a tenant is known.
   // Refetches after each turn via the message count as refresh key.
   const usageBarNode =
-    mergedOptions.showUsageBar && resolvedTenantId ? (
+    (mergedOptions.showUsageBar ||
+      typeof mergedOptions.customUsageBar === 'function') &&
+    resolvedTenantId ? (
       <UsageBar
         apiKey={resolvedApiKey}
         baseUrl={resolvedBaseUrl}
@@ -224,6 +227,7 @@ function ChatDrawerInner({
         mode={mergedOptions.showUsageBar === 'onDemand' ? 'onDemand' : 'always'}
         metric={mergedOptions.usageBarMetric}
         display={mergedOptions.usageBarDisplay}
+        customUsageBar={mergedOptions.customUsageBar}
         color={mergedOptions.color}
         refreshKey={chat.messages.length}
         debug={mergedOptions.debug}

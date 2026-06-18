@@ -46,6 +46,26 @@ const DEFAULT_DISPLAY: Required<UsageBarDisplay> = {
 };
 
 /**
+ * Usage data handed to a `customUsageBar` renderer so a developer can build
+ * their own component with the live consumption / limits.
+ */
+export interface UsageBarData {
+  /** Tenant the usage belongs to. */
+  tenantId?: string;
+  /** Subtenant the usage is scoped to, if any. */
+  subtenantId?: string;
+  /** Tier (plan) the limits come from, if any. */
+  tierId?: string;
+  /**
+   * Applicable usage rules (filtered by `metric` when set), sorted by
+   * utilization descending — the most restrictive first.
+   */
+  rules: TenantUsageRule[];
+  /** `true` until the first fetch resolves. */
+  loading: boolean;
+}
+
+/**
  * Props for the UsageBar component.
  */
 export interface UsageBarProps {
@@ -70,6 +90,13 @@ export interface UsageBarProps {
    * to render all applicable rules or only the most restrictive one.
    */
   display?: UsageBarDisplay;
+  /**
+   * Render your own component instead of the built-in bar(s). Receives the live
+   * usage data (rules + tier + loading) and renders in the same slot, replacing
+   * the default UI entirely. When set, fetching/polling is still handled here;
+   * `mode`/`display` only affect the default UI and are ignored.
+   */
+  customUsageBar?: (data: UsageBarData) => React.ReactNode;
   /** Primary color for the bar fill (below the warning threshold). */
   color?: string;
   /**
@@ -114,14 +141,6 @@ function resetLabel(resetsAt?: number): string {
 }
 
 /**
- * Pick the rule with the highest utilization (the most restrictive).
- */
-function mostRestrictive(rules: TenantUsageRule[]): TenantUsageRule | null {
-  if (rules.length === 0) return null;
-  return rules.reduce((max, r) => (r.percent > max.percent ? r : max), rules[0]);
-}
-
-/**
  * A thin usage bar showing the current tenant/subtenant usage window(s).
  * Rendered above the chat input. Antd-free — styled via `.devic-usage-*` classes.
  * Renders nothing when there are no usage limits configured for the tenant.
@@ -134,6 +153,7 @@ export function UsageBar({
   mode = 'always',
   metric,
   display,
+  customUsageBar,
   color = '#1890ff',
   refreshKey,
   debug = false,
@@ -166,26 +186,46 @@ export function UsageBar({
     }
   }, [client, tenantId, subtenantId, debug]);
 
-  useEffect(() => {
-    if (!visible) return;
-    void fetchUsage();
-  }, [visible, fetchUsage, refreshKey]);
+  // A custom renderer always wants the data, regardless of the onDemand toggle.
+  const active = !!customUsageBar || visible;
 
-  // Applicable rules: filter by metric, sort most-restrictive first, then keep
-  // either all of them or just the single most restrictive.
-  const rules = useMemo(() => {
+  useEffect(() => {
+    if (!active) return;
+    void fetchUsage();
+  }, [active, fetchUsage, refreshKey]);
+
+  // Applicable rules: filter by metric, sort most-restrictive first.
+  const filteredSorted = useMemo(() => {
     const pool = (usage?.usage || []).filter(
       (r) => !metric || r.metric === metric,
     );
-    const sorted = [...pool].sort((a, b) => b.percent - a.percent);
-    if (cfg.showAllRules) return sorted;
-    const top = mostRestrictive(sorted);
-    return top ? [top] : [];
-  }, [usage, metric, cfg.showAllRules]);
+    return [...pool].sort((a, b) => b.percent - a.percent);
+  }, [usage, metric]);
 
-  const tierId = usage?.tierId || rules[0]?.tierId;
+  // Default UI honours showAllRules; custom renderers always get the full set.
+  const rules = useMemo(
+    () => (cfg.showAllRules ? filteredSorted : filteredSorted.slice(0, 1)),
+    [filteredSorted, cfg.showAllRules],
+  );
+
+  const tierId = usage?.tierId || filteredSorted[0]?.tierId;
 
   if (!tenantId || !client) return null;
+
+  // Custom renderer fully replaces the default UI; hand it the live data.
+  if (customUsageBar) {
+    return (
+      <>
+        {customUsageBar({
+          tenantId,
+          subtenantId,
+          tierId,
+          rules: filteredSorted,
+          loading: !loaded,
+        })}
+      </>
+    );
+  }
 
   // onDemand, collapsed: show a small toggle button.
   if (mode === 'onDemand' && !visible) {
@@ -260,52 +300,55 @@ export function UsageBar({
   return (
     <div className="devic-usage-bar-wrap" data-mode={mode}>
       {header}
-      {rules.map((rule, i) => {
-        const pct = Math.min(100, Math.round(rule.percent));
-        const fill = fillColor(pct, color);
-        const valuesText = `${formatAmount(rule.current, rule.metric)} / ${formatAmount(
-          rule.limit,
-          rule.metric,
-        )} ${rule.metric}`;
-        // Distinguish rows by metric when several render; otherwise use the
-        // scope-aware label so single-rule mode reads "Usage 24%".
-        const prefix = multi
-          ? rule.metric === 'cost'
-            ? 'Cost'
-            : 'Tokens'
-          : rule.scope === 'subtenant'
-            ? 'Your usage'
-            : 'Usage';
-        const main: string[] = [];
-        if (cfg.showPercent) main.push(`${pct}%`);
-        if (cfg.showValues) main.push(valuesText);
-        if (main.length === 0) main.push(`${pct}%`);
-        const label = `${prefix} ${main.join(' · ')}`.trim();
-        const reset = resetLabel(rule.resetsAt);
-        const win = windowLabel(rule.windowUnit, rule.windowEvery);
-        const title = `${valuesText} · ${win}${reset ? ` · ${reset}` : ''}`;
+      {/* All rows share a single container by default. */}
+      <div className="devic-usage-bar-group">
+        {rules.map((rule, i) => {
+          const pct = Math.min(100, Math.round(rule.percent));
+          const fill = fillColor(pct, color);
+          const valuesText = `${formatAmount(rule.current, rule.metric)} / ${formatAmount(
+            rule.limit,
+            rule.metric,
+          )} ${rule.metric}`;
+          // Distinguish rows by metric when several render; otherwise use the
+          // scope-aware label so single-rule mode reads "Usage 24%".
+          const prefix = multi
+            ? rule.metric === 'cost'
+              ? 'Cost'
+              : 'Tokens'
+            : rule.scope === 'subtenant'
+              ? 'Your usage'
+              : 'Usage';
+          const main: string[] = [];
+          if (cfg.showPercent) main.push(`${pct}%`);
+          if (cfg.showValues) main.push(valuesText);
+          if (main.length === 0) main.push(`${pct}%`);
+          const label = `${prefix} ${main.join(' · ')}`.trim();
+          const reset = resetLabel(rule.resetsAt);
+          const win = windowLabel(rule.windowUnit, rule.windowEvery);
+          const title = `${valuesText} · ${win}${reset ? ` · ${reset}` : ''}`;
 
-        return (
-          <div
-            key={`${rule.metric}-${rule.windowUnit}-${rule.windowEvery}-${rule.scope}-${i}`}
-            className="devic-usage-bar"
-            title={title}
-            data-state={pct >= 100 ? 'exceeded' : 'ok'}
-          >
-            <span className="devic-usage-bar-label">{label}</span>
-            <div className="devic-usage-bar-track">
-              <div
-                className="devic-usage-bar-fill"
-                style={{ width: `${pct}%`, backgroundColor: fill }}
-              />
+          return (
+            <div
+              key={`${rule.metric}-${rule.windowUnit}-${rule.windowEvery}-${rule.scope}-${i}`}
+              className="devic-usage-bar"
+              title={title}
+              data-state={pct >= 100 ? 'exceeded' : 'ok'}
+            >
+              <span className="devic-usage-bar-label">{label}</span>
+              <div className="devic-usage-bar-track">
+                <div
+                  className="devic-usage-bar-fill"
+                  style={{ width: `${pct}%`, backgroundColor: fill }}
+                />
+              </div>
+              {cfg.showWindow && (
+                <span className="devic-usage-bar-window">{win}</span>
+              )}
+              {reset && <span className="devic-usage-bar-reset">{reset}</span>}
             </div>
-            {cfg.showWindow && (
-              <span className="devic-usage-bar-window">{win}</span>
-            )}
-            {reset && <span className="devic-usage-bar-reset">{reset}</span>}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }

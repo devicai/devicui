@@ -1,7 +1,7 @@
 import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig, WhisperTranscriptionResponse, TenantLimitExceeded } from '../../api/types';
 import type { PendingWidgetCall } from '../../hooks/useModelInterface';
 import type { AIReference } from '../../provider/types';
-import type { UsageBarDisplay } from './UsageBar';
+import type { UsageBarDisplay, UsageBarData } from './UsageBar';
 
 /**
  * A suggested message displayed as a quick action button.
@@ -432,6 +432,16 @@ export interface ChatDrawerOptions {
    * showValues: false, showTier: false }`.
    */
   usageBarDisplay?: UsageBarDisplay;
+
+  /**
+   * Render your own usage bar instead of the built-in one. Receives the live
+   * usage data (rules + tier + loading) and is placed in the same slot above
+   * the input, fully replacing the default bar. Fetching/polling is handled by
+   * the library; `usageBarMetric` still filters the rules you receive, while
+   * `usageBarDisplay`/`showUsageBar` mode are ignored. Providing this is enough
+   * to show the bar (no need to also set `showUsageBar`).
+   */
+  customUsageBar?: (data: UsageBarData) => React.ReactNode;
 
   /**
    * Hide the default banner shown above the input when a message is blocked by

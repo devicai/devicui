@@ -24,6 +24,7 @@ export type {
   SuggestedMessage,
   UsageBarProps,
   UsageBarDisplay,
+  UsageBarData,
   LimitBannerProps,
 } from './components/ChatDrawer';
 
