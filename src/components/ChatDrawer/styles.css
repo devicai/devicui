@@ -494,6 +494,45 @@
   color: var(--devic-primary);
 }
 
+/* Press-and-hold to arm hands-free: a ring fills (0→1) around the mic. */
+.devic-speech-mic-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.devic-speech-mic-wrap[data-holding='true'] .devic-speech-mic {
+  color: var(--devic-primary);
+}
+
+.devic-mic-hold-ring {
+  position: absolute;
+  inset: -3px;
+  width: calc(100% + 6px);
+  height: calc(100% + 6px);
+  /* Start the ring at 12 o'clock and fill clockwise. */
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.devic-mic-hold-ring-track {
+  fill: none;
+  stroke: var(--devic-primary);
+  stroke-opacity: 0.18;
+  stroke-width: 3;
+}
+
+.devic-mic-hold-ring-progress {
+  fill: none;
+  stroke: var(--devic-primary);
+  stroke-width: 3;
+  stroke-linecap: round;
+  /* Smooth the per-frame fill so it doesn't look jittery. */
+  transition: stroke-dashoffset 90ms linear;
+}
+
 /* Recording / processing panel takes the full width of the input row */
 .devic-speech-panel {
   display: flex;

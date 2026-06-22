@@ -19,6 +19,7 @@ const FILE_TYPE_ACCEPT: Record<string, string[]> = {
 // Handoff (hands-free) loop timings.
 const HANDOFF_PENDING_MS = 1000; // default cancellable countdown before auto-send
 const HANDOFF_INACTIVITY_MS = 6000; // silence (no speech) that ends the loop
+const HANDOFF_HOLD_MS = 3000; // press-and-hold duration on the mic to arm hands-free
 
 /**
  * Chat input component with file upload support
@@ -41,6 +42,7 @@ export function ChatInput({
   speechAutoStopSpeechLevel,
   speechHandoff = false,
   speechHandoffSendDelayMs,
+  speechHandoffHoldMs,
   apiKey,
   baseUrl,
   sendButtonContent,
@@ -118,6 +120,14 @@ export function ChatInput({
   // Always-fresh send fn so the deferred auto-send uses the latest message.
   const handleSendRef = useRef<() => void>(() => {});
 
+  // --- Press-and-hold to arm hands-free ---
+  // Holding the mic for `holdMs` fills a ring (0→1) and activates hands-free;
+  // releasing earlier falls back to a single one-shot recording.
+  const [holdProgress, setHoldProgress] = useState(0);
+  const [isHolding, setIsHolding] = useState(false);
+  const holdRafRef = useRef<number | null>(null);
+  const holdFiredRef = useRef(false);
+
   // Client used only for the /whisper transcription call.
   const transcribeClient = useMemo(() => {
     if (!enableSpeechToText || !apiKey) return null;
@@ -191,14 +201,86 @@ export function ChatInput({
     recording.cancel();
   }, [clearPending, recording]);
 
-  const startRecording = useCallback(() => {
+  // One-shot recording: transcribe → fill the textarea for manual review/send.
+  // No hands-free loop, so the textarea stays available afterwards.
+  const startOneShotRecording = useCallback(() => {
     setSpeechError(null);
-    if (speechHandoff) {
-      handoffActiveRef.current = true;
-      setHandoffActive(true);
-    }
     void recording.start();
-  }, [recording, speechHandoff]);
+  }, [recording]);
+
+  // Arm the hands-free loop and start listening.
+  const startHandsfreeRecording = useCallback(() => {
+    setSpeechError(null);
+    handoffActiveRef.current = true;
+    setHandoffActive(true);
+    void recording.start();
+  }, [recording]);
+
+  // Stop and reset the press-and-hold progress loop.
+  const clearHold = useCallback(() => {
+    if (holdRafRef.current !== null) {
+      cancelAnimationFrame(holdRafRef.current);
+      holdRafRef.current = null;
+    }
+    setIsHolding(false);
+    setHoldProgress(0);
+  }, []);
+
+  // Mic pressed: when hands-free is available, run a hold timer whose ring fills
+  // (0→1) over `holdMs`. Completing it activates hands-free; releasing earlier
+  // (handleMicPointerUp) falls back to a one-shot recording. Pointer capture
+  // keeps the release event on the button even if the finger drifts off.
+  const handleMicPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (disabled || isProcessing) return;
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        // ignore environments without pointer capture
+      }
+      const holdMs = speechHandoffHoldMs ?? HANDOFF_HOLD_MS;
+      holdFiredRef.current = false;
+      setIsHolding(true);
+      setHoldProgress(0);
+      const startedAt = Date.now();
+      const step = () => {
+        const progress = Math.min(1, (Date.now() - startedAt) / holdMs);
+        setHoldProgress(progress);
+        if (progress >= 1) {
+          holdRafRef.current = null;
+          holdFiredRef.current = true;
+          setIsHolding(false);
+          setHoldProgress(0);
+          startHandsfreeRecording();
+          return;
+        }
+        holdRafRef.current = requestAnimationFrame(step);
+      };
+      holdRafRef.current = requestAnimationFrame(step);
+    },
+    [disabled, isProcessing, speechHandoffHoldMs, startHandsfreeRecording],
+  );
+
+  // Mic released: if the hold already armed hands-free, do nothing; otherwise
+  // treat it as a tap and start a one-shot recording.
+  const handleMicPointerUp = useCallback(() => {
+    if (holdFiredRef.current) {
+      holdFiredRef.current = false;
+      return;
+    }
+    if (holdRafRef.current === null && !isHolding) return; // already aborted
+    clearHold();
+    startOneShotRecording();
+  }, [isHolding, clearHold, startOneShotRecording]);
+
+  // Pointer cancelled (e.g. interrupted touch): abort the hold without recording.
+  const handleMicPointerCancel = useCallback(() => {
+    if (holdFiredRef.current) {
+      holdFiredRef.current = false;
+      return;
+    }
+    clearHold();
+  }, [clearHold]);
 
   const cancelRecording = useCallback(() => {
     cancelHandoff();
@@ -350,6 +432,7 @@ export function ChatInput({
     return () => {
       if (pendingRafRef.current !== null) cancelAnimationFrame(pendingRafRef.current);
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      if (holdRafRef.current !== null) cancelAnimationFrame(holdRafRef.current);
     };
   }, []);
 
@@ -554,15 +637,28 @@ export function ChatInput({
             )}
 
             {speechEnabled && (
-              <button
-                className="devic-input-btn devic-speech-mic"
-                onClick={startRecording}
-                disabled={disabled || isProcessing}
-                type="button"
-                title="Record voice message"
+              <div
+                className="devic-speech-mic-wrap"
+                data-holding={isHolding ? 'true' : 'false'}
               >
-                <MicIcon />
-              </button>
+                {isHolding && <HoldRing progress={holdProgress} />}
+                <button
+                  className="devic-input-btn devic-speech-mic"
+                  onClick={speechHandoff ? undefined : startOneShotRecording}
+                  onPointerDown={speechHandoff ? handleMicPointerDown : undefined}
+                  onPointerUp={speechHandoff ? handleMicPointerUp : undefined}
+                  onPointerCancel={speechHandoff ? handleMicPointerCancel : undefined}
+                  disabled={disabled || isProcessing}
+                  type="button"
+                  title={
+                    speechHandoff
+                      ? 'Tap to dictate · hold to start hands-free'
+                      : 'Record voice message'
+                  }
+                >
+                  <MicIcon />
+                </button>
+              </div>
             )}
 
             <textarea
@@ -704,6 +800,34 @@ function SendCountdownRing({ progress }: { progress: number }): JSX.Element {
         className="devic-handoff-ring-progress"
         cx="22"
         cy="22"
+        r={AUTOSTOP_RING_R}
+        style={{
+          strokeDasharray: AUTOSTOP_RING_C,
+          strokeDashoffset: AUTOSTOP_RING_C * (1 - progress),
+        }}
+      />
+    </svg>
+  );
+}
+
+/**
+ * Filling ring drawn around the mic button while the user presses and holds to
+ * arm hands-free. Driven by `progress` (0 → 1): an empty ring that fills
+ * clockwise over the hold duration. Inverse of the draining auto-stop ring.
+ */
+function HoldRing({ progress }: { progress: number }): JSX.Element {
+  return (
+    <svg className="devic-mic-hold-ring" viewBox="0 0 40 40" aria-hidden="true">
+      <circle
+        className="devic-mic-hold-ring-track"
+        cx="20"
+        cy="20"
+        r={AUTOSTOP_RING_R}
+      />
+      <circle
+        className="devic-mic-hold-ring-progress"
+        cx="20"
+        cy="20"
         r={AUTOSTOP_RING_R}
         style={{
           strokeDasharray: AUTOSTOP_RING_C,
