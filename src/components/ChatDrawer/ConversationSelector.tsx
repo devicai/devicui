@@ -14,12 +14,14 @@ export function ConversationSelector({
   apiKey: propsApiKey,
   baseUrl: propsBaseUrl,
   tenantId: propsTenantId,
+  subtenantId: propsSubtenantId,
   conversationPreview,
 }: ConversationSelectorProps): JSX.Element {
   const context = useOptionalDevicContext();
   const apiKey = propsApiKey || context?.apiKey;
   const baseUrl = propsBaseUrl || context?.baseUrl || 'https://api.devic.ai';
   const tenantId = propsTenantId || context?.tenantId;
+  const subtenantId = propsSubtenantId || context?.subtenantId;
 
   const [isOpen, setIsOpen] = useState(false);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -56,6 +58,7 @@ export function ConversationSelector({
     try {
       const response = await clientRef.current.listConversations(assistantId, {
         tenantId,
+        subtenantId,
         offset,
         limit: PAGE_SIZE,
       });
@@ -67,7 +70,7 @@ export function ConversationSelector({
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [assistantId, tenantId]);
+  }, [assistantId, tenantId, subtenantId]);
 
   useEffect(() => {
     if (isOpen) {

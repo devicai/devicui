@@ -31,6 +31,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   speechAutoStopSpeechLevel: 0.12,
   speechHandoff: false,
   speechHandoffSendDelayMs: 1000,
+  speechHandoffHoldMs: 3000,
   inputPlaceholder: 'Type a message...',
   title: 'Chat',
   showAvatar: false,
@@ -579,6 +580,7 @@ function ChatDrawerInner({
             apiKey={apiKey}
             baseUrl={baseUrl}
             tenantId={tenantId}
+            subtenantId={subtenantId}
             conversationPreview={mergedOptions.conversationPreview}
           />
           <div className="devic-drawer-header-actions">
@@ -678,6 +680,7 @@ function ChatDrawerInner({
             speechAutoStopSpeechLevel={mergedOptions.speechAutoStopSpeechLevel}
             speechHandoff={mergedOptions.speechHandoff}
             speechHandoffSendDelayMs={mergedOptions.speechHandoffSendDelayMs}
+            speechHandoffHoldMs={mergedOptions.speechHandoffHoldMs}
             apiKey={resolvedApiKey}
             baseUrl={resolvedBaseUrl}
             sendButtonContent={mergedOptions.sendButtonContent}

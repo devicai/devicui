@@ -179,11 +179,15 @@ export interface ChatDrawerOptions {
   speechAutoStopSpeechLevel?: number;
 
   /**
-   * Enable the hands-free (handoff) conversation loop on the voice input.
-   * When on, pressing the mic starts a loop: record → auto-stop transcribes →
-   * a short cancellable countdown → the message is sent automatically → once
-   * the assistant finishes, listening re-activates. Any click/keystroke during
-   * the countdown, or a silent turn, exits the loop.
+   * Make the hands-free (handoff) conversation loop *available* on the voice
+   * input — it is never on by default. When enabled, the mic becomes a
+   * press-and-hold control: a quick tap does a one-shot recording (transcribe →
+   * fill the input for manual send), while holding it for `speechHandoffHoldMs`
+   * (a ring fills around the mic) arms hands-free. Once armed, the loop runs:
+   * record → auto-stop transcribes → a short cancellable countdown → the message
+   * is sent → when the assistant finishes, listening re-activates. Any
+   * click/keystroke during the countdown, or a silent turn, exits the loop.
+   * When disabled, the mic is always a one-shot recording (plain click).
    * @default false
    */
   speechHandoff?: boolean;
@@ -195,6 +199,13 @@ export interface ChatDrawerOptions {
    * @default 1000
    */
   speechHandoffSendDelayMs?: number;
+
+  /**
+   * How long (ms) the mic must be held to arm hands-free (the press-and-hold
+   * ring fill duration). Only relevant when `speechHandoff` is enabled.
+   * @default 3000
+   */
+  speechHandoffHoldMs?: number;
 
   /**
    * Allowed file types for upload
@@ -473,6 +484,7 @@ export interface ConversationSelectorProps {
   apiKey?: string;
   baseUrl?: string;
   tenantId?: string;
+  subtenantId?: string;
   conversationPreview?: 'date' | 'firstMessage';
 }
 
@@ -676,10 +688,12 @@ export interface ChatInputProps {
   speechAutoStopSilenceLevel?: number;
   /** Absolute floor (0..1) a peak must clear to count as speech. @default 0.12 */
   speechAutoStopSpeechLevel?: number;
-  /** Enable hands-free (handoff) conversation loop on the mic. @default false */
+  /** Make hands-free available via press-and-hold on the mic. @default false */
   speechHandoff?: boolean;
   /** Delay (ms) in handoff from transcription ready to auto-send. @default 1000 */
   speechHandoffSendDelayMs?: number;
+  /** Hold duration (ms) on the mic to arm hands-free. @default 3000 */
+  speechHandoffHoldMs?: number;
   /** API key used to call the /whisper endpoint (overrides provider). */
   apiKey?: string;
   /** Base URL used to call the /whisper endpoint (overrides provider). */
