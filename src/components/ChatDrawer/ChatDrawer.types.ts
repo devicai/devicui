@@ -484,6 +484,7 @@ export interface ConversationSelectorProps {
   apiKey?: string;
   baseUrl?: string;
   tenantId?: string;
+  subtenantId?: string;
   conversationPreview?: 'date' | 'firstMessage';
 }
 

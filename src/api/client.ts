@@ -174,11 +174,19 @@ export class DevicApiClient {
    */
   async listConversations(
     assistantId: string,
-    options?: { tenantId?: string; offset?: number; limit?: number },
+    options?: {
+      tenantId?: string;
+      subtenantId?: string;
+      offset?: number;
+      limit?: number;
+    },
   ): Promise<ListConversationsResponse> {
     const params = new URLSearchParams();
     if (options?.tenantId) {
       params.set("tenantId", options.tenantId);
+    }
+    if (options?.subtenantId) {
+      params.set("subtenantId", options.subtenantId);
     }
     if (options?.offset != null) {
       params.set("offset", String(options.offset));

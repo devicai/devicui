@@ -580,6 +580,7 @@ function ChatDrawerInner({
             apiKey={apiKey}
             baseUrl={baseUrl}
             tenantId={tenantId}
+            subtenantId={subtenantId}
             conversationPreview={mergedOptions.conversationPreview}
           />
           <div className="devic-drawer-header-actions">
