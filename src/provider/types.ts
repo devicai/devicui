@@ -1,6 +1,46 @@
 import type { DevicApiClient } from '../api/client';
 
 /**
+ * Tenant-level identity metadata sent to the Devic API. Used for per-tenant
+ * cost attribution and to enrich the tenant record (name, contact, logo).
+ *
+ * Carried inside the request `metadata` (the keys are flattened into it). All
+ * fields are optional and the bag stays open, so extra keys are allowed.
+ */
+export interface TenantMetadata {
+  /** Human-friendly tenant name. `displayName` is accepted as an alias. */
+  name?: string;
+  displayName?: string;
+  /** Tenant contact email. */
+  email?: string;
+  /** Tenant logo URL. `logoUrl` is accepted as an alias. */
+  imageUrl?: string;
+  logoUrl?: string;
+  /** Any additional, integrator-defined metadata. */
+  [key: string]: any;
+}
+
+/**
+ * Subtenant-level identity metadata (the end user/entity inside a tenant).
+ * Sent nested under `metadata.subtenantMetadata`. Drives per-subtenant cost
+ * attribution and automatic tenant domain detection.
+ */
+export interface SubtenantMetadata {
+  /** Canonical subtenant id (alternative to the top-level `subtenantId`). */
+  id?: string;
+  /** Display name. `displayName` is accepted as an alias. */
+  name?: string;
+  displayName?: string;
+  /** Subtenant email (also feeds tenant domain detection). */
+  email?: string;
+  /** Subtenant avatar / logo URL. `logoUrl` is accepted as an alias. */
+  imageUrl?: string;
+  logoUrl?: string;
+  /** Any additional, integrator-defined metadata. */
+  [key: string]: any;
+}
+
+/**
  * Configuration for the DevicProvider
  */
 export interface DevicProviderConfig {
@@ -21,9 +61,9 @@ export interface DevicProviderConfig {
   tenantId?: string;
 
   /**
-   * Global tenant metadata
+   * Global tenant metadata (e.g. { name, email, imageUrl }).
    */
-  tenantMetadata?: Record<string, any>;
+  tenantMetadata?: TenantMetadata;
 
   /**
    * Global subtenant ID identifying a user/entity inside the tenant
@@ -32,10 +72,10 @@ export interface DevicProviderConfig {
   subtenantId?: string;
 
   /**
-   * Global subtenant metadata (e.g. { id, name, email }). Used for
+   * Global subtenant metadata (e.g. { id, name, email, imageUrl }). Used for
    * per-subtenant cost attribution and automatic tenant domain detection.
    */
-  subtenantMetadata?: Record<string, any>;
+  subtenantMetadata?: SubtenantMetadata;
 
   /**
    * Enable debug logging to the browser console
@@ -97,7 +137,7 @@ export interface DevicContextValue {
   /**
    * Global tenant metadata
    */
-  tenantMetadata?: Record<string, any>;
+  tenantMetadata?: TenantMetadata;
 
   /**
    * Global subtenant ID
@@ -107,7 +147,7 @@ export interface DevicContextValue {
   /**
    * Global subtenant metadata
    */
-  subtenantMetadata?: Record<string, any>;
+  subtenantMetadata?: SubtenantMetadata;
 
   /**
    * Whether the provider is properly configured
