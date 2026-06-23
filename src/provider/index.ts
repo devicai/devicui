@@ -4,6 +4,8 @@ export type {
   DevicProviderConfig,
   DevicProviderProps,
   DevicContextValue,
+  TenantMetadata,
+  SubtenantMetadata,
   AIReference,
   DrawerRegistration,
 } from './types';

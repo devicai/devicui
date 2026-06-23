@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useOptionalDevicContext } from '../provider';
+import type { TenantMetadata, SubtenantMetadata } from '../provider';
 import { DevicApiClient, DevicApiError } from '../api/client';
 import { usePolling } from './usePolling';
 import { useModelInterface, type PendingWidgetCall } from './useModelInterface';
@@ -40,9 +41,9 @@ export interface UseDevicChatOptions {
   tenantId?: string;
 
   /**
-   * Tenant metadata
+   * Tenant metadata (e.g. { name, email, imageUrl })
    */
-  tenantMetadata?: Record<string, any>;
+  tenantMetadata?: TenantMetadata;
 
   /**
    * Subtenant ID identifying a user/entity inside the tenant
@@ -50,9 +51,9 @@ export interface UseDevicChatOptions {
   subtenantId?: string;
 
   /**
-   * Subtenant metadata (e.g. { id, name, email })
+   * Subtenant metadata (e.g. { id, name, email, imageUrl })
    */
-  subtenantMetadata?: Record<string, any>;
+  subtenantMetadata?: SubtenantMetadata;
 
   /**
    * Tools enabled from the assistant's configured tool groups
