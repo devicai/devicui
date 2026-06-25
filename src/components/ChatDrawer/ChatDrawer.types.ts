@@ -57,7 +57,7 @@ export interface CustomPromptBoxProps {
   sendMessage: (
     message: string,
     files?: File[],
-    meta?: { transcriptId?: string },
+    meta?: { transcriptId?: string; tags?: string[] },
   ) => void;
   /**
    * Transcribe audio to text via the Devic /whisper endpoint.
@@ -598,6 +598,13 @@ export interface ChatDrawerProps {
    * Subtenant metadata (overrides provider)
    */
   subtenantMetadata?: Record<string, any>;
+
+  /**
+   * Tags applied to the conversation. Sent as the top-level `tags` of each
+   * message (distinct from metadata/tenant). Merged (deduped) with the
+   * DevicProvider's `tags` and any per-message tags.
+   */
+  tags?: string[];
 
   /**
    * API key (overrides provider)

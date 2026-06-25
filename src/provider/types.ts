@@ -78,6 +78,13 @@ export interface DevicProviderConfig {
   subtenantMetadata?: SubtenantMetadata;
 
   /**
+   * Global tags applied to every conversation started under this provider.
+   * Sent as the top-level `tags` of each message (distinct from metadata).
+   * Can be overridden/extended per ChatDrawer or per message.
+   */
+  tags?: string[];
+
+  /**
    * Enable debug logging to the browser console
    * @default false
    */
@@ -148,6 +155,11 @@ export interface DevicContextValue {
    * Global subtenant metadata
    */
   subtenantMetadata?: SubtenantMetadata;
+
+  /**
+   * Global tags applied to every conversation started under this provider.
+   */
+  tags?: string[];
 
   /**
    * Whether the provider is properly configured

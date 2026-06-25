@@ -33,6 +33,7 @@ export function DevicProvider({
   tenantMetadata,
   subtenantId,
   subtenantMetadata,
+  tags,
   debug,
   children,
 }: DevicProviderProps): JSX.Element {
@@ -80,6 +81,7 @@ export function DevicProvider({
       tenantMetadata,
       subtenantId,
       subtenantMetadata,
+      tags,
       isConfigured: !!apiKey,
       debug,
       references,
@@ -97,6 +99,7 @@ export function DevicProvider({
       tenantMetadata,
       subtenantId,
       subtenantMetadata,
+      tags,
       debug,
       references,
       addReference,

@@ -56,6 +56,13 @@ export interface UseDevicChatOptions {
   subtenantMetadata?: SubtenantMetadata;
 
   /**
+   * Tags applied to the conversation. Sent as the top-level `tags` of each
+   * message (distinct from metadata). Falls back to the DevicProvider's `tags`
+   * and is merged (deduped) with any per-message tags passed to `sendMessage`.
+   */
+  tags?: string[];
+
+  /**
    * Tools enabled from the assistant's configured tool groups
    */
   enabledTools?: string[];
@@ -165,6 +172,8 @@ export interface UseDevicChatResult {
       metadata?: Record<string, any>;
       /** Id of a speech-to-text transcript that seeded this message. */
       transcriptId?: string;
+      /** Per-message tags, merged (deduped) with the resolved conversation tags. */
+      tags?: string[];
     }
   ) => Promise<void>;
 
@@ -240,6 +249,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     tenantMetadata,
     subtenantId,
     subtenantMetadata,
+    tags,
     enabledTools,
     modelInterfaceTools = [],
     pollingInterval = 1000,
@@ -265,6 +275,11 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     ...context?.subtenantMetadata,
     ...subtenantMetadata,
   };
+  // Provider tags + hook tags, deduped. Per-message tags are merged at send time.
+  const resolvedTags = useMemo(
+    () => Array.from(new Set([...(context?.tags ?? []), ...(tags ?? [])])),
+    [context?.tags, tags]
+  );
   const debug = propsDebug ?? context?.debug ?? false;
   const log = useMemo(() => createLogger(debug), [debug]);
   const logRef = useRef(log);
@@ -584,6 +599,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         files?: File[];
         metadata?: Record<string, any>;
         transcriptId?: string;
+        tags?: string[];
       }
     ) => {
       if (!clientRef.current) {
@@ -679,6 +695,13 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           },
           tenantId: resolvedTenantId,
           ...(resolvedSubtenantId && { subtenantId: resolvedSubtenantId }),
+          // Conversation tags: provider + hook + per-message, deduped
+          ...(() => {
+            const merged = Array.from(
+              new Set([...resolvedTags, ...(sendOptions?.tags ?? [])])
+            );
+            return merged.length > 0 ? { tags: merged } : {};
+          })(),
           enabledTools,
           // Include model interface tools if any
           ...(toolSchemas.length > 0 && { tools: toolSchemas }),
@@ -734,6 +757,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       resolvedTenantMetadata,
       resolvedSubtenantId,
       resolvedSubtenantMetadata,
+      resolvedTags,
       toolSchemas,
       onMessageSent,
       onFileUpload,

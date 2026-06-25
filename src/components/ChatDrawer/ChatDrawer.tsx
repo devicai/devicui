@@ -123,6 +123,7 @@ function ChatDrawerInner({
   tenantMetadata,
   subtenantId,
   subtenantMetadata,
+  tags,
   apiKey,
   baseUrl,
   onMessageSent,
@@ -185,6 +186,7 @@ function ChatDrawerInner({
     tenantMetadata,
     subtenantId,
     subtenantMetadata,
+    tags,
     enabledTools,
     modelInterfaceTools,
     onMessageSent,
@@ -342,13 +344,21 @@ function ChatDrawerInner({
 
   // Handle send message — prefix references and clear them after sending
   const handleSend = useCallback(
-    (message: string, files?: File[], meta?: { transcriptId?: string }) => {
+    (
+      message: string,
+      files?: File[],
+      meta?: { transcriptId?: string; tags?: string[] }
+    ) => {
       let finalMessage = message;
       if (references.length > 0) {
         const labels = references.map((r) => `"${r.label}"`).join(', ');
         finalMessage = `Elemento referenciado: ${labels}\n\n${message}`;
       }
-      chat.sendMessage(finalMessage, { files, transcriptId: meta?.transcriptId });
+      chat.sendMessage(finalMessage, {
+        files,
+        transcriptId: meta?.transcriptId,
+        tags: meta?.tags,
+      });
       if (references.length > 0) clearReferences();
     },
     [chat, references, clearReferences]

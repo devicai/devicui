@@ -20,6 +20,8 @@ export interface UseAIGenerationButtonOptions {
   baseUrl?: string;
   tenantId?: string;
   tenantMetadata?: Record<string, any>;
+  /** Tags applied to the conversation (merged/deduped with the provider's). */
+  tags?: string[];
   options?: AIGenerationButtonOptions;
   modelInterfaceTools?: ModelInterfaceTool[];
   onResponse?: (result: GenerationResult) => void;
@@ -68,6 +70,7 @@ export function useAIGenerationButton(
     baseUrl: propsBaseUrl,
     tenantId,
     tenantMetadata,
+    tags,
     options: buttonOptions = {},
     modelInterfaceTools = [],
     onResponse,
@@ -87,6 +90,9 @@ export function useAIGenerationButton(
   const baseUrl = propsBaseUrl || context?.baseUrl || 'https://api.devic.ai';
   const resolvedTenantId = tenantId || context?.tenantId;
   const resolvedTenantMetadata = { ...context?.tenantMetadata, ...tenantMetadata };
+  const resolvedTags = Array.from(
+    new Set([...(context?.tags ?? []), ...(tags ?? [])])
+  );
 
   // State
   const [isOpen, setIsOpen] = useState(false);
@@ -384,6 +390,7 @@ export function useAIGenerationButton(
           message: finalPrompt,
           metadata: resolvedTenantMetadata,
           tenantId: resolvedTenantId,
+          ...(resolvedTags.length > 0 && { tags: resolvedTags }),
           ...(toolSchemas.length > 0 && { tools: toolSchemas }),
         };
 
@@ -412,6 +419,7 @@ export function useAIGenerationButton(
       assistantId,
       resolvedTenantId,
       resolvedTenantMetadata,
+      resolvedTags,
       toolSchemas,
     ]
   );
