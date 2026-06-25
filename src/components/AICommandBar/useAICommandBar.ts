@@ -22,6 +22,8 @@ export interface UseAICommandBarOptions {
   baseUrl?: string;
   tenantId?: string;
   tenantMetadata?: Record<string, any>;
+  /** Tags applied to the conversation (merged/deduped with the provider's). */
+  tags?: string[];
   options?: AICommandBarOptions;
   isVisible?: boolean;
   onVisibilityChange?: (visible: boolean) => void;
@@ -138,6 +140,7 @@ export function useAICommandBar(options: UseAICommandBarOptions): UseAICommandBa
     baseUrl: propsBaseUrl,
     tenantId,
     tenantMetadata,
+    tags,
     options: barOptions = {},
     isVisible: controlledVisible,
     onVisibilityChange,
@@ -160,6 +163,9 @@ export function useAICommandBar(options: UseAICommandBarOptions): UseAICommandBa
   const baseUrl = propsBaseUrl || context?.baseUrl || 'https://api.devic.ai';
   const resolvedTenantId = tenantId || context?.tenantId;
   const resolvedTenantMetadata = { ...context?.tenantMetadata, ...tenantMetadata };
+  const resolvedTags = Array.from(
+    new Set([...(context?.tags ?? []), ...(tags ?? [])])
+  );
 
   // Visibility state
   const [internalVisible, setInternalVisible] = useState(false);
@@ -601,6 +607,7 @@ export function useAICommandBar(options: UseAICommandBarOptions): UseAICommandBa
           chatUid: chatUid || undefined,
           metadata: resolvedTenantMetadata,
           tenantId: resolvedTenantId,
+          ...(resolvedTags.length > 0 && { tags: resolvedTags }),
           ...(toolSchemas.length > 0 && { tools: toolSchemas }),
         };
 
@@ -618,7 +625,7 @@ export function useAICommandBar(options: UseAICommandBarOptions): UseAICommandBa
         onErrorRef.current?.(error);
       }
     },
-    [inputValue, chatUid, assistantId, resolvedTenantId, resolvedTenantMetadata, toolSchemas, addToHistory]
+    [inputValue, chatUid, assistantId, resolvedTenantId, resolvedTenantMetadata, resolvedTags, toolSchemas, addToHistory]
   );
 
   // Update submit ref for use in selectCommand

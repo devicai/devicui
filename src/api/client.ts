@@ -140,6 +140,14 @@ export class DevicApiClient {
   }
 
   /**
+   * Get the list of unique tags used across this account's chat histories.
+   * Backed by GET /api/v1/assistants/tags. Useful for autocompletion / filters.
+   */
+  async getChatTags(): Promise<string[]> {
+    return this.request<string[]>(`/api/v1/assistants/tags`);
+  }
+
+  /**
    * Get real-time chat history (for polling in async mode)
    */
   async getRealtimeHistory(

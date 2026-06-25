@@ -150,6 +150,8 @@ export interface ProcessMessageDto {
   chatUid?: string;
   userName?: string;
   files?: ChatFile[];
+  /** Tags to associate with this chat (top-level, distinct from `metadata`). */
+  tags?: string[];
   metadata?: {
     promptTemplateParams?: Record<string, any>;
     tenantToken?: string;

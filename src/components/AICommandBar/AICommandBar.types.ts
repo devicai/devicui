@@ -327,6 +327,12 @@ export interface AICommandBarProps {
   tenantMetadata?: Record<string, any>;
 
   /**
+   * Tags applied to the conversation (top-level, distinct from metadata).
+   * Merged/deduped with the DevicProvider's `tags`.
+   */
+  tags?: string[];
+
+  /**
    * Display and behavior options
    */
   options?: AICommandBarOptions;
