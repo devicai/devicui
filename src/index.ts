@@ -11,7 +11,7 @@ export type {
 } from './provider';
 
 // Components
-export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, UsageBar, LimitBanner } from './components/ChatDrawer';
+export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, ReferenceChip, UsageBar, LimitBanner } from './components/ChatDrawer';
 export type {
   ChatDrawerProps,
   ChatDrawerOptions,
@@ -23,6 +23,8 @@ export type {
   AllowedFileTypes,
   ConversationSelectorProps,
   HandoffSubagentWidgetProps,
+  ReferenceChipProps,
+  ReferenceChipVariant,
   SuggestedMessage,
   UsageBarProps,
   UsageBarDisplay,

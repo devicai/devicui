@@ -1230,6 +1230,33 @@
   text-decoration: underline;
 }
 
+/* Collapse outer paragraph margins so single-line messages keep their
+   original bubble height now that user messages are rendered as markdown. */
+.devic-message-bubble p:first-child {
+  margin-top: 0;
+}
+
+.devic-message-bubble p:last-child {
+  margin-bottom: 0;
+}
+
+/* Markdown legibility on the colored user bubble (white text). Inherit the
+   bubble text color for links/blockquotes and tint code blocks lighter so
+   they read against the primary background instead of the assistant theme. */
+.devic-message[data-role="user"] .devic-message-bubble a {
+  color: inherit;
+}
+
+.devic-message[data-role="user"] .devic-message-bubble code,
+.devic-message[data-role="user"] .devic-message-bubble pre {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.devic-message[data-role="user"] .devic-message-bubble blockquote {
+  border-left-color: rgba(255, 255, 255, 0.45);
+  color: inherit;
+}
+
 .markdown-table {
   overflow-x: auto;
   margin: 8px 0;

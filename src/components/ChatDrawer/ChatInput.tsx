@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import type { ChatInputProps } from './ChatDrawer.types';
 import { useSpeechRecording } from '../../hooks/useSpeechRecording';
 import { DevicApiClient } from '../../api/client';
+import { ReferenceChip } from './ReferenceChip';
 
 const FILE_TYPE_ACCEPT: Record<string, string[]> = {
   images: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
@@ -511,18 +512,12 @@ export function ChatInput({
       {references && references.length > 0 && (
         <div className="devic-reference-chips">
           {references.map((ref) => (
-            <div key={ref.id} className="devic-reference-chip" title={ref.label}>
-              <ReferenceIcon />
-              <span className="devic-reference-chip-label">"{ref.label}"</span>
-              <button
-                type="button"
-                className="devic-reference-chip-remove"
-                onClick={() => onRemoveReference?.(ref.id)}
-                aria-label="Quitar referencia"
-              >
-                &times;
-              </button>
-            </div>
+            <ReferenceChip
+              key={ref.id}
+              label={ref.label}
+              variant="input"
+              onRemove={() => onRemoveReference?.(ref.id)}
+            />
           ))}
         </div>
       )}
@@ -1002,27 +997,6 @@ function StopIcon(): JSX.Element {
       fill="currentColor"
     >
       <rect x="4" y="4" width="16" height="16" rx="2" />
-    </svg>
-  );
-}
-
-/**
- * Reference icon (corner-down-right arrow)
- */
-function ReferenceIcon(): JSX.Element {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="15 10 20 15 15 20" />
-      <path d="M4 4v7a4 4 0 0 0 4 4h12" />
     </svg>
   );
 }

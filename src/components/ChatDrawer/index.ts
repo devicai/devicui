@@ -4,6 +4,8 @@ export { ChatInput } from './ChatInput';
 export { ToolTimeline } from './ToolTimeline';
 export { ConversationSelector } from './ConversationSelector';
 export { HandoffSubagentWidget } from './HandoffSubagentWidget';
+export { ReferenceChip } from './ReferenceChip';
+export type { ReferenceChipProps, ReferenceChipVariant } from './ReferenceChip';
 export { UsageBar } from './UsageBar';
 export type { UsageBarProps, UsageBarDisplay, UsageBarData } from './UsageBar';
 export { LimitBanner } from './LimitBanner';
