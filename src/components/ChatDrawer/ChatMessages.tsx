@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Markdown from "markdown-to-jsx";
 import { MessageActions } from "../Feedback";
 import { HandoffSubagentWidget } from "./HandoffSubagentWidget";
+import { ReferenceChip } from "./ReferenceChip";
 import type { ChatMessagesProps, SuggestedMessage } from "./ChatDrawer.types";
 import type { ChatMessage, ToolGroupConfig, ToolGroupCall } from "../../api/types";
 import type { FeedbackState } from "../Feedback";
@@ -641,21 +642,16 @@ export function ChatMessages({
             {refLabels.length > 0 && (
               <div className="devic-message-references">
                 {refLabels.map((lbl, i) => (
-                  <span key={i} className="devic-message-reference-chip" title={lbl}>
-                    <ReferenceChipIcon />
-                    <span className="devic-message-reference-chip-label">"{lbl}"</span>
-                  </span>
+                  <ReferenceChip key={i} label={lbl} variant="message" />
                 ))}
               </div>
             )}
             <div className="devic-message-bubble">
-              {messageText && isAssistant ? (
+              {messageText ? (
                 <Markdown options={{ overrides: markdownOverrides }}>
                   {messageText}
                 </Markdown>
-              ) : (
-                messageText
-              )}
+              ) : null}
               {hasFiles && (
                 <div className="devic-message-files">
                   {message.content!.files!.map((file, fileIdx) => (
@@ -813,24 +809,6 @@ function FileIcon(): JSX.Element {
     >
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
       <polyline points="14,2 14,8 20,8" />
-    </svg>
-  );
-}
-
-function ReferenceChipIcon(): JSX.Element {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="15 10 20 15 15 20" />
-      <path d="M4 4v7a4 4 0 0 0 4 4h12" />
     </svg>
   );
 }
