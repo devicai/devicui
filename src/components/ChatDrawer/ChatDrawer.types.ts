@@ -15,6 +15,36 @@ export interface SuggestedMessage {
 }
 
 /**
+ * Props passed to a custom message bubble renderer
+ * (`userMessageRenderer` / `assistantMessageRenderer`). The renderer fully
+ * replaces the default markdown rendering of the bubble's text content; the
+ * reference chips (above the bubble), file attachments and the voice playback
+ * control are still rendered by the library around it.
+ */
+export interface MessageBubbleRendererProps {
+  /** The full chat message being rendered. */
+  message: ChatMessage;
+  /**
+   * The text content to render. For user messages, any
+   * `Elemento referenciado: …` reference prefix has already been stripped,
+   * so this is the user's actual message text.
+   */
+  content: string;
+  /** Resolved role of the bubble. */
+  role: 'user' | 'assistant';
+  /** Reference labels parsed out of the message (user messages only). */
+  references?: string[];
+}
+
+/**
+ * Renders the text content of a message bubble, replacing the built-in
+ * markdown renderer. Return any React node.
+ */
+export type MessageBubbleRenderer = (
+  props: MessageBubbleRendererProps,
+) => React.ReactNode;
+
+/**
  * Props passed to a custom prompt box component.
  * The component receives chat actions and state so it can drive the conversation.
  */
@@ -407,6 +437,30 @@ export interface ChatDrawerOptions {
   customPromptBox?: (props: CustomPromptBoxProps) => React.ReactNode;
 
   /**
+   * Custom renderer for the USER message bubble content. When provided, it
+   * fully replaces the default markdown rendering for user messages. Reference
+   * chips, file attachments and the voice playback control are still rendered
+   * by the library around the returned node.
+   *
+   * @example
+   * ```tsx
+   * userMessageRenderer: ({ content }) => <PlainText>{content}</PlainText>
+   * ```
+   */
+  userMessageRenderer?: MessageBubbleRenderer;
+
+  /**
+   * Custom renderer for the ASSISTANT message bubble content. When provided,
+   * it fully replaces the default markdown rendering for assistant messages.
+   *
+   * @example
+   * ```tsx
+   * assistantMessageRenderer: ({ content }) => <MyMarkdown>{content}</MyMarkdown>
+   * ```
+   */
+  assistantMessageRenderer?: MessageBubbleRenderer;
+
+  /**
    * What to show as fallback when a conversation has no name.
    * - 'date': show the creation date/time (default)
    * - 'firstMessage': show the first user message truncated with ellipsis
@@ -645,6 +699,10 @@ export interface ChatMessagesProps {
   baseUrl?: string;
   /** Tool group configurations for grouped rendering */
   toolGroups?: ToolGroupConfig[];
+  /** Custom renderer replacing markdown for user message bubbles */
+  userMessageRenderer?: MessageBubbleRenderer;
+  /** Custom renderer replacing markdown for assistant message bubbles */
+  assistantMessageRenderer?: MessageBubbleRenderer;
   /** Pending widget tool calls to render inline in the message thread */
   pendingInlineWidgets?: PendingWidgetCall[];
   /** Called when a widget submits its response */

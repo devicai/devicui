@@ -19,6 +19,8 @@ export type {
   ChatMessagesProps,
   ChatInputProps,
   CustomPromptBoxProps,
+  MessageBubbleRenderer,
+  MessageBubbleRendererProps,
   ToolTimelineProps,
   AllowedFileTypes,
   ConversationSelectorProps,
