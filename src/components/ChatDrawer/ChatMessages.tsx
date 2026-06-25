@@ -541,6 +541,8 @@ export function ChatMessages({
   onHandoffCompleted,
   handoffWidgetRenderer,
   toolGroups,
+  userMessageRenderer,
+  assistantMessageRenderer,
   apiKey,
   baseUrl,
   pendingInlineWidgets,
@@ -633,6 +635,12 @@ export function ChatMessages({
         const messageText = parsed ? parsed.cleanContent : rawText;
         const refLabels = parsed ? parsed.references : [];
 
+        // A custom bubble renderer (per role) fully replaces the default
+        // markdown rendering of the message text.
+        const bubbleRenderer = isAssistant
+          ? assistantMessageRenderer
+          : userMessageRenderer;
+
         return (
           <div
             key={message.uid}
@@ -648,9 +656,18 @@ export function ChatMessages({
             )}
             <div className="devic-message-bubble">
               {messageText ? (
-                <Markdown options={{ overrides: markdownOverrides }}>
-                  {messageText}
-                </Markdown>
+                bubbleRenderer ? (
+                  bubbleRenderer({
+                    message,
+                    content: messageText,
+                    role: isAssistant ? "assistant" : "user",
+                    references: refLabels,
+                  })
+                ) : (
+                  <Markdown options={{ overrides: markdownOverrides }}>
+                    {messageText}
+                  </Markdown>
+                )
               ) : null}
               {hasFiles && (
                 <div className="devic-message-files">

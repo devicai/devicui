@@ -63,6 +63,8 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   debug: false,
   persistConversation: false,
   customPromptBox: undefined as any,
+  userMessageRenderer: undefined as any,
+  assistantMessageRenderer: undefined as any,
   conversationPreview: 'date',
   showUsageBar: false,
   usageBarMetric: undefined as any,
@@ -632,6 +634,8 @@ function ChatDrawerInner({
           onHandoffCompleted={chat.onHandoffCompleted}
           handoffWidgetRenderer={mergedOptions.handoffWidgetRenderer}
           toolGroups={mergedOptions.toolGroups}
+          userMessageRenderer={mergedOptions.userMessageRenderer}
+          assistantMessageRenderer={mergedOptions.assistantMessageRenderer}
           apiKey={resolvedApiKey}
           baseUrl={resolvedBaseUrl}
           pendingInlineWidgets={inlineWidgets}
