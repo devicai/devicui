@@ -161,6 +161,15 @@ function EyeIcon(): JSX.Element {
   );
 }
 
+function SendIcon(): JSX.Element {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </svg>
+  );
+}
+
 function LightbulbIcon(): JSX.Element {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="#FFC000" stroke="#FFC000" strokeWidth="1">
@@ -407,6 +416,74 @@ function ApprovalModal({
   );
 }
 
+/* ── Send Message Modal ── */
+
+function SendMessageModal({
+  open,
+  onClose,
+  onSend,
+  isLoading,
+  state,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSend: (message: string) => void;
+  isLoading: boolean;
+  state: AgentThreadState | string;
+}): JSX.Element | null {
+  const [message, setMessage] = useState('');
+
+  const handleClose = () => {
+    setMessage('');
+    onClose();
+  };
+
+  const isRunning =
+    state === AgentThreadState.PROCESSING || state === AgentThreadState.QUEUED;
+
+  return (
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title="Send message to thread"
+      titleIcon={<SendIcon />}
+      footer={
+        <>
+          <button className="devic-state-btn" onClick={handleClose} type="button">Cancel</button>
+          <button
+            className="devic-state-btn devic-state-btn-primary"
+            onClick={() => onSend(message)}
+            disabled={isLoading || !message.trim()}
+            type="button"
+          >
+            Send
+          </button>
+        </>
+      }
+    >
+      <div style={{ marginBottom: 12 }}>
+        <p style={{ margin: '4px 0 12px', color: '#666', fontSize: 13 }}>
+          {isRunning
+            ? 'The agent is still running. Your message will be considered on its next turn, right after the current tool response.'
+            : 'This will add your message and re-queue the thread so the agent runs again with it.'}
+        </p>
+        <textarea
+          className="devic-approval-textarea"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Type a message to continue the thread..."
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && message.trim()) {
+              e.preventDefault();
+              onSend(message);
+            }
+          }}
+        />
+      </div>
+    </Modal>
+  );
+}
+
 /* ── Complete Thread Modal ── */
 
 function CompleteModal({
@@ -534,6 +611,8 @@ export function ThreadStateTag({
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [isLoadingApproval, setIsLoadingApproval] = useState(false);
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
+  const [sendMessageModalOpen, setSendMessageModalOpen] = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
 
   const tagRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -681,6 +760,33 @@ export function ThreadStateTag({
     }
   };
 
+  const handleSendMessage = async (message: string) => {
+    const text = message.trim();
+    if (!text) return;
+    const client = getClient();
+    if (!client) return;
+    setIsSendingMessage(true);
+    try {
+      await client.sendThreadMessage(threadId, text);
+      setSendMessageModalOpen(false);
+      onActionComplete?.();
+    } catch (err) {
+      console.error('Error sending message to thread:', err);
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
+  // States that can't be continued with a free user message (approval decision,
+  // handed off to a subagent, or still being created).
+  const canSendMessage =
+    !!threadId &&
+    ![
+      AgentThreadState.PAUSED_FOR_APPROVAL,
+      AgentThreadState.HANDED_OFF,
+    ].includes(state as AgentThreadState) &&
+    state !== 'under_construction';
+
   // Build dropdown items
   const dropdownItems: Array<{ key: string; icon: React.ReactNode; label: string; onClick: () => void }> = [];
 
@@ -717,6 +823,15 @@ export function ThreadStateTag({
       icon: <EyeIcon />,
       label: 'Review',
       onClick: () => { setDropdownOpen(false); setReviewModalOpen(true); },
+    });
+  }
+
+  if (canSendMessage) {
+    dropdownItems.push({
+      key: 'send_message',
+      icon: <SendIcon />,
+      label: 'Send message...',
+      onClick: () => { setDropdownOpen(false); setSendMessageModalOpen(true); },
     });
   }
 
@@ -842,6 +957,14 @@ export function ThreadStateTag({
         onApprove={handleApproval}
         isLoading={isLoadingApproval}
         pausedReason={pausedReason}
+      />
+
+      <SendMessageModal
+        open={sendMessageModalOpen}
+        onClose={() => setSendMessageModalOpen(false)}
+        onSend={handleSendMessage}
+        isLoading={isSendingMessage}
+        state={state}
       />
     </>
   );
