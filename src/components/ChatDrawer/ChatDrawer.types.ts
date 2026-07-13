@@ -249,6 +249,20 @@ export interface ChatDrawerOptions {
   maxFileSize?: number;
 
   /**
+   * Turn a long block of pasted text into an attachment card instead of dumping
+   * it into the textarea. The text still reaches the model in full: it is sent
+   * inside a <pasted-text> block prepended to the message.
+   * @default false
+   */
+  enableLongTextPaste?: boolean;
+
+  /**
+   * Character count above which pasted text becomes an attachment card.
+   * @default 2000
+   */
+  longTextPasteThreshold?: number;
+
+  /**
    * Placeholder text for input
    * @default 'Type a message...'
    */
@@ -732,6 +746,10 @@ export interface ChatInputProps {
   enableFileUploads?: boolean;
   allowedFileTypes?: AllowedFileTypes;
   maxFileSize?: number;
+  /** Turn long pasted text into an attachment card. @default false */
+  enableLongTextPaste?: boolean;
+  /** Character count above which pasted text becomes a card. @default 2000 */
+  longTextPasteThreshold?: number;
   /** Enable the speech-to-text microphone control. */
   enableSpeechToText?: boolean;
   /** ISO-639-1 language hint for speech-to-text. */
