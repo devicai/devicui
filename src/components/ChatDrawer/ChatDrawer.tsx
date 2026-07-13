@@ -21,6 +21,8 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   enableFileUploads: false,
   allowedFileTypes: { images: true, documents: true },
   maxFileSize: 10 * 1024 * 1024,
+  enableLongTextPaste: false,
+  longTextPasteThreshold: 2000,
   enableSpeechToText: false,
   speechLanguage: undefined as any,
   speechAutoStop: true,
@@ -683,6 +685,8 @@ function ChatDrawerInner({
             enableFileUploads={mergedOptions.enableFileUploads}
             allowedFileTypes={mergedOptions.allowedFileTypes}
             maxFileSize={mergedOptions.maxFileSize}
+            enableLongTextPaste={mergedOptions.enableLongTextPaste}
+            longTextPasteThreshold={mergedOptions.longTextPasteThreshold}
             enableSpeechToText={mergedOptions.enableSpeechToText}
             speechLanguage={mergedOptions.speechLanguage}
             speechTenantId={tenantId}

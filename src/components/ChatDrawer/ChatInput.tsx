@@ -3,6 +3,12 @@ import type { ChatInputProps } from './ChatDrawer.types';
 import { useSpeechRecording } from '../../hooks/useSpeechRecording';
 import { DevicApiClient } from '../../api/client';
 import { ReferenceChip } from './ReferenceChip';
+import {
+  toPastedBlock,
+  pastedPreview,
+  pastedLineCount,
+  type PastedText,
+} from './pastedText';
 
 const FILE_TYPE_ACCEPT: Record<string, string[]> = {
   images: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
@@ -15,6 +21,15 @@ const FILE_TYPE_ACCEPT: Record<string, string[]> = {
   ],
   audio: ['audio/mpeg', 'audio/wav', 'audio/ogg'],
   video: ['video/mp4', 'video/webm', 'video/ogg'],
+};
+
+// Extensions used to name images pasted from the clipboard, which arrive with a
+// generic name ("image.png") or none at all.
+const IMAGE_EXT_BY_MIME: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
 };
 
 // Handoff (hands-free) loop timings.
@@ -32,6 +47,8 @@ export function ChatInput({
   enableFileUploads = false,
   allowedFileTypes = { images: true, documents: true },
   maxFileSize = 10 * 1024 * 1024, // 10MB
+  enableLongTextPaste = false,
+  longTextPasteThreshold = 2000,
   enableSpeechToText = false,
   speechLanguage,
   speechTenantId,
@@ -77,8 +94,16 @@ export function ChatInput({
   }
   const [message, setMessage] = useState('');
   const [files, setFiles] = useState<File[]>([]);
+  // Long blocks of pasted text, kept out of the textarea and shown as cards.
+  const [pastedTexts, setPastedTexts] = useState<PastedText[]>([]);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Monotonic counters so pasted images and text blocks get stable, unique ids.
+  const pasteCounterRef = useRef(0);
+  // Nested dragenter/dragleave events fire per child node; count them so the
+  // overlay only clears when the pointer truly leaves the input area.
+  const dragDepthRef = useRef(0);
 
   // Speech-to-text state
   const [transcriptId, setTranscriptId] = useState<string | undefined>();
@@ -143,10 +168,51 @@ export function ChatInput({
   const isRecordingActive = recording.isRecording || recording.isPaused;
 
   // Calculate accepted file types
-  const acceptedTypes = Object.entries(allowedFileTypes)
-    .filter(([, enabled]) => enabled)
-    .flatMap(([type]) => FILE_TYPE_ACCEPT[type] || [])
-    .join(',');
+  const acceptedTypeList = useMemo(
+    () =>
+      Object.entries(allowedFileTypes)
+        .filter(([, enabled]) => enabled)
+        .flatMap(([type]) => FILE_TYPE_ACCEPT[type] || []),
+    [allowedFileTypes]
+  );
+  const acceptedTypes = acceptedTypeList.join(',');
+
+  // Single entry point for every way of attaching a file (button, paste, drop):
+  // enforces the size limit and the allowed MIME types, which until now were
+  // only hinted at the native file dialog and never actually checked.
+  const addFiles = useCallback(
+    (incoming: File[]) => {
+      const validFiles = incoming.filter((file) => {
+        if (file.size > maxFileSize) {
+          console.warn(`File ${file.name} exceeds maximum size`);
+          return false;
+        }
+        if (acceptedTypeList.length > 0 && !acceptedTypeList.includes(file.type)) {
+          console.warn(`File type ${file.type || 'unknown'} is not allowed`);
+          return false;
+        }
+        return true;
+      });
+      if (validFiles.length > 0) setFiles((prev) => [...prev, ...validFiles]);
+    },
+    [maxFileSize, acceptedTypeList]
+  );
+
+  // Thumbnails for attached images. The cleanup revokes the previous batch on
+  // every change (and on unmount), so the object URLs never leak.
+  const filePreviews = useMemo(
+    () =>
+      files.map((file) =>
+        file.type.startsWith('image/') ? URL.createObjectURL(file) : null
+      ),
+    [files]
+  );
+  useEffect(
+    () => () => {
+      filePreviews.forEach((url) => url && URL.revokeObjectURL(url));
+    },
+    [filePreviews]
+  );
 
   // Auto-resize textarea
   const handleInput = useCallback(() => {
@@ -160,22 +226,33 @@ export function ChatInput({
   // Handle send
   const handleSend = useCallback(() => {
     const trimmedMessage = message.trim();
-    if (!trimmedMessage && files.length === 0) return;
+    if (!trimmedMessage && files.length === 0 && pastedTexts.length === 0) return;
+
+    // Pasted text is shown as a card but still reaches the model in full: each
+    // block is prepended to the message inside a delimiter the thread can parse
+    // back out (see parsePastedBlocks in ChatMessages).
+    const composedMessage =
+      pastedTexts.length > 0
+        ? [...pastedTexts.map(toPastedBlock), trimmedMessage]
+            .filter(Boolean)
+            .join('\n\n')
+        : trimmedMessage;
 
     onSend(
-      trimmedMessage,
+      composedMessage,
       files.length > 0 ? files : undefined,
       transcriptId ? { transcriptId } : undefined,
     );
     setMessage('');
     setFiles([]);
+    setPastedTexts([]);
     setTranscriptId(undefined);
 
     // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-  }, [message, files, onSend, transcriptId]);
+  }, [message, files, pastedTexts, onSend, transcriptId]);
   // Keep a fresh send fn for the deferred handoff auto-send.
   handleSendRef.current = handleSend;
 
@@ -451,25 +528,14 @@ export function ChatInput({
   // Handle file selection
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const selectedFiles = Array.from(e.target.files || []);
-
-      // Filter valid files
-      const validFiles = selectedFiles.filter((file) => {
-        if (file.size > maxFileSize) {
-          console.warn(`File ${file.name} exceeds maximum size`);
-          return false;
-        }
-        return true;
-      });
-
-      setFiles((prev) => [...prev, ...validFiles]);
+      addFiles(Array.from(e.target.files || []));
 
       // Reset input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     },
-    [maxFileSize]
+    [addFiles]
   );
 
   // Remove file
@@ -477,8 +543,112 @@ export function ChatInput({
     setFiles((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  // Remove a pasted-text card
+  const removePastedText = useCallback((id: string) => {
+    setPastedTexts((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
+  // Paste: files in the clipboard become attachments; a long block of plain
+  // text becomes a card instead of flooding the textarea.
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const clipboard = e.clipboardData;
+      if (!clipboard) return;
+
+      if (enableFileUploads) {
+        const pastedFiles = Array.from(clipboard.items)
+          .filter((item) => item.kind === 'file')
+          .map((item) => item.getAsFile())
+          .filter((file): file is File => file !== null)
+          .map((file) => {
+            // Clipboard images share a generic name; give each one its own so
+            // several pasted screenshots don't collapse into the same label.
+            const ext = IMAGE_EXT_BY_MIME[file.type];
+            if (!ext) return file;
+            pasteCounterRef.current += 1;
+            return new File([file], `pasted-image-${pasteCounterRef.current}.${ext}`, {
+              type: file.type,
+            });
+          });
+
+        if (pastedFiles.length > 0) {
+          e.preventDefault();
+          addFiles(pastedFiles);
+          return;
+        }
+      }
+
+      if (!enableLongTextPaste) return;
+
+      const text = clipboard.getData('text/plain');
+      if (text.length <= longTextPasteThreshold) return;
+
+      e.preventDefault();
+      pasteCounterRef.current += 1;
+      setPastedTexts((prev) => [
+        ...prev,
+        { id: String(pasteCounterRef.current), text },
+      ]);
+    },
+    [enableFileUploads, enableLongTextPaste, longTextPasteThreshold, addFiles]
+  );
+
+  // --- Drag & drop ---
+
+  const handleDragEnter = useCallback(
+    (e: React.DragEvent) => {
+      if (!enableFileUploads || disabled) return;
+      if (!e.dataTransfer.types.includes('Files')) return;
+      e.preventDefault();
+      dragDepthRef.current += 1;
+      setIsDraggingOver(true);
+    },
+    [enableFileUploads, disabled]
+  );
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!enableFileUploads || disabled) return;
+      if (!e.dataTransfer.types.includes('Files')) return;
+      // Without this the browser navigates away to open the dropped file.
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    },
+    [enableFileUploads, disabled]
+  );
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDraggingOver(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      if (!enableFileUploads || disabled) return;
+      e.preventDefault();
+      dragDepthRef.current = 0;
+      setIsDraggingOver(false);
+      addFiles(Array.from(e.dataTransfer.files || []));
+    },
+    [enableFileUploads, disabled, addFiles]
+  );
+
   return (
-    <div className="devic-input-area">
+    <div
+      className="devic-input-area"
+      data-dragging={isDraggingOver ? 'true' : 'false'}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDraggingOver && (
+        <div className="devic-drop-overlay">
+          <AttachIcon />
+          <span>Drop files to attach</span>
+        </div>
+      )}
       {limitBanner}
       {usageBar}
       {disabledMessage && disabled && (
@@ -521,11 +691,45 @@ export function ChatInput({
           ))}
         </div>
       )}
+      {pastedTexts.length > 0 && (
+        <div className="devic-pasted-cards">
+          {pastedTexts.map((pasted) => (
+            <div key={pasted.id} className="devic-pasted-card">
+              <p className="devic-pasted-card-preview">
+                {pastedPreview(pasted.text)}
+              </p>
+              <div className="devic-pasted-card-footer">
+                <span className="devic-pasted-card-badge">PASTED</span>
+                <span className="devic-pasted-card-meta">
+                  {pastedLineCount(pasted.text)} lines
+                </span>
+              </div>
+              <button
+                className="devic-file-remove devic-pasted-card-remove"
+                onClick={() => removePastedText(pasted.id)}
+                type="button"
+                title="Remove pasted text"
+                aria-label="Remove pasted text"
+              >
+                &times;
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       {files.length > 0 && (
         <div className="devic-file-preview">
           {files.map((file, idx) => (
             <div key={idx} className="devic-file-preview-item">
-              <FileIcon />
+              {filePreviews[idx] ? (
+                <img
+                  className="devic-file-preview-thumb"
+                  src={filePreviews[idx]!}
+                  alt={file.name}
+                />
+              ) : (
+                <FileIcon />
+              )}
               <span>{file.name}</span>
               <button
                 className="devic-file-remove"
@@ -669,6 +873,7 @@ export function ChatInput({
                 handleInput();
               }}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               placeholder={placeholder}
               disabled={disabled}
               rows={1}
@@ -705,7 +910,7 @@ export function ChatInput({
                 <button
                   className="devic-send-btn-overlay"
                   onClick={handleSend}
-                  disabled={disabled || (!message.trim() && files.length === 0)}
+                  disabled={disabled || (!message.trim() && files.length === 0 && pastedTexts.length === 0)}
                   type="button"
                   title="Send message"
                 />
@@ -714,7 +919,7 @@ export function ChatInput({
               <button
                 className="devic-input-btn devic-send-btn"
                 onClick={handleSend}
-                disabled={disabled || (!message.trim() && files.length === 0)}
+                disabled={disabled || (!message.trim() && files.length === 0 && pastedTexts.length === 0)}
                 type="button"
                 title="Send message"
               >

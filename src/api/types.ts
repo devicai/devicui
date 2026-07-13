@@ -10,16 +10,41 @@ export interface ChatFile {
 }
 
 /**
+ * Attachment as it appears on a message.
+ *
+ * Two shapes reach the UI for the same thing: the optimistic message built
+ * locally on send uses `url`/`type`, while the history returned by the API
+ * carries the stored `downloadUrl`/`fileType`. Both are accepted here; use
+ * `normalizeMessageFile` before reading them.
+ */
+export interface MessageFile {
+  name: string;
+  url?: string;
+  type?: string;
+  downloadUrl?: string;
+  fileType?: string;
+}
+
+/**
  * Message content structure
  */
 export interface MessageContent {
   message?: string;
   data?: any;
-  files?: Array<{
-    name: string;
-    url: string;
-    type: string;
-  }>;
+  files?: MessageFile[];
+}
+
+/** Collapse either attachment shape into a single one the UI can render. */
+export function normalizeMessageFile(file: MessageFile): {
+  name: string;
+  url: string;
+  type: string;
+} {
+  return {
+    name: file.name,
+    url: file.url || file.downloadUrl || '',
+    type: file.type || file.fileType || 'other',
+  };
 }
 
 /**
