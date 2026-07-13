@@ -339,6 +339,26 @@ export class DevicApiClient {
   }
 
   /**
+   * Continue an existing thread with a new user message. The backend decides how
+   * to apply it based on the thread state: a finished/failed/waiting thread is
+   * re-queued and re-run with the message appended, while a running/queued thread
+   * receives it on its next turn (right after the pending tool response). Returns
+   * the updated thread.
+   */
+  async sendThreadMessage(
+    threadId: string,
+    message: string | Record<string, unknown>,
+  ): Promise<AgentThreadDto> {
+    return this.request<AgentThreadDto>(
+      `/api/v1/agents/threads/${threadId}/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify({ message }),
+      },
+    );
+  }
+
+  /**
    * Stop an in-progress async chat.
    * The current LLM call or tool execution will finish, then the chat
    * will be marked as completed with the history accumulated so far.
