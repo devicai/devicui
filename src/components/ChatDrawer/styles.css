@@ -908,6 +908,148 @@
   color: #ff4d4f;
 }
 
+.devic-file-preview-thumb {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: var(--devic-radius-sm);
+  display: block;
+}
+
+/* Drag & Drop */
+.devic-input-area {
+  position: relative;
+}
+
+.devic-drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--devic-bg);
+  border: 2px dashed var(--devic-primary, var(--devic-border));
+  border-radius: var(--devic-radius);
+  color: var(--devic-text-muted);
+  font-size: 13px;
+  /* The overlay is a drop target for the area underneath it, so it must not
+     swallow the drag events that keep it alive. */
+  pointer-events: none;
+}
+
+/* Pasted Text Cards */
+.devic-pasted-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.devic-pasted-card {
+  position: relative;
+  max-width: 240px;
+  padding: 10px;
+  background: var(--devic-bg);
+  border: 1px solid var(--devic-border);
+  border-radius: var(--devic-radius);
+  font-size: 12px;
+  text-align: left;
+}
+
+.devic-pasted-card-preview {
+  margin: 0 0 8px;
+  color: var(--devic-text-muted);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.devic-pasted-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.devic-pasted-card-badge {
+  padding: 2px 6px;
+  background: var(--devic-bg-secondary);
+  border-radius: var(--devic-radius-sm);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--devic-text);
+}
+
+.devic-pasted-card-meta {
+  color: var(--devic-text-muted);
+  font-size: 11px;
+}
+
+.devic-pasted-card-remove {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+}
+
+/* Pasted Text Cards — inside a sent message */
+.devic-message-pasted {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.devic-message-pasted .devic-pasted-card {
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+
+.devic-pasted-card-toggle {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  background: none;
+  border: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  /* Not `inherit`: inside the user bubble the text colour is white, which would
+     be invisible against the card's light background. */
+  color: var(--devic-text);
+}
+
+.devic-pasted-card-full {
+  margin: 0 0 8px;
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--devic-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--devic-text);
+}
+
+/* Image attachments in a sent message */
+.devic-message-file-image {
+  display: block;
+  max-width: 220px;
+  border-radius: var(--devic-radius-sm);
+  overflow: hidden;
+}
+
+.devic-message-file-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 /* Trigger Button */
 .devic-trigger {
   position: fixed;

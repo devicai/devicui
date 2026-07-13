@@ -5,9 +5,16 @@ import { HandoffSubagentWidget } from "./HandoffSubagentWidget";
 import { ReferenceChip } from "./ReferenceChip";
 import type { ChatMessagesProps, SuggestedMessage } from "./ChatDrawer.types";
 import type { ChatMessage, ToolGroupConfig, ToolGroupCall } from "../../api/types";
+import { normalizeMessageFile } from "../../api/types";
 import type { FeedbackState } from "../Feedback";
 import { segmentToolCalls } from "../../utils/toolGroups";
 import { DevicApiClient } from "../../api/client";
+import {
+  parsePastedBlocks,
+  pastedPreview,
+  pastedLineCount,
+  type PastedText,
+} from "./pastedText";
 import "../Feedback/Feedback.css";
 
 /**
@@ -635,6 +642,15 @@ export function ChatMessages({
         const messageText = parsed ? parsed.cleanContent : rawText;
         const refLabels = parsed ? parsed.references : [];
 
+        // Long pasted text travels inside the message but is shown as a card,
+        // so the bubble renders what the user actually typed. Runs after the
+        // reference prefix, which ChatDrawer prepends to the composed message.
+        const pasted = !isAssistant && messageText
+          ? parsePastedBlocks(messageText)
+          : null;
+        const bodyText = pasted ? pasted.cleanContent : messageText;
+        const pastedBlocks = pasted ? pasted.blocks : [];
+
         // A custom bubble renderer (per role) fully replaces the default
         // markdown rendering of the message text.
         const bubbleRenderer = isAssistant
@@ -655,28 +671,48 @@ export function ChatMessages({
               </div>
             )}
             <div className="devic-message-bubble">
-              {messageText ? (
+              {pastedBlocks.length > 0 && (
+                <div className="devic-message-pasted">
+                  {pastedBlocks.map((block) => (
+                    <PastedBlockCard key={block.id} block={block} />
+                  ))}
+                </div>
+              )}
+              {bodyText ? (
                 bubbleRenderer ? (
                   bubbleRenderer({
                     message,
-                    content: messageText,
+                    content: bodyText,
                     role: isAssistant ? "assistant" : "user",
                     references: refLabels,
                   })
                 ) : (
                   <Markdown options={{ overrides: markdownOverrides }}>
-                    {messageText}
+                    {bodyText}
                   </Markdown>
                 )
               ) : null}
               {hasFiles && (
                 <div className="devic-message-files">
-                  {message.content!.files!.map((file, fileIdx) => (
-                    <div key={fileIdx} className="devic-message-file">
-                      <FileIcon />
-                      <span>{file.name}</span>
-                    </div>
-                  ))}
+                  {message.content!.files!.map((raw, fileIdx) => {
+                    const file = normalizeMessageFile(raw);
+                    return file.type === "image" && file.url ? (
+                      <a
+                        key={fileIdx}
+                        className="devic-message-file-image"
+                        href={file.url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <img src={file.url} alt={file.name} />
+                      </a>
+                    ) : (
+                      <div key={fileIdx} className="devic-message-file">
+                        <FileIcon />
+                        <span>{file.name}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
               {!isAssistant && message.transcriptId && (
@@ -848,4 +884,35 @@ function parseReferencedPrefix(
     s.slice(1, -1)
   );
   return { references: labels, cleanContent: m[2] };
+}
+
+/**
+ * A block of pasted text inside a sent message: collapsed to a card by default,
+ * expandable to read the whole thing without leaving the thread.
+ */
+function PastedBlockCard({ block }: { block: PastedText }): JSX.Element {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="devic-pasted-card" data-expanded={expanded ? "true" : "false"}>
+      <button
+        type="button"
+        className="devic-pasted-card-toggle"
+        onClick={() => setExpanded((prev) => !prev)}
+        aria-expanded={expanded}
+      >
+        {expanded ? (
+          <pre className="devic-pasted-card-full">{block.text}</pre>
+        ) : (
+          <p className="devic-pasted-card-preview">{pastedPreview(block.text)}</p>
+        )}
+        <span className="devic-pasted-card-footer">
+          <span className="devic-pasted-card-badge">PASTED</span>
+          <span className="devic-pasted-card-meta">
+            {pastedLineCount(block.text)} lines · {expanded ? "collapse" : "expand"}
+          </span>
+        </span>
+      </button>
+    </div>
+  );
 }
