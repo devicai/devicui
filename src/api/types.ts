@@ -72,6 +72,15 @@ export interface ChatMessage {
   tool_call_id?: string;
   summary?: string;
   /**
+   * Where `content.message` came from, when the model did not write it.
+   * `'finish_tool'`: the assistant is configured to require a tool call to
+   * finish ("Require Tool Use to Finish") and the backend lifted the reply from
+   * the finish tool's `message` argument, so it can be read without parsing
+   * tool calls. Absent on replies the model wrote itself — use it to label the
+   * bubble as produced by the tool.
+   */
+  contentSource?: string;
+  /**
    * Id of a speech-to-text transcript (from POST /api/v1/whisper) that seeded
    * this message. Present on user messages dictated by voice; the chat can use
    * it to fetch the source audio (GET /api/v1/whisper/:transcriptId) and offer

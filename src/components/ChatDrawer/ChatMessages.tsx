@@ -17,6 +17,13 @@ import {
 } from "./pastedText";
 import "../Feedback/Feedback.css";
 
+// Backend finalizer tool for assistants configured with "Require Tool Use to
+// Finish". It carries the final answer in its `message` argument, which the
+// backend copies to content.message, so it renders as a plain assistant bubble
+// instead of a tool activity line. Agents have a same-named tool with a
+// different shape, but their timeline does not go through this component.
+const FINISH_EXECUTION_TOOL = "finish_execution";
+
 /**
  * Format timestamp to readable time
  */
@@ -218,7 +225,15 @@ function groupMessages(
       continue;
     }
 
-    const hasToolCalls = msg.tool_calls && msg.tool_calls.length > 0;
+    // `finish_execution` is not an action the assistant took, it is how the
+    // backend delivers the final answer when the assistant is configured with
+    // "Require Tool Use to Finish": the tool's `message` argument is copied to
+    // content.message and rendered as the assistant bubble below. Showing it as
+    // a tool activity line would just duplicate that bubble with plumbing.
+    const visibleToolCalls = (msg.tool_calls || []).filter(
+      (toolCall) => toolCall.function?.name !== FINISH_EXECUTION_TOOL,
+    );
+    const hasToolCalls = visibleToolCalls.length > 0;
     const hasText = !!msg.content?.message;
     const hasFiles = msg.content?.files && msg.content.files.length > 0;
 
@@ -237,7 +252,11 @@ function groupMessages(
         result.push({ type: "message", message: msg });
       }
       // Always accumulate the tool call
-      currentToolGroup.push(msg);
+      currentToolGroup.push(
+        visibleToolCalls.length === msg.tool_calls!.length
+          ? msg
+          : { ...msg, tool_calls: visibleToolCalls },
+      );
     } else {
       // Regular message → flush any accumulated tool group first
       const remainingMeaningful = messages

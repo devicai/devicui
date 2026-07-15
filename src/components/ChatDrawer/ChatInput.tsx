@@ -38,9 +38,42 @@ const HANDOFF_INACTIVITY_MS = 6000; // silence (no speech) that ends the loop
 const HANDOFF_HOLD_MS = 3000; // press-and-hold duration on the mic to arm hands-free
 
 /**
- * Chat input component with file upload support
+ * Chat input component with file upload support.
+ *
+ * When a widget is pending as 'input' it replaces the whole input area. The swap
+ * lives here, in a component with no hooks of its own, so that each subtree is
+ * mounted and unmounted whole. Returning the widget from inside ChatInputBox
+ * instead would skip every hook below the early return, which violates the rules
+ * of hooks (and is what react-hooks/rules-of-hooks flags). React tolerates that
+ * particular shape today — its "fewer hooks than expected" check only fires once
+ * at least one hook has run — so it is a latent fragility rather than a crash,
+ * but the toggle is on the hot path for interactive widgets and does not need to
+ * depend on that internal detail. Draft text in the textarea is dropped on the
+ * swap, same as before.
  */
-export function ChatInput({
+export function ChatInput(props: ChatInputProps): JSX.Element {
+  const { pendingInputWidget, onSubmitWidget, onCancelWidget } = props;
+
+  if (pendingInputWidget) {
+    const WidgetComponent = pendingInputWidget.widget.component;
+    return (
+      <div className="devic-input-area" data-widget-mode="input">
+        <div className="devic-input-widget" data-tool-name={pendingInputWidget.toolName}>
+          <WidgetComponent
+            toolCall={pendingInputWidget.toolCall}
+            params={pendingInputWidget.params}
+            submit={(response) => onSubmitWidget?.(pendingInputWidget.toolCall.id, response)}
+            cancel={(reason) => onCancelWidget?.(pendingInputWidget.toolCall.id, reason)}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return <ChatInputBox {...props} />;
+}
+
+function ChatInputBox({
   onSend,
   disabled = false,
   placeholder = 'Type a message...',
@@ -68,30 +101,11 @@ export function ChatInput({
   isProcessing = false,
   onStop,
   stopButtonContent,
-  pendingInputWidget,
-  onSubmitWidget,
-  onCancelWidget,
   references,
   onRemoveReference,
   usageBar,
   limitBanner,
 }: ChatInputProps): JSX.Element {
-  // When a widget is pending as 'input', render it in place of the textarea
-  if (pendingInputWidget) {
-    const WidgetComponent = pendingInputWidget.widget.component;
-    return (
-      <div className="devic-input-area" data-widget-mode="input">
-        <div className="devic-input-widget" data-tool-name={pendingInputWidget.toolName}>
-          <WidgetComponent
-            toolCall={pendingInputWidget.toolCall}
-            params={pendingInputWidget.params}
-            submit={(response) => onSubmitWidget?.(pendingInputWidget.toolCall.id, response)}
-            cancel={(reason) => onCancelWidget?.(pendingInputWidget.toolCall.id, reason)}
-          />
-        </div>
-      </div>
-    );
-  }
   const [message, setMessage] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   // Long blocks of pasted text, kept out of the textarea and shown as cards.
