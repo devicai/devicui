@@ -1339,12 +1339,16 @@
   padding-left: 20px;
 }
 
+/* `color: inherit` guards against host-app global styles (e.g. Bootstrap's
+   `pre { color: #212529 }` / `code { color: #e83e8c }`) overriding the bubble
+   text color, which made code blocks unreadable on dark backgrounds. */
 .devic-message-bubble code {
   background: rgba(0, 0, 0, 0.06);
   padding: 1px 4px;
   border-radius: 3px;
   font-size: 0.9em;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  color: inherit;
 }
 
 .devic-message-bubble pre {
@@ -1353,11 +1357,13 @@
   background: rgba(0, 0, 0, 0.06);
   border-radius: var(--devic-radius-sm);
   overflow-x: auto;
+  color: inherit;
 }
 
 .devic-message-bubble pre code {
   background: none;
   padding: 0;
+  color: inherit;
 }
 
 .devic-message-bubble blockquote {
