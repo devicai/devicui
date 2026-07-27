@@ -18,9 +18,19 @@ const FILE_TYPE_ACCEPT: Record<string, string[]> = {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'text/plain',
     'text/csv',
+    'application/json',
   ],
   audio: ['audio/mpeg', 'audio/wav', 'audio/ogg'],
   video: ['video/mp4', 'video/webm', 'video/ogg'],
+};
+
+// Extensions accepted per category, on top of the MIME types above. The browser
+// derives `File.type` from the OS, which reports .json inconsistently: empty on
+// Windows without the registry entry, 'text/plain' on some Linux setups. Without
+// this fallback a .json picked from the dialog or dropped in would be silently
+// rejected on those machines.
+const FILE_TYPE_ACCEPT_EXT: Record<string, string[]> = {
+  documents: ['.json'],
 };
 
 // Extensions used to name images pasted from the clipboard, which arrive with a
@@ -189,7 +199,15 @@ function ChatInputBox({
         .flatMap(([type]) => FILE_TYPE_ACCEPT[type] || []),
     [allowedFileTypes]
   );
-  const acceptedTypes = acceptedTypeList.join(',');
+  const acceptedExtList = useMemo(
+    () =>
+      Object.entries(allowedFileTypes)
+        .filter(([, enabled]) => enabled)
+        .flatMap(([type]) => FILE_TYPE_ACCEPT_EXT[type] || []),
+    [allowedFileTypes]
+  );
+  // The native dialog takes both MIME types and extensions in `accept`.
+  const acceptedTypes = [...acceptedTypeList, ...acceptedExtList].join(',');
 
   // Single entry point for every way of attaching a file (button, paste, drop):
   // enforces the size limit and the allowed MIME types, which until now were
@@ -201,7 +219,12 @@ function ChatInputBox({
           console.warn(`File ${file.name} exceeds maximum size`);
           return false;
         }
-        if (acceptedTypeList.length > 0 && !acceptedTypeList.includes(file.type)) {
+        const name = file.name.toLowerCase();
+        const allowed =
+          acceptedTypeList.length === 0 ||
+          acceptedTypeList.includes(file.type) ||
+          acceptedExtList.some((ext) => name.endsWith(ext));
+        if (!allowed) {
           console.warn(`File type ${file.type || 'unknown'} is not allowed`);
           return false;
         }
@@ -209,7 +232,7 @@ function ChatInputBox({
       });
       if (validFiles.length > 0) setFiles((prev) => [...prev, ...validFiles]);
     },
-    [maxFileSize, acceptedTypeList]
+    [maxFileSize, acceptedTypeList, acceptedExtList]
   );
 
   // Thumbnails for attached images. The cleanup revokes the previous batch on

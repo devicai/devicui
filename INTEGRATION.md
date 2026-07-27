@@ -610,6 +610,18 @@ Enable file attachments in chat:
 />
 ```
 
+Each flag enables a family of MIME types:
+
+| Flag | Accepted |
+| --- | --- |
+| `images` | `image/jpeg`, `image/png`, `image/gif`, `image/webp` |
+| `documents` | `application/pdf`, `application/msword`, `.docx`, `text/plain`, `text/csv`, `application/json` (also matched by the `.json` extension, because many systems report no MIME type for it) |
+| `audio` | `audio/mpeg`, `audio/wav`, `audio/ogg` |
+| `video` | `video/mp4`, `video/webm`, `video/ogg` |
+
+The same list applies however the file gets in: the attach button, drag & drop,
+or pasting a file from the clipboard.
+
 ## Theming
 
 ### Using CSS Variables
