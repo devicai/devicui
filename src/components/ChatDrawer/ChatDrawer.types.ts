@@ -95,7 +95,12 @@ export interface CustomPromptBoxProps {
 }
 
 /**
- * Allowed file types for upload
+ * Allowed file types for upload. Each flag turns on a family of MIME types:
+ * - `images`: jpeg, png, gif, webp
+ * - `documents`: pdf, doc/docx, plain text, csv, json (`.json` is also accepted
+ *   by extension, since the OS often reports no MIME type for it)
+ * - `audio`: mpeg, wav, ogg
+ * - `video`: mp4, webm, ogg
  */
 export interface AllowedFileTypes {
   images?: boolean;
