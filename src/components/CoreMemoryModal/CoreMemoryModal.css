@@ -1,0 +1,223 @@
+/* Core memory modal */
+.devic-cm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.devic-cm-modal {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(640px, calc(100vh - 64px));
+  display: flex;
+  flex-direction: column;
+  background: var(--devic-bg, #fff);
+  color: var(--devic-text, #333);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+  font-size: 13px;
+}
+
+.devic-cm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--devic-border, #e8e8e8);
+}
+
+.devic-cm-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.devic-cm-title svg {
+  color: var(--devic-recall-accent, #722ed1);
+}
+
+.devic-cm-close {
+  border: none;
+  background: transparent;
+  color: var(--devic-text-muted, #999);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.devic-cm-close:hover {
+  background: var(--devic-bg-secondary, #f5f5f5);
+  color: var(--devic-text, #333);
+}
+
+.devic-cm-body {
+  padding: 12px 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.devic-cm-error {
+  border: 1px solid rgba(255, 77, 79, 0.4);
+  background: rgba(255, 77, 79, 0.08);
+  color: #cf1322;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.devic-cm-loading,
+.devic-cm-empty {
+  color: var(--devic-text-muted, #999);
+  text-align: center;
+  padding: 24px 8px;
+}
+
+.devic-cm-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--devic-text-muted, #999);
+  margin-bottom: 6px;
+}
+
+.devic-cm-entry {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--devic-border, #e8e8e8);
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+
+.devic-cm-entry-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  flex: 1;
+}
+
+.devic-cm-pin {
+  color: var(--devic-recall-accent, #722ed1);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.devic-cm-entry-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.devic-cm-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.devic-cm-textarea {
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  border: 1px solid var(--devic-border, #d9d9d9);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  color: inherit;
+  background: var(--devic-bg, #fff);
+  box-sizing: border-box;
+}
+
+.devic-cm-textarea:focus {
+  outline: none;
+  border-color: var(--devic-recall-accent, #722ed1);
+}
+
+.devic-cm-editor-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.devic-cm-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.devic-cm-composer-row {
+  display: flex;
+  gap: 6px;
+}
+
+.devic-cm-select {
+  border: 1px solid var(--devic-border, #d9d9d9);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font: inherit;
+  color: inherit;
+  background: var(--devic-bg, #fff);
+}
+
+.devic-cm-btn {
+  border: 1px solid var(--devic-border, #d9d9d9);
+  background: var(--devic-bg, #fff);
+  color: var(--devic-text, #333);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.devic-cm-btn:hover:not(:disabled) {
+  border-color: var(--devic-recall-accent, #722ed1);
+  color: var(--devic-recall-accent, #722ed1);
+}
+
+.devic-cm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.devic-cm-btn-primary {
+  background: var(--devic-recall-accent, #722ed1);
+  border-color: var(--devic-recall-accent, #722ed1);
+  color: #fff;
+}
+
+.devic-cm-btn-primary:hover:not(:disabled) {
+  color: #fff;
+  opacity: 0.9;
+}
+
+.devic-cm-btn-small {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.devic-cm-btn-danger:hover:not(:disabled) {
+  border-color: #ff4d4f;
+  color: #ff4d4f;
+}
+
+.devic-cm-footer {
+  padding: 10px 16px;
+  border-top: 1px solid var(--devic-border, #e8e8e8);
+  color: var(--devic-text-muted, #999);
+  font-size: 11px;
+}

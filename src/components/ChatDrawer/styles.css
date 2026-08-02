@@ -227,6 +227,137 @@
   font-size: 12px;
 }
 
+/* Recalled memories strip */
+.devic-recall {
+  align-self: flex-start;
+  max-width: 88%;
+  margin: 2px 0 8px;
+  border: 1px solid var(--devic-recall-border, rgba(114, 46, 209, 0.3));
+  background: var(--devic-recall-bg, rgba(114, 46, 209, 0.06));
+  border-radius: var(--devic-radius-sm, 8px);
+  font-size: 12px;
+  color: var(--devic-text-secondary);
+  overflow: hidden;
+}
+
+.devic-recall-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.devic-recall-icon {
+  color: var(--devic-recall-accent, #722ed1);
+  flex-shrink: 0;
+}
+
+.devic-recall-title {
+  font-weight: 600;
+  color: var(--devic-text);
+  white-space: nowrap;
+}
+
+.devic-recall-summary {
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
+.devic-recall-spacer {
+  flex: 1;
+}
+
+.devic-recall-source {
+  border: 1px solid var(--devic-recall-border, rgba(114, 46, 209, 0.3));
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 10px;
+  line-height: 16px;
+  color: var(--devic-recall-accent, #722ed1);
+  white-space: nowrap;
+}
+
+.devic-recall-chevron {
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: transform 0.15s ease;
+}
+
+.devic-recall-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 10px 10px;
+}
+
+.devic-recall-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.devic-recall-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--devic-text);
+}
+
+.devic-recall-fact-meta {
+  font-size: 10px;
+  color: var(--devic-text-muted);
+}
+
+.devic-recall-entities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.devic-recall-entity {
+  border: 1px solid var(--devic-border, #d9d9d9);
+  background: var(--devic-bg);
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 10px;
+  line-height: 18px;
+  color: var(--devic-text-secondary);
+}
+
+.devic-recall-entity-type {
+  opacity: 0.55;
+}
+
+.devic-recall-turns {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.devic-recall-turns-title {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.devic-recall-turn {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.devic-recall-turn-role {
+  font-weight: 600;
+}
+
 /* Loading Indicator */
 .devic-loading {
   display: flex;

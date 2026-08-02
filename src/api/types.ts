@@ -87,6 +87,12 @@ export interface ChatMessage {
    * playback.
    */
   transcriptId?: string;
+  /**
+   * Original server uid, present when the UI adopted an optimistic uid for
+   * this message to keep React keys stable. Server-side references (e.g.
+   * memory recall anchors) match against it.
+   */
+  serverUid?: string;
 }
 
 /**
@@ -280,6 +286,75 @@ export interface TenantLimitExceeded {
   resetsAt?: number;
 }
 
+/** One fact a long-term-memory recall surfaced. */
+export interface RecalledMemoryFact {
+  fact: string;
+  relation: string;
+  /** Source entity name of the graph edge, when the fact connects two. */
+  source: string | null;
+  /** Target entity name of the graph edge, when the fact connects two. */
+  target: string | null;
+  /** ISO date the fact became valid, if known. */
+  validAt: string | null;
+}
+
+/** One graph entity a long-term-memory recall surfaced. */
+export interface RecalledMemoryEntity {
+  id: string;
+  name: string;
+  type: string;
+  summary: string | null;
+}
+
+/** One previous-session turn a conversation-start recall carried over. */
+export interface RecalledMemoryTurn {
+  role: string;
+  content: string;
+}
+
+/**
+ * One structured long-term-memory recall event of a conversation: the facts,
+ * entities and previous-session turns a recall surfaced, plus the uid of the
+ * message that brought it in (`messageUid`: the initial user message, or the
+ * assistant message carrying the memory tool call — resolvable through
+ * `toolCallId` while the run is still in flight).
+ */
+export interface RecalledMemoryRecord {
+  uid: string;
+  messageUid?: string;
+  toolCallId?: string;
+  source:
+    | 'conversation_start'
+    | 'search_memory'
+    | 'search_memory_nodes'
+    | 'explore_memory_graph';
+  query?: string;
+  facts?: RecalledMemoryFact[];
+  entities?: RecalledMemoryEntity[];
+  turns?: RecalledMemoryTurn[];
+  timestampMs: number;
+}
+
+/**
+ * Snapshot of the core-memory block a conversation saw (audit trail): the
+ * render revision plus the injected entries as structured items.
+ */
+export interface CoreMemorySnapshot {
+  uid: string;
+  revision: string;
+  items: Array<{
+    id: number;
+    section: string;
+    content: string;
+    pinned: boolean;
+    source: string;
+  }>;
+  entries: number;
+  omitted: number;
+  chars: number;
+  timestampMs: number;
+}
+
 /**
  * Real-time chat history response
  */
@@ -293,6 +368,11 @@ export interface RealtimeChatHistory {
   handedOffSubThreadId?: string;
   /** Present only when status is `limit_exceeded`. */
   limitExceeded?: TenantLimitExceeded;
+  /**
+   * Memory-recall events of the in-flight run — lets the UI show what the
+   * assistant is recalling while the response is still processing.
+   */
+  recalledMemories?: RecalledMemoryRecord[];
 }
 
 /**
@@ -392,6 +472,43 @@ export interface ChatHistory {
   handedOff?: boolean;
   handedOffSubThreadId?: string;
   handedOffToolCallId?: string;
+  /** Structured long-term-memory recall events of the conversation. */
+  recalledMemories?: RecalledMemoryRecord[];
+  /** Audit trail of the core-memory blocks the conversation saw. */
+  coreMemories?: CoreMemorySnapshot[];
+}
+
+/** One core memory entry (the always-injected tier), as returned by the memory API. */
+export interface CoreMemoryEntry {
+  id: number;
+  section: string;
+  content: string;
+  source: string;
+  pinned: boolean;
+  supersedes: number | null;
+  archivedAt: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Deployment caps of the core memory tier. */
+export interface CoreMemoryLimits {
+  maxChars: number;
+  maxEntries: number;
+  maxEntryChars: number;
+}
+
+/**
+ * Response of GET /api/v1/memory/assistants/:identifier/core — the entries
+ * of the bucket the assistant resolves for a tenant/subtenant combination.
+ */
+export interface CoreMemoryList {
+  /** False when the assistant does not have the core memory tier enabled. */
+  enabled: boolean;
+  /** The resolved bucket tuple (tenant/subtenant/owner dimensions). */
+  bucket: { tenantId?: string; subtenantId?: string; entityId?: string };
+  entries: CoreMemoryEntry[];
+  limits?: CoreMemoryLimits;
 }
 
 /**

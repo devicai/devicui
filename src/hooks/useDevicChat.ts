@@ -11,6 +11,7 @@ import type {
   ModelInterfaceTool,
   RealtimeChatHistory,
   RealtimeStatus,
+  RecalledMemoryRecord,
   TenantLimitExceeded,
 } from '../api/types';
 
@@ -151,6 +152,14 @@ export interface UseDevicChatResult {
    * Cleared when a new message is sent or the chat is cleared.
    */
   limitExceeded: TenantLimitExceeded | null;
+
+  /**
+   * Structured long-term-memory recall events of the conversation, streamed
+   * in while the assistant is still processing (via the realtime poll) and
+   * hydrated from the persisted history on load. Empty for assistants
+   * without memory.
+   */
+  recalledMemories: RecalledMemoryRecord[];
 
   /**
    * Whether the assistant has handed off to a subagent
@@ -295,6 +304,22 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     null
   );
 
+  // Long-term-memory recall events of the conversation. The realtime blob
+  // only carries the in-flight run's records, so incoming batches merge (by
+  // uid) instead of replacing — earlier runs' recalls stay visible.
+  const [recalledMemories, setRecalledMemories] = useState<RecalledMemoryRecord[]>([]);
+  const mergeRecalledMemories = useCallback(
+    (incoming?: RecalledMemoryRecord[]) => {
+      if (!incoming?.length) return;
+      setRecalledMemories((prev) => {
+        const known = new Set(prev.map((r) => r.uid));
+        const fresh = incoming.filter((r) => !known.has(r.uid));
+        return fresh.length ? [...prev, ...fresh] : prev;
+      });
+    },
+    []
+  );
+
   // Handoff state
   const [handedOff, setHandedOff] = useState(false);
   const [handedOffSubThreadId, setHandedOffSubThreadId] = useState<string | null>(null);
@@ -344,6 +369,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         if (realtime.chatHistory?.length) {
           setMessages(realtime.chatHistory);
         }
+        mergeRecalledMemories(realtime.recalledMemories);
         setStatus(realtime.status);
 
         if (realtime.status === 'processing') {
@@ -373,7 +399,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         setIsLoading(false);
       }
     },
-    [assistantId]
+    [assistantId, mergeRecalledMemories]
   );
 
   // Load initial chat history if chatUid prop is provided
@@ -393,6 +419,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
             { tenantId: resolvedTenantId }
           );
           setMessages(history.chatContent);
+          mergeRecalledMemories(history.recalledMemories);
           setChatUid(initialChatUid);
 
           // Check realtime status to resume in-progress conversations
@@ -469,7 +496,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
               const tempUid = optimisticUserByText.get(normalize(m.content?.message));
               if (tempUid) {
                 adoptedTempUids.add(tempUid);
-                return { ...m, uid: tempUid };
+                // Keep the server uid around: recall anchors reference it.
+                return { ...m, uid: tempUid, serverUid: m.uid };
               }
             }
             return m;
@@ -482,6 +510,9 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
 
           return [...merged, ...optimistic];
         });
+        // Surface recall events while the run is still processing, so the
+        // "recalled memories" strip shows before the first response lands.
+        mergeRecalledMemories(data.recalledMemories);
         setStatus(data.status);
 
         // Notify about new messages
@@ -779,6 +810,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     setStatus('idle');
     setError(null);
     setLimitExceeded(null);
+    setRecalledMemories([]);
     pendingWidgetCallsRef.current = [];
     setPendingWidgetCalls([]);
   }, []);
@@ -806,6 +838,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
 
       setIsLoading(true);
       setError(null);
+      setRecalledMemories([]);
 
       try {
         const history = await clientRef.current.getChatHistory(
@@ -815,6 +848,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         );
 
         setMessages(history.chatContent);
+        mergeRecalledMemories(history.recalledMemories);
         setChatUid(loadChatUid);
 
         // Check realtime status to resume in-progress conversations
@@ -826,7 +860,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         setIsLoading(false);
       }
     },
-    [assistantId, resolvedTenantId, resumeFromRealtimeStatus]
+    [assistantId, resolvedTenantId, resumeFromRealtimeStatus, mergeRecalledMemories]
   );
 
   // Handoff polling: while handedOff is true, poll the realtime endpoint every 5s
@@ -946,6 +980,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     status,
     error,
     limitExceeded,
+    recalledMemories,
     handedOff,
     handedOffSubThreadId,
     sendMessage,

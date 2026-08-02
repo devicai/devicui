@@ -11,7 +11,7 @@ export type {
 } from './provider';
 
 // Components
-export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, ReferenceChip, UsageBar, LimitBanner } from './components/ChatDrawer';
+export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, ReferenceChip, UsageBar, LimitBanner, RecalledMemoriesWidget } from './components/ChatDrawer';
 export type {
   ChatDrawerProps,
   ChatDrawerOptions,
@@ -32,7 +32,14 @@ export type {
   UsageBarDisplay,
   UsageBarData,
   LimitBannerProps,
+  RecalledMemoriesWidgetProps,
+  RecalledMemoriesRenderer,
+  RecalledMemoriesRendererProps,
 } from './components/ChatDrawer';
+
+// CoreMemoryModal
+export { CoreMemoryModal } from './components/CoreMemoryModal';
+export type { CoreMemoryModalProps } from './components/CoreMemoryModal';
 
 // ThreadStateTag
 export { ThreadStateTag } from './components/ThreadStateTag';
@@ -139,6 +146,14 @@ export type {
   TenantUsageRule,
   TenantUsageHistoryRow,
   TenantUsageHistoryQuery,
+  RecalledMemoryRecord,
+  RecalledMemoryFact,
+  RecalledMemoryEntity,
+  RecalledMemoryTurn,
+  CoreMemorySnapshot,
+  CoreMemoryEntry,
+  CoreMemoryLimits,
+  CoreMemoryList,
 } from './api/types';
 
 // Feedback Components
