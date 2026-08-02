@@ -8,6 +8,7 @@ import { ConversationSelector } from './ConversationSelector';
 import { ChatDrawerErrorBoundary } from './ErrorBoundary';
 import { UsageBar } from './UsageBar';
 import { LimitBanner } from './LimitBanner';
+import { CoreMemoryModal } from '../CoreMemoryModal';
 import type { ChatDrawerProps, ChatDrawerOptions, ChatDrawerHandle } from './ChatDrawer.types';
 import './styles.css';
 
@@ -74,6 +75,9 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   customUsageBar: undefined as any,
   hideLimitBanner: false,
   limitBannerRenderer: undefined as any,
+  showRecalledMemories: true,
+  recalledMemoriesRenderer: undefined as any,
+  showCoreMemoryButton: false,
 };
 
 /**
@@ -205,6 +209,7 @@ function ChatDrawerInner({
   const resolvedApiKey = apiKey || context?.apiKey;
   const resolvedBaseUrl = baseUrl || context?.baseUrl || 'https://api.devic.ai';
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [coreMemoryOpen, setCoreMemoryOpen] = useState(false);
   const avatarFetchedRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -598,6 +603,17 @@ function ChatDrawerInner({
             conversationPreview={mergedOptions.conversationPreview}
           />
           <div className="devic-drawer-header-actions">
+            {mergedOptions.showCoreMemoryButton && (
+              <button
+                className="devic-new-chat-btn"
+                onClick={() => setCoreMemoryOpen(true)}
+                type="button"
+                aria-label="Assistant memory"
+                title="Assistant memory"
+              >
+                <BrainIcon />
+              </button>
+            )}
             <button
               className="devic-new-chat-btn"
               onClick={handleNewChat}
@@ -653,6 +669,12 @@ function ChatDrawerInner({
           pendingInlineWidgets={inlineWidgets}
           onSubmitWidget={chat.submitWidgetResponse}
           onCancelWidget={chat.cancelWidgetCall}
+          recalledMemories={
+            mergedOptions.showRecalledMemories
+              ? chat.recalledMemories
+              : undefined
+          }
+          recalledMemoriesRenderer={mergedOptions.recalledMemoriesRenderer}
         />
 
         {/* Input */}
@@ -735,6 +757,19 @@ function ChatDrawerInner({
           <ChatIcon />
         </button>
       )}
+
+      {/* Core memory modal (opened from the header brain button) */}
+      {mergedOptions.showCoreMemoryButton && (
+        <CoreMemoryModal
+          isOpen={coreMemoryOpen}
+          onClose={() => setCoreMemoryOpen(false)}
+          assistantId={assistantId}
+          tenantId={tenantId}
+          subtenantId={subtenantId}
+          apiKey={resolvedApiKey}
+          baseUrl={resolvedBaseUrl}
+        />
+      )}
     </>
   );
 }
@@ -742,6 +777,27 @@ function ChatDrawerInner({
 /**
  * Close icon
  */
+/**
+ * Brain icon for the core memory button
+ */
+function BrainIcon(): JSX.Element {
+  return (
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9.5 2a2.5 2.5 0 0 0-2.45 2A3.5 3.5 0 0 0 4.6 8.6 3.5 3.5 0 0 0 3 11.5c0 1.1.5 2.08 1.29 2.73A3.5 3.5 0 0 0 7 20a3 3 0 0 0 5-2.24V4.5A2.5 2.5 0 0 0 9.5 2Z" />
+      <path d="M14.5 2a2.5 2.5 0 0 1 2.45 2 3.5 3.5 0 0 1 2.45 4.6A3.5 3.5 0 0 1 21 11.5a3.49 3.49 0 0 1-1.29 2.73A3.5 3.5 0 0 1 17 20a3 3 0 0 1-5-2.24V4.5A2.5 2.5 0 0 1 14.5 2Z" />
+    </svg>
+  );
+}
+
 function CloseIcon(): JSX.Element {
   return (
     <svg

@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Markdown from "markdown-to-jsx";
 import { MessageActions } from "../Feedback";
 import { HandoffSubagentWidget } from "./HandoffSubagentWidget";
 import { ReferenceChip } from "./ReferenceChip";
+import { RecalledMemoriesWidget } from "./RecalledMemoriesWidget";
 import type { ChatMessagesProps, SuggestedMessage } from "./ChatDrawer.types";
-import type { ChatMessage, ToolGroupConfig, ToolGroupCall } from "../../api/types";
+import type { ChatMessage, RecalledMemoryRecord, ToolGroupConfig, ToolGroupCall } from "../../api/types";
 import { normalizeMessageFile } from "../../api/types";
 import type { FeedbackState } from "../Feedback";
 import { segmentToolCalls } from "../../utils/toolGroups";
@@ -574,9 +575,48 @@ export function ChatMessages({
   pendingInlineWidgets,
   onSubmitWidget,
   onCancelWidget,
+  recalledMemories,
+  recalledMemoriesRenderer,
 }: ChatMessagesProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLengthRef = useRef(messages.length);
+
+  // Anchor each recall record to the message that brought it in: the
+  // assistant message carrying its memory tool call (toolCallId), or the
+  // message the backend named (messageUid — matched against serverUid too,
+  // since user messages may render under an adopted optimistic uid). Records
+  // whose anchor is not on screen yet (the run is still producing it) go to
+  // the pending group shown at the bottom while loading.
+  const { recallsByAnchor, pendingRecalls } = useMemo(() => {
+    const byAnchor = new Map<string, RecalledMemoryRecord[]>();
+    const pending: RecalledMemoryRecord[] = [];
+    for (const record of recalledMemories ?? []) {
+      let anchor: string | undefined;
+      if (record.toolCallId) {
+        anchor = messages.find((m) =>
+          m.tool_calls?.some((tc) => tc.id === record.toolCallId)
+        )?.uid;
+      }
+      if (!anchor && record.messageUid) {
+        anchor = messages.find(
+          (m) =>
+            m.uid === record.messageUid || m.serverUid === record.messageUid
+        )?.uid;
+      }
+      if (anchor) {
+        const list = byAnchor.get(anchor);
+        if (list) list.push(record);
+        else byAnchor.set(anchor, [record]);
+      } else {
+        pending.push(record);
+      }
+    }
+    return { recallsByAnchor: byAnchor, pendingRecalls: pending };
+  }, [recalledMemories, messages]);
+
+  // The strip renders after the message (or tool group) that anchors it.
+  const recallsFor = (uids: string[]): RecalledMemoryRecord[] =>
+    uids.flatMap((uid) => recallsByAnchor.get(uid) ?? []);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -625,21 +665,32 @@ export function ChatMessages({
 
       {grouped.map((item) => {
         if (item.type === "toolGroup") {
+          const groupRecalls = recallsFor(
+            item.toolMessages.map((m) => m.uid)
+          );
           return (
-            <ToolGroup
-              key={`tg-${item.toolMessages[0].uid}`}
-              toolMessages={item.toolMessages}
-              isActive={item.isActive}
-              allMessages={allMessages}
-              toolRenderers={toolRenderers}
-              toolIcons={toolIcons}
-              toolGroups={toolGroups}
-              handedOffSubThreadId={handedOffSubThreadId}
-              onHandoffCompleted={onHandoffCompleted}
-              handoffWidgetRenderer={handoffWidgetRenderer}
-              apiKey={apiKey}
-              baseUrl={baseUrl}
-            />
+            <React.Fragment key={`tg-${item.toolMessages[0].uid}`}>
+              <ToolGroup
+                toolMessages={item.toolMessages}
+                isActive={item.isActive}
+                allMessages={allMessages}
+                toolRenderers={toolRenderers}
+                toolIcons={toolIcons}
+                toolGroups={toolGroups}
+                handedOffSubThreadId={handedOffSubThreadId}
+                onHandoffCompleted={onHandoffCompleted}
+                handoffWidgetRenderer={handoffWidgetRenderer}
+                apiKey={apiKey}
+                baseUrl={baseUrl}
+              />
+              {groupRecalls.length > 0 && (
+                <RecalledMemoriesWidget
+                  records={groupRecalls}
+                  isLoading={isLoading}
+                  renderer={recalledMemoriesRenderer}
+                />
+              )}
+            </React.Fragment>
           );
         }
 
@@ -676,9 +727,11 @@ export function ChatMessages({
           ? assistantMessageRenderer
           : userMessageRenderer;
 
+        const messageRecalls = recallsFor([message.uid]);
+
         return (
+          <React.Fragment key={message.uid}>
           <div
-            key={message.uid}
             className="devic-message"
             data-role={message.role}
           >
@@ -758,8 +811,27 @@ export function ChatMessages({
               )}
             </div>
           </div>
+          {messageRecalls.length > 0 && (
+            <RecalledMemoriesWidget
+              records={messageRecalls}
+              isLoading={isLoading}
+              renderer={recalledMemoriesRenderer}
+            />
+          )}
+          </React.Fragment>
         );
       })}
+
+      {/* Recall events whose anchor message has not landed yet — shown while
+          the run is in flight so the user sees what the assistant recalled
+          before the first response arrives. */}
+      {isLoading && pendingRecalls.length > 0 && (
+        <RecalledMemoriesWidget
+          records={pendingRecalls}
+          isLoading={isLoading}
+          renderer={recalledMemoriesRenderer}
+        />
+      )}
 
       {pendingInlineWidgets && pendingInlineWidgets.length > 0 && (
         <div className="devic-inline-widgets">

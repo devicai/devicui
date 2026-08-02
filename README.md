@@ -155,6 +155,56 @@ A complete chat drawer component.
 />
 ```
 
+#### Long-term memory
+
+For assistants with memory enabled, the drawer shows a collapsible
+**"Recalled memories"** strip next to the message that brought long-term
+memories into the conversation — including while the assistant is still
+processing its first response (streamed in through the realtime poll).
+
+```tsx
+<ChatDrawer
+  assistantId="my-assistant"
+  options={{
+    showRecalledMemories: true,          // default
+    // Replace the built-in strip with your own node:
+    recalledMemoriesRenderer: ({ records, isLoading }) => (
+      <MyMemoryChip facts={records.flatMap((r) => r.facts ?? [])} />
+    ),
+    // Brain button in the header opening the CoreMemoryModal:
+    showCoreMemoryButton: true,
+  }}
+/>
+```
+
+The recall records are also available from the hook:
+`useDevicChat().recalledMemories`.
+
+### CoreMemoryModal
+
+Modal showing — and letting the end user edit — the **core memory** of an
+assistant for a tenant/subtenant combination: the standing entries (persona,
+instructions, decisions, profile) the assistant always keeps in context
+there. Use it standalone (any trigger you like) or via the drawer's
+`showCoreMemoryButton` option.
+
+```tsx
+const [open, setOpen] = useState(false);
+
+<CoreMemoryModal
+  isOpen={open}
+  onClose={() => setOpen(false)}
+  assistantId="my-assistant"
+  tenantId="acme-corp"        // falls back to the provider's
+  subtenantId="user-123"      // falls back to the provider's
+  editable={true}             // false for a read-only view
+/>
+```
+
+Backed by the public memory API (`GET/POST/PATCH/DELETE
+/api/v1/memory/assistants/:identifier/core`); the API key must allow
+`/api/v1/memory/*` (included in the devic-ui key preset).
+
 ### AICommandBar
 
 A floating command bar (similar to Spotlight/Command Palette) for quick AI interactions.

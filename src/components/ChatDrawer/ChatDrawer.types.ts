@@ -1,7 +1,8 @@
-import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig, WhisperTranscriptionResponse, TenantLimitExceeded } from '../../api/types';
+import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig, WhisperTranscriptionResponse, TenantLimitExceeded, RecalledMemoryRecord } from '../../api/types';
 import type { PendingWidgetCall } from '../../hooks/useModelInterface';
 import type { AIReference } from '../../provider/types';
 import type { UsageBarDisplay, UsageBarData } from './UsageBar';
+import type { RecalledMemoriesRenderer } from './RecalledMemoriesWidget';
 
 /**
  * A suggested message displayed as a quick action button.
@@ -541,6 +542,38 @@ export interface ChatDrawerOptions {
    * The input is disabled regardless while the limit is active.
    */
   limitBannerRenderer?: (limit: TenantLimitExceeded) => React.ReactNode;
+
+  /**
+   * Show the "Recalled memories" strip interleaved with the messages that
+   * brought long-term memories into the conversation (including while the
+   * assistant is still processing its response). Only appears for assistants
+   * with memory enabled.
+   * @default true
+   */
+  showRecalledMemories?: boolean;
+
+  /**
+   * Render your own recalled-memories node instead of the built-in strip.
+   * Called once per anchor point with the recall records placed there and
+   * whether the run is still in flight. Return null to hide that instance.
+   *
+   * @example
+   * ```tsx
+   * recalledMemoriesRenderer: ({ records }) => (
+   *   <MyMemoryChip count={records.flatMap((r) => r.facts ?? []).length} />
+   * )
+   * ```
+   */
+  recalledMemoriesRenderer?: RecalledMemoriesRenderer;
+
+  /**
+   * Show a brain button in the drawer header that opens the CoreMemoryModal:
+   * the standing entries the assistant permanently remembers for the drawer's
+   * tenant/subtenant, viewable and editable by the end user. Requires the API
+   * key to allow `/api/v1/memory/*`.
+   * @default false
+   */
+  showCoreMemoryButton?: boolean;
 }
 
 /**
@@ -735,6 +768,10 @@ export interface ChatMessagesProps {
   onSubmitWidget?: (toolCallId: string, response: any) => void;
   /** Called when a widget cancels */
   onCancelWidget?: (toolCallId: string, reason?: string) => void;
+  /** Long-term-memory recall events to interleave with the messages */
+  recalledMemories?: RecalledMemoryRecord[];
+  /** Custom renderer replacing the built-in recalled-memories strip */
+  recalledMemoriesRenderer?: RecalledMemoriesRenderer;
 }
 
 /**

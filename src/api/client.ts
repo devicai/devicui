@@ -17,6 +17,8 @@ import type {
   TenantUsage,
   TenantUsageHistoryRow,
   TenantUsageHistoryQuery,
+  CoreMemoryList,
+  CoreMemoryEntry,
 } from "./types";
 
 export interface DevicApiClientConfig {
@@ -534,6 +536,82 @@ export class DevicApiClient {
     const query = params.toString();
     return this.request<TenantUsageHistoryRow[]>(
       `/api/v1/tenant-usage/${encodeURIComponent(tenantId)}/history${query ? `?${query}` : ""}`,
+    );
+  }
+
+  private coreMemoryPath(
+    assistantId: string,
+    tenantId?: string,
+    subtenantId?: string,
+    entryId?: number,
+  ): string {
+    const params = new URLSearchParams();
+    if (tenantId) params.set("tenantId", tenantId);
+    if (subtenantId) params.set("subtenantId", subtenantId);
+    const query = params.toString();
+    return `/api/v1/memory/assistants/${encodeURIComponent(assistantId)}/core${
+      entryId != null ? `/${entryId}` : ""
+    }${query ? `?${query}` : ""}`;
+  }
+
+  /**
+   * Core memory entries of the bucket the assistant resolves for a
+   * tenant/subtenant combination — what the assistant permanently remembers
+   * there. `enabled: false` when the assistant has no core memory tier.
+   */
+  async getCoreMemory(
+    assistantId: string,
+    options?: { tenantId?: string; subtenantId?: string },
+  ): Promise<CoreMemoryList> {
+    return this.request<CoreMemoryList>(
+      this.coreMemoryPath(assistantId, options?.tenantId, options?.subtenantId),
+    );
+  }
+
+  /** Add a standing core memory entry to the assistant's resolved bucket. */
+  async addCoreMemoryEntry(
+    assistantId: string,
+    entry: { content: string; section?: string; pinned?: boolean },
+    options?: { tenantId?: string; subtenantId?: string },
+  ): Promise<{ entry?: CoreMemoryEntry; deduped: boolean }> {
+    return this.request(
+      this.coreMemoryPath(assistantId, options?.tenantId, options?.subtenantId),
+      { method: "POST", body: JSON.stringify(entry) },
+    );
+  }
+
+  /** Edit the text, section or pinned flag of a core memory entry. */
+  async updateCoreMemoryEntry(
+    assistantId: string,
+    entryId: number,
+    patch: { content?: string; section?: string; pinned?: boolean },
+    options?: { tenantId?: string; subtenantId?: string },
+  ): Promise<CoreMemoryEntry> {
+    return this.request<CoreMemoryEntry>(
+      this.coreMemoryPath(
+        assistantId,
+        options?.tenantId,
+        options?.subtenantId,
+        entryId,
+      ),
+      { method: "PATCH", body: JSON.stringify(patch) },
+    );
+  }
+
+  /** Remove (archive) a core memory entry. */
+  async deleteCoreMemoryEntry(
+    assistantId: string,
+    entryId: number,
+    options?: { tenantId?: string; subtenantId?: string },
+  ): Promise<{ removed: boolean; id?: number }> {
+    return this.request(
+      this.coreMemoryPath(
+        assistantId,
+        options?.tenantId,
+        options?.subtenantId,
+        entryId,
+      ),
+      { method: "DELETE" },
     );
   }
 }

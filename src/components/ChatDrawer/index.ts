@@ -10,6 +10,12 @@ export { UsageBar } from './UsageBar';
 export type { UsageBarProps, UsageBarDisplay, UsageBarData } from './UsageBar';
 export { LimitBanner } from './LimitBanner';
 export type { LimitBannerProps } from './LimitBanner';
+export { RecalledMemoriesWidget } from './RecalledMemoriesWidget';
+export type {
+  RecalledMemoriesWidgetProps,
+  RecalledMemoriesRenderer,
+  RecalledMemoriesRendererProps,
+} from './RecalledMemoriesWidget';
 export type {
   ChatDrawerProps,
   ChatDrawerOptions,
