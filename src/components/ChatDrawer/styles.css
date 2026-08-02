@@ -230,6 +230,11 @@
 /* Recalled memories strip */
 .devic-recall {
   align-self: flex-start;
+  /* The messages container is a scrolling flex column; with overflow:hidden
+     (rounded corners) this child's automatic min-height is 0, so without
+     this it absorbs ALL the shrink once the conversation overflows and
+     collapses into a 2px purple line. */
+  flex-shrink: 0;
   max-width: 88%;
   margin: 2px 0 8px;
   border: 1px solid var(--devic-recall-border, rgba(114, 46, 209, 0.3));
