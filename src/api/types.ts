@@ -674,3 +674,37 @@ export interface ToolGroupConfig {
   tools: string[];
   renderer: (calls: ToolGroupCall[]) => React.ReactNode;
 }
+
+/**
+ * One of the end user's connected accounts for an app.
+ *
+ * The provider's own identifiers do not travel here beyond `id`, which the
+ * client needs in order to name the account it wants disconnected — and which
+ * the server re-checks against the caller's tenant on the way back in.
+ */
+export interface IntegrationAccount {
+  id: string;
+  status: string;
+  connectedAt?: string;
+  updatedAt?: string;
+  /** True when the account exists but can no longer run tools. */
+  needsReconnect?: boolean;
+  statusReason?: string;
+}
+
+/**
+ * An app the assistant offers to its tenants, with the accounts THIS tenant
+ * has connected. Never another tenant's.
+ */
+export interface Integration {
+  /** App slug, e.g. `gmail`. */
+  app: string;
+  name: string;
+  description?: string;
+  logo?: string;
+  /** True when at least one account is active. */
+  connected: boolean;
+  accounts: IntegrationAccount[];
+  /** Event types the developer allows this tenant to switch on. */
+  availableTriggers?: string[];
+}
