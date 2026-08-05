@@ -75,7 +75,7 @@ function order(integrations: Integration[]): Integration[] {
  */
 function boxesThatFit(width: number, max: number): number {
   if (!width) return max + 1;
-  const LABEL_AND_CLOSE = 180;
+  const LABEL_AND_CLOSE = 195;
   return Math.max(3, Math.min(max + 1, Math.floor((width - LABEL_AND_CLOSE) / 30)));
 }
 
