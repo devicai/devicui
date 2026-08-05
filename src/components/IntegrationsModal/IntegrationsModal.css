@@ -1,0 +1,267 @@
+/* Connected apps modal */
+.devic-int-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.devic-int-modal {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(640px, calc(100vh - 64px));
+  display: flex;
+  flex-direction: column;
+  background: var(--devic-bg, #fff);
+  color: var(--devic-text, #333);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+  font-size: 13px;
+}
+
+.devic-int-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--devic-border, #e8e8e8);
+}
+
+.devic-int-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.devic-int-title svg {
+  color: var(--devic-primary, #1677ff);
+}
+
+.devic-int-close {
+  border: none;
+  background: transparent;
+  color: var(--devic-text-muted, #999);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.devic-int-close:hover {
+  background: var(--devic-bg-secondary, #f5f5f5);
+  color: var(--devic-text, #333);
+}
+
+.devic-int-body {
+  padding: 12px 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.devic-int-error {
+  border: 1px solid rgba(255, 77, 79, 0.4);
+  background: rgba(255, 77, 79, 0.08);
+  color: #cf1322;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.devic-int-notice {
+  border: 1px solid rgba(250, 173, 20, 0.45);
+  background: rgba(250, 173, 20, 0.1);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.devic-int-notice a {
+  color: var(--devic-primary, #1677ff);
+}
+
+.devic-int-loading,
+.devic-int-empty {
+  color: var(--devic-text-muted, #999);
+  text-align: center;
+  padding: 24px 8px;
+}
+
+.devic-int-card {
+  border: 1px solid var(--devic-border, #e8e8e8);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.devic-int-card[data-state="connected"] {
+  border-color: rgba(82, 196, 26, 0.45);
+}
+
+.devic-int-card[data-state="reconnect"] {
+  border-color: rgba(250, 173, 20, 0.5);
+}
+
+.devic-int-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.devic-int-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: contain;
+  flex-shrink: 0;
+  background: var(--devic-bg-secondary, #f5f5f5);
+}
+
+.devic-int-logo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: var(--devic-text-muted, #999);
+}
+
+.devic-int-card-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.devic-int-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devic-int-state {
+  font-size: 11px;
+  color: var(--devic-text-muted, #999);
+}
+
+.devic-int-card[data-state="connected"] .devic-int-state {
+  color: #389e0d;
+}
+
+.devic-int-card[data-state="reconnect"] .devic-int-state {
+  color: #d48806;
+}
+
+.devic-int-description {
+  font-size: 12px;
+  color: var(--devic-text-muted, #999);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.devic-int-accounts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.devic-int-account {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--devic-bg-secondary, #f7f7f7);
+}
+
+.devic-int-account-label {
+  flex: 1;
+  color: var(--devic-text-muted, #999);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devic-int-account-warn {
+  color: #d48806;
+}
+
+.devic-int-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #faad14;
+  flex-shrink: 0;
+}
+
+.devic-int-dot[data-ok="true"] {
+  background: #52c41a;
+}
+
+.devic-int-btn {
+  border: 1px solid var(--devic-border, #d9d9d9);
+  background: var(--devic-bg, #fff);
+  color: var(--devic-text, #333);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.devic-int-btn:hover:not(:disabled) {
+  border-color: var(--devic-primary, #1677ff);
+  color: var(--devic-primary, #1677ff);
+}
+
+.devic-int-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.devic-int-btn-primary {
+  background: var(--devic-primary, #1677ff);
+  border-color: var(--devic-primary, #1677ff);
+  color: #fff;
+}
+
+.devic-int-btn-primary:hover:not(:disabled) {
+  color: #fff;
+  opacity: 0.9;
+}
+
+.devic-int-btn-small {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.devic-int-btn-danger:hover:not(:disabled) {
+  border-color: #ff4d4f;
+  color: #ff4d4f;
+}
+
+.devic-int-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--devic-border, #e8e8e8);
+  color: var(--devic-text-muted, #999);
+  font-size: 11px;
+}

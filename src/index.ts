@@ -41,6 +41,10 @@ export type {
 export { CoreMemoryModal } from './components/CoreMemoryModal';
 export type { CoreMemoryModalProps } from './components/CoreMemoryModal';
 
+// IntegrationsModal
+export { IntegrationsModal } from './components/IntegrationsModal';
+export type { IntegrationsModalProps } from './components/IntegrationsModal';
+
 // ThreadStateTag
 export { ThreadStateTag } from './components/ThreadStateTag';
 export type { ThreadStateTagProps, StateConfig } from './components/ThreadStateTag';
@@ -154,6 +158,8 @@ export type {
   CoreMemoryEntry,
   CoreMemoryLimits,
   CoreMemoryList,
+  Integration,
+  IntegrationAccount,
 } from './api/types';
 
 // Feedback Components

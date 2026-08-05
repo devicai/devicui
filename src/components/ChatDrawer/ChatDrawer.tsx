@@ -9,6 +9,7 @@ import { ChatDrawerErrorBoundary } from './ErrorBoundary';
 import { UsageBar } from './UsageBar';
 import { LimitBanner } from './LimitBanner';
 import { CoreMemoryModal } from '../CoreMemoryModal';
+import { IntegrationsModal } from '../IntegrationsModal';
 import type { ChatDrawerProps, ChatDrawerOptions, ChatDrawerHandle } from './ChatDrawer.types';
 import './styles.css';
 
@@ -78,6 +79,8 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   showRecalledMemories: true,
   recalledMemoriesRenderer: undefined as any,
   showCoreMemoryButton: false,
+  showIntegrationsButton: false,
+  integrationsLabel: 'Connected apps',
 };
 
 /**
@@ -210,6 +213,7 @@ function ChatDrawerInner({
   const resolvedBaseUrl = baseUrl || context?.baseUrl || 'https://api.devic.ai';
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [coreMemoryOpen, setCoreMemoryOpen] = useState(false);
+  const [integrationsOpen, setIntegrationsOpen] = useState(false);
   const avatarFetchedRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -603,6 +607,17 @@ function ChatDrawerInner({
             conversationPreview={mergedOptions.conversationPreview}
           />
           <div className="devic-drawer-header-actions">
+            {mergedOptions.showIntegrationsButton && (
+              <button
+                className="devic-new-chat-btn"
+                onClick={() => setIntegrationsOpen(true)}
+                type="button"
+                aria-label={mergedOptions.integrationsLabel}
+                title={mergedOptions.integrationsLabel}
+              >
+                <PlugIcon />
+              </button>
+            )}
             {mergedOptions.showCoreMemoryButton && (
               <button
                 className="devic-new-chat-btn"
@@ -770,6 +785,20 @@ function ChatDrawerInner({
           baseUrl={resolvedBaseUrl}
         />
       )}
+
+      {/* Connected apps modal (opened from the header plug button) */}
+      {mergedOptions.showIntegrationsButton && (
+        <IntegrationsModal
+          isOpen={integrationsOpen}
+          onClose={() => setIntegrationsOpen(false)}
+          assistantId={assistantId}
+          tenantId={tenantId}
+          subtenantId={subtenantId}
+          apiKey={resolvedApiKey}
+          baseUrl={resolvedBaseUrl}
+          title={mergedOptions.integrationsLabel}
+        />
+      )}
     </>
   );
 }
@@ -777,6 +806,29 @@ function ChatDrawerInner({
 /**
  * Close icon
  */
+/**
+ * Plug icon for the connected-apps button
+ */
+function PlugIcon(): JSX.Element {
+  return (
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 22v-5" />
+      <path d="M9 8V2" />
+      <path d="M15 8V2" />
+      <path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" />
+    </svg>
+  );
+}
+
 /**
  * Brain icon for the core memory button
  */
