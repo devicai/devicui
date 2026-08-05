@@ -66,10 +66,13 @@
   gap: 10px;
 }
 
+/* Accents are translucent rather than solid so they sit on whatever surface the
+   host theme provides — a light error panel over a dark modal reads as a
+   rendering bug. */
 .devic-int-error {
   border: 1px solid rgba(255, 77, 79, 0.4);
   background: rgba(255, 77, 79, 0.08);
-  color: #cf1322;
+  color: #ff4d4f;
   border-radius: 8px;
   padding: 8px 10px;
   font-size: 12px;
@@ -78,6 +81,7 @@
 .devic-int-notice {
   border: 1px solid rgba(250, 173, 20, 0.45);
   background: rgba(250, 173, 20, 0.1);
+  color: inherit;
   border-radius: 8px;
   padding: 8px 10px;
   font-size: 12px;
@@ -152,11 +156,11 @@
 }
 
 .devic-int-card[data-state="connected"] .devic-int-state {
-  color: #389e0d;
+  color: #52c41a;
 }
 
 .devic-int-card[data-state="reconnect"] .devic-int-state {
-  color: #d48806;
+  color: #faad14;
 }
 
 .devic-int-description {
@@ -197,7 +201,7 @@
 }
 
 .devic-int-account-warn {
-  color: #d48806;
+  color: #faad14;
 }
 
 .devic-int-dot {

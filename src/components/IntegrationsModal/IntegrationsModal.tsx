@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import { DevicApiClient } from "../../api/client";
 import type { Integration, IntegrationAccount } from "../../api/types";
 import { useOptionalDevicContext } from "../../provider";
+import { themeVars, type DevicTheme } from "../theme";
 import "./IntegrationsModal.css";
 
 /** Message the OAuth callback page posts back to this window when it is done. */
@@ -39,6 +40,12 @@ export interface IntegrationsModalProps {
   title?: string;
   /** Called after an account is connected or disconnected. */
   onChange?: (integrations: Integration[]) => void;
+  /**
+   * Colours and font. Same names as the drawer's style options, and the drawer
+   * passes its own down — a dialog opening in the default light palette over a
+   * themed application is the one thing this must not do.
+   */
+  theme?: DevicTheme;
 }
 
 function PlugIcon(): JSX.Element {
@@ -114,6 +121,7 @@ export function IntegrationsModal({
   baseUrl,
   title = "Connected apps",
   onChange,
+  theme,
 }: IntegrationsModalProps): JSX.Element | null {
   const context = useOptionalDevicContext();
   const resolvedApiKey = apiKey || context?.apiKey;
@@ -307,7 +315,14 @@ export function IntegrationsModal({
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="devic-int-overlay" onClick={onClose}>
+    // The variables go on the overlay, not on the modal: the backdrop is part
+    // of the dialog, and a portal inherits nothing from the drawer that opened
+    // it.
+    <div
+      className="devic-int-overlay"
+      style={themeVars(theme)}
+      onClick={onClose}
+    >
       <div
         className="devic-int-modal"
         role="dialog"
