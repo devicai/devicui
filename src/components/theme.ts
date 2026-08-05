@@ -49,3 +49,44 @@ export function themeVars(theme?: DevicTheme): CSSProperties {
 
   return vars as CSSProperties;
 }
+
+/** Relative luminance of a CSS colour, or null when it cannot be read. */
+function luminance(color?: string): number | null {
+  if (!color) return null;
+  const value = color.trim().toLowerCase();
+
+  let r: number, g: number, b: number;
+  const hex = value.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/);
+  if (hex) {
+    const digits =
+      hex[1].length === 3
+        ? hex[1]
+            .split("")
+            .map((d) => d + d)
+            .join("")
+        : hex[1];
+    r = parseInt(digits.slice(0, 2), 16);
+    g = parseInt(digits.slice(2, 4), 16);
+    b = parseInt(digits.slice(4, 6), 16);
+  } else {
+    const rgb = value.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/);
+    if (!rgb) return null;
+    [r, g, b] = [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
+  }
+
+  // Perceived brightness, good enough to tell a dark surface from a light one.
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+/**
+ * Whether this theme paints on a dark surface.
+ *
+ * Used for the one thing CSS variables cannot express: third-party app logos.
+ * Many are solid black with a transparent background, and on a dark chip they
+ * turn into a smudge — so on a dark theme the chip behind them goes light.
+ * Unknown or unreadable colours count as light, which is the default anyway.
+ */
+export function isDarkTheme(theme?: DevicTheme): boolean {
+  const l = luminance(theme?.backgroundColor) ?? luminance(theme?.secondaryBackgroundColor);
+  return l !== null && l < 0.45;
+}

@@ -7,10 +7,10 @@ import {
   type JSX,
 } from "react";
 import { createPortal } from "react-dom";
-import { DevicApiClient } from "../../api/client";
 import type { Integration, IntegrationAccount } from "../../api/types";
-import { useOptionalDevicContext } from "../../provider";
-import { themeVars, type DevicTheme } from "../theme";
+import { isDarkTheme, themeVars, type DevicTheme } from "../theme";
+import { IntegrationLogo } from "./IntegrationLogo";
+import { useIntegrations, type IntegrationsState } from "./useIntegrations";
 import "./IntegrationsModal.css";
 
 /** Message the OAuth callback page posts back to this window when it is done. */
@@ -38,6 +38,8 @@ export interface IntegrationsModalProps {
   baseUrl?: string;
   /** Modal title. @default "Connected apps" */
   title?: string;
+  /** Search field placeholder. @default "Search connected apps" */
+  searchPlaceholder?: string;
   /** Called after an account is connected or disconnected. */
   onChange?: (integrations: Integration[]) => void;
   /**
@@ -46,6 +48,12 @@ export interface IntegrationsModalProps {
    * themed application is the one thing this must not do.
    */
   theme?: DevicTheme;
+  /**
+   * Listing loaded elsewhere (see `useIntegrations`). The drawer already has to
+   * load it to decide whether its button exists, and passing it down is what
+   * keeps opening the modal from asking for the very same thing again.
+   */
+  state?: IntegrationsState;
 }
 
 function PlugIcon(): JSX.Element {
@@ -65,6 +73,25 @@ function PlugIcon(): JSX.Element {
       <path d="M9 8V2" />
       <path d="M15 8V2" />
       <path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" />
+    </svg>
+  );
+}
+
+function SearchIcon(): JSX.Element {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
     </svg>
   );
 }
@@ -95,6 +122,16 @@ function accountLabel(account: IntegrationAccount): string {
   return `connected ${when.toLocaleDateString()}`;
 }
 
+function matches(integration: Integration, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    integration.name.toLowerCase().includes(q) ||
+    integration.app.toLowerCase().includes(q) ||
+    (integration.description ?? "").toLowerCase().includes(q)
+  );
+}
+
 /**
  * Modal where the END USER of an application manages their *own* third-party
  * accounts: the apps the developer offered to tenants of this assistant, each
@@ -120,87 +157,67 @@ export function IntegrationsModal({
   apiKey,
   baseUrl,
   title = "Connected apps",
+  searchPlaceholder = "Search connected apps",
   onChange,
   theme,
+  state,
 }: IntegrationsModalProps): JSX.Element | null {
-  const context = useOptionalDevicContext();
-  const resolvedApiKey = apiKey || context?.apiKey;
-  const resolvedBaseUrl = baseUrl || context?.baseUrl || "https://api.devic.ai";
-  const resolvedTenantId = tenantId || context?.tenantId;
-  const resolvedSubtenantId = subtenantId || context?.subtenantId;
+  // Hooks cannot be skipped, so the fallback is always built and only fetches
+  // when nobody handed a listing down.
+  const own = useIntegrations({
+    assistantId,
+    tenantId,
+    subtenantId,
+    apiKey,
+    baseUrl,
+    enabled: isOpen && !state,
+  });
+  const { integrations, loading, error: loadError, refresh, client, scope } =
+    state ?? own;
 
-  const client = useMemo(
-    () =>
-      resolvedApiKey
-        ? new DevicApiClient({
-            apiKey: resolvedApiKey,
-            baseUrl: resolvedBaseUrl,
-          })
-        : null,
-    [resolvedApiKey, resolvedBaseUrl]
-  );
-
-  const scopeOptions = useMemo(
-    () => ({
-      assistantId,
-      tenantId: resolvedTenantId || undefined,
-      subtenantId: resolvedSubtenantId || undefined,
-    }),
-    [assistantId, resolvedTenantId, resolvedSubtenantId]
-  );
-
-  const [loading, setLoading] = useState(false);
-  const [integrations, setIntegrations] = useState<Integration[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  /** Errors from connecting or disconnecting, kept apart from load failures. */
+  const [actionError, setActionError] = useState<string | null>(null);
+  const error = actionError ?? loadError;
   /** App slug with a connect/disconnect in flight, so only its card is busy. */
   const [busyApp, setBusyApp] = useState<string | null>(null);
   /** Authorization URL surfaced as a link when the popup was blocked. */
   const [blockedUrl, setBlockedUrl] = useState<{ app: string; url: string } | null>(
     null
   );
-  /**
-   * Apps whose logo failed to load. The URL comes from the provider and is
-   * fetched from whatever host it names, so a broken one is a matter of when,
-   * not if — and a broken-image icon in someone else's product looks like our
-   * bug.
-   */
-  const [brokenLogos, setBrokenLogos] = useState<string[]>([]);
+  const [query, setQuery] = useState("");
 
-  const refresh = useCallback(
-    async (dropCache = false) => {
-      if (!client) {
-        setError("API key not configured");
-        return;
-      }
-      setLoading(true);
-      setError(null);
-      try {
-        // The server caches a scope's connections briefly; after an OAuth round
-        // trip that cache is exactly one step behind, so drop it first.
-        if (dropCache) {
-          await client.refreshIntegrations(scopeOptions).catch(() => undefined);
-        }
-        const list = await client.getIntegrations(scopeOptions);
-        setIntegrations(list);
-        onChange?.(list);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [client, scopeOptions, onChange]
+  const visible = useMemo(
+    () => integrations.filter((i) => matches(i, query)),
+    [integrations, query]
   );
 
-  // Fetch on every open: accounts may have been connected or revoked elsewhere.
+  // Report the listing without making the caller's identity part of the
+  // dependency: an inline arrow would fire this on every render.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  useEffect(() => {
+    if (integrations.length) onChangeRef.current?.(integrations);
+  }, [integrations]);
+
+  // Reopening starts clean, and re-reads: accounts may have been connected or
+  // revoked elsewhere since the last look.
   const wasOpenRef = useRef(false);
+  const openedBeforeRef = useRef(false);
   useEffect(() => {
     if (isOpen && !wasOpenRef.current) {
       setBlockedUrl(null);
-      void refresh();
+      setActionError(null);
+      setQuery("");
+      // The very first open of an uncontrolled modal is already covered by the
+      // hook switching on; asking again here would double every first open.
+      if (state || openedBeforeRef.current) void refresh();
+      openedBeforeRef.current = true;
     }
     wasOpenRef.current = isOpen;
-  }, [isOpen, refresh]);
+    // `state.refresh` is stable per scope; re-running on every render of the
+    // owner is exactly what this must not do.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   // Escape closes
   useEffect(() => {
@@ -256,7 +273,7 @@ export function IntegrationsModal({
 
   const handleConnect = async (integration: Integration) => {
     if (!client || busyApp) return;
-    setError(null);
+    setActionError(null);
     setBlockedUrl(null);
     setBusyApp(integration.app);
 
@@ -272,7 +289,7 @@ export function IntegrationsModal({
     try {
       const { authorizationUrl } = await client.connectIntegration(
         integration.app,
-        { ...scopeOptions, returnTo }
+        { ...scope, returnTo }
       );
       pendingRef.current = { app: integration.app, returnTo };
       if (popup && !popup.closed) {
@@ -293,7 +310,7 @@ export function IntegrationsModal({
     } catch (err) {
       popup?.close();
       pendingRef.current = null;
-      setError(err instanceof Error ? err.message : String(err));
+      setActionError(err instanceof Error ? err.message : String(err));
       setBusyApp(null);
     }
   };
@@ -301,12 +318,12 @@ export function IntegrationsModal({
   const handleDisconnect = async (app: string, account: IntegrationAccount) => {
     if (!client || busyApp) return;
     setBusyApp(app);
-    setError(null);
+    setActionError(null);
     try {
-      await client.disconnectIntegration(account.id, scopeOptions);
+      await client.disconnectIntegration(account.id, scope);
       await refresh(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setActionError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusyApp(null);
     }
@@ -321,6 +338,7 @@ export function IntegrationsModal({
     <div
       className="devic-int-overlay"
       style={themeVars(theme)}
+      data-dark={isDarkTheme(theme)}
       onClick={onClose}
     >
       <div
@@ -343,6 +361,18 @@ export function IntegrationsModal({
           >
             ×
           </button>
+        </div>
+
+        <div className="devic-int-search">
+          <SearchIcon />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={searchPlaceholder}
+            aria-label={searchPlaceholder}
+            autoComplete="off"
+          />
         </div>
 
         <div className="devic-int-body">
@@ -369,103 +399,105 @@ export function IntegrationsModal({
           {loading && integrations.length === 0 ? (
             <div className="devic-int-loading">Loading apps…</div>
           ) : integrations.length === 0 ? (
+            <div className="devic-int-empty">No apps available here yet.</div>
+          ) : visible.length === 0 ? (
             <div className="devic-int-empty">
-              No apps available here yet.
+              No apps match “{query.trim()}”.
             </div>
           ) : (
-            integrations.map((integration) => {
-              const state = stateOf(integration);
-              const busy = busyApp === integration.app;
-              return (
-                <div
-                  key={integration.app}
-                  className="devic-int-card"
-                  data-state={state.key}
-                >
-                  <div className="devic-int-card-head">
-                    {integration.logo &&
-                    !brokenLogos.includes(integration.app) ? (
-                      <img
-                        className="devic-int-logo"
-                        src={integration.logo}
-                        alt=""
-                        aria-hidden="true"
-                        onError={() =>
-                          setBrokenLogos((prev) =>
-                            prev.includes(integration.app)
-                              ? prev
-                              : [...prev, integration.app]
-                          )
-                        }
-                      />
-                    ) : (
-                      <span className="devic-int-logo devic-int-logo-fallback">
-                        {integration.name.charAt(0).toUpperCase()}
+            <div className="devic-int-grid">
+              {visible.map((integration) => {
+                const cardState = stateOf(integration);
+                const busy = busyApp === integration.app;
+                return (
+                  <div
+                    key={integration.app}
+                    className="devic-int-card"
+                    data-state={cardState.key}
+                  >
+                    <div className="devic-int-card-head">
+                      <IntegrationLogo integration={integration} />
+                      <span className="devic-int-state">
+                        <span
+                          className="devic-int-dot"
+                          data-ok={cardState.key === "connected"}
+                          data-off={cardState.key === "disconnected"}
+                          aria-hidden="true"
+                        />
+                        {cardState.label}
                       </span>
-                    )}
-                    <div className="devic-int-card-text">
-                      <div className="devic-int-name">{integration.name}</div>
-                      <div className="devic-int-state">{state.label}</div>
                     </div>
+
+                    <div className="devic-int-name" title={integration.name}>
+                      {integration.name}
+                    </div>
+
+                    {integration.description && (
+                      <div
+                        className="devic-int-description"
+                        title={integration.description}
+                      >
+                        {integration.description}
+                      </div>
+                    )}
+
                     <button
                       type="button"
-                      className={`devic-int-btn${
-                        state.key === "connected" ? "" : " devic-int-btn-primary"
+                      className={`devic-int-btn devic-int-btn-block${
+                        cardState.key === "connected"
+                          ? ""
+                          : " devic-int-btn-primary"
                       }`}
                       onClick={() => handleConnect(integration)}
                       disabled={busy || !!busyApp}
                     >
                       {busy
                         ? "Waiting…"
-                        : state.key === "disconnected"
+                        : cardState.key === "disconnected"
                           ? "Connect"
-                          : state.key === "reconnect"
+                          : cardState.key === "reconnect"
                             ? "Reconnect"
                             : "Add account"}
                     </button>
+
+                    {integration.accounts.length > 0 && (
+                      <ul className="devic-int-accounts">
+                        {integration.accounts.map((account) => (
+                          <li key={account.id} className="devic-int-account">
+                            <span
+                              className="devic-int-dot"
+                              data-ok={!account.needsReconnect}
+                              aria-hidden="true"
+                            />
+                            <span className="devic-int-account-label">
+                              {accountLabel(account)}
+                              {account.needsReconnect && (
+                                <span className="devic-int-account-warn">
+                                  {" "}
+                                  · reconnect required
+                                </span>
+                              )}
+                            </span>
+                            <button
+                              type="button"
+                              className="devic-int-unlink"
+                              onClick={() =>
+                                handleDisconnect(integration.app, account)
+                              }
+                              disabled={!!busyApp}
+                              title="Disconnect this account"
+                              aria-label={`Disconnect ${integration.name}`}
+                            >
+                              ×
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
-
-                  {integration.description && (
-                    <div className="devic-int-description">
-                      {integration.description}
-                    </div>
-                  )}
-
-                  {integration.accounts.length > 0 && (
-                    <ul className="devic-int-accounts">
-                      {integration.accounts.map((account) => (
-                        <li key={account.id} className="devic-int-account">
-                          <span
-                            className="devic-int-dot"
-                            data-ok={!account.needsReconnect}
-                            aria-hidden="true"
-                          />
-                          <span className="devic-int-account-label">
-                            {accountLabel(account)}
-                            {account.needsReconnect && (
-                              <span className="devic-int-account-warn">
-                                {" "}
-                                · reconnect required
-                              </span>
-                            )}
-                          </span>
-                          <button
-                            type="button"
-                            className="devic-int-btn devic-int-btn-small devic-int-btn-danger"
-                            onClick={() =>
-                              handleDisconnect(integration.app, account)
-                            }
-                            disabled={!!busyApp}
-                          >
-                            Disconnect
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
           )}
         </div>
 

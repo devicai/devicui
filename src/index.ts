@@ -42,11 +42,23 @@ export { CoreMemoryModal } from './components/CoreMemoryModal';
 export type { CoreMemoryModalProps } from './components/CoreMemoryModal';
 
 // IntegrationsModal
-export { IntegrationsModal } from './components/IntegrationsModal';
-export type { IntegrationsModalProps } from './components/IntegrationsModal';
+export {
+  IntegrationsModal,
+  IntegrationsLauncher,
+  IntegrationLogo,
+  useIntegrations,
+} from './components/IntegrationsModal';
+export type {
+  IntegrationsModalProps,
+  IntegrationsLauncherProps,
+  IntegrationLogoProps,
+  IntegrationsState,
+  IntegrationsScope,
+  UseIntegrationsOptions,
+} from './components/IntegrationsModal';
 
 // Theming shared by the dialogs (the drawer passes its own down)
-export { themeVars } from './components/theme';
+export { themeVars, isDarkTheme } from './components/theme';
 export type { DevicTheme } from './components/theme';
 
 // ThreadStateTag

@@ -10,8 +10,8 @@
 }
 
 .devic-int-modal {
-  width: min(560px, calc(100vw - 32px));
-  max-height: min(640px, calc(100vh - 64px));
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(660px, calc(100vh - 64px));
   display: flex;
   flex-direction: column;
   background: var(--devic-bg, #fff);
@@ -58,6 +58,46 @@
   color: var(--devic-text, #333);
 }
 
+/* Search */
+.devic-int-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 16px 0;
+  padding: 7px 10px;
+  border: 1px solid var(--devic-border, #e8e8e8);
+  border-radius: 8px;
+  background: var(--devic-bg-secondary, #f7f7f7);
+  color: var(--devic-text-muted, #999);
+}
+
+.devic-int-search:focus-within {
+  border-color: var(--devic-primary, #1677ff);
+}
+
+.devic-int-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--devic-text, #333);
+  font: inherit;
+  font-size: 13px;
+  /* The browser's own search adornments come with their own colours and sit
+     badly on a dark surface. */
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.devic-int-search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+.devic-int-search input::placeholder {
+  color: var(--devic-text-muted, #999);
+}
+
 .devic-int-body {
   padding: 12px 16px;
   overflow-y: auto;
@@ -98,13 +138,21 @@
   padding: 24px 8px;
 }
 
+/* Cards, laid out as a grid: a list of full-width rows makes six apps look
+   like a settings page, and this is a picker. */
+.devic-int-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  gap: 10px;
+}
+
 .devic-int-card {
   border: 1px solid var(--devic-border, #e8e8e8);
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .devic-int-card[data-state="connected"] {
@@ -118,13 +166,14 @@
 .devic-int-card-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .devic-int-logo {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   object-fit: contain;
   flex-shrink: 0;
   background: var(--devic-bg-secondary, #f5f5f5);
@@ -138,11 +187,6 @@
   color: var(--devic-text-muted, #999);
 }
 
-.devic-int-card-text {
-  flex: 1;
-  min-width: 0;
-}
-
 .devic-int-name {
   font-weight: 600;
   overflow: hidden;
@@ -151,8 +195,12 @@
 }
 
 .devic-int-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
   color: var(--devic-text-muted, #999);
+  white-space: nowrap;
 }
 
 .devic-int-card[data-state="connected"] .devic-int-state {
@@ -186,8 +234,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  padding: 4px 8px;
+  font-size: 11px;
+  padding: 3px 6px;
   border-radius: 6px;
   background: var(--devic-bg-secondary, #f7f7f7);
 }
@@ -216,6 +264,33 @@
   background: #52c41a;
 }
 
+.devic-int-dot[data-off="true"] {
+  background: var(--devic-text-muted, #bbb);
+}
+
+/* Removing an account is a small × on its own row: a full-width Disconnect
+   button next to Connect turns every card into a pair of competing verbs. */
+.devic-int-unlink {
+  border: none;
+  background: transparent;
+  color: var(--devic-text-muted, #999);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.devic-int-unlink:hover:not(:disabled) {
+  color: #ff4d4f;
+}
+
+.devic-int-unlink:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .devic-int-btn {
   border: 1px solid var(--devic-border, #d9d9d9);
   background: var(--devic-bg, #fff);
@@ -238,6 +313,12 @@
   cursor: not-allowed;
 }
 
+.devic-int-btn-block {
+  width: 100%;
+  margin-top: auto;
+  text-align: center;
+}
+
 .devic-int-btn-primary {
   background: var(--devic-primary, #1677ff);
   border-color: var(--devic-primary, #1677ff);
@@ -254,11 +335,6 @@
   font-size: 11px;
 }
 
-.devic-int-btn-danger:hover:not(:disabled) {
-  border-color: #ff4d4f;
-  color: #ff4d4f;
-}
-
 .devic-int-footer {
   display: flex;
   align-items: center;
@@ -268,4 +344,85 @@
   border-top: 1px solid var(--devic-border, #e8e8e8);
   color: var(--devic-text-muted, #999);
   font-size: 11px;
+}
+
+/* Launcher: the header control, drawn as the apps themselves.
+   Overlapped rather than spaced out, because it shares a 400px header with a
+   title, a conversation picker and three other buttons. */
+.devic-int-launcher {
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: none;
+  padding: 4px 5px;
+  cursor: pointer;
+  border-radius: var(--devic-radius-sm, 6px);
+  transition: background var(--devic-transition, 0.2s);
+}
+
+.devic-int-launcher:hover {
+  background: var(--devic-bg-secondary, #f5f5f5);
+}
+
+.devic-int-launcher-item {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  margin-left: -4px;
+  background: var(--devic-bg, #fff);
+  border: 1px solid var(--devic-border, #e8e8e8);
+  box-sizing: border-box;
+}
+
+.devic-int-launcher-item:first-child {
+  margin-left: 0;
+}
+
+/* Dimmed until connected: the stack doubles as the status. */
+.devic-int-launcher-item[data-connected="false"] {
+  opacity: 0.55;
+}
+
+.devic-int-logo.devic-int-launcher-logo {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  background: transparent;
+  font-size: 11px;
+}
+
+.devic-int-launcher-more {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--devic-text-muted, #999);
+  background: var(--devic-bg-secondary, #f0f0f0);
+}
+
+/* On a dark surface the chip behind a logo goes light. Provider logos are
+   commonly solid black on transparency — GitHub, Notion, X — and on a dark
+   chip they read as a smudge rather than as the app. The counter keeps the
+   theme's own colours: it is text, not artwork. */
+.devic-int-launcher[data-dark="true"] .devic-int-launcher-item {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.devic-int-launcher[data-dark="true"] .devic-int-launcher-more {
+  background: var(--devic-bg-secondary, #f0f0f0);
+  border-color: var(--devic-border, #e8e8e8);
+}
+
+.devic-int-overlay[data-dark="true"] .devic-int-card .devic-int-logo {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.devic-int-overlay[data-dark="true"]
+  .devic-int-card
+  .devic-int-logo-fallback {
+  color: #595959;
 }

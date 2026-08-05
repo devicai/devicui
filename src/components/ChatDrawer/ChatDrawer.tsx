@@ -9,7 +9,12 @@ import { ChatDrawerErrorBoundary } from './ErrorBoundary';
 import { UsageBar } from './UsageBar';
 import { LimitBanner } from './LimitBanner';
 import { CoreMemoryModal } from '../CoreMemoryModal';
-import { IntegrationsModal } from '../IntegrationsModal';
+import {
+  IntegrationsLauncher,
+  IntegrationsModal,
+  useIntegrations,
+} from '../IntegrationsModal';
+import { isDarkTheme } from '../theme';
 import type { DevicTheme } from '../theme';
 import type { ChatDrawerProps, ChatDrawerOptions, ChatDrawerHandle } from './ChatDrawer.types';
 import './styles.css';
@@ -80,8 +85,9 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   showRecalledMemories: true,
   recalledMemoriesRenderer: undefined as any,
   showCoreMemoryButton: false,
-  showIntegrationsButton: false,
+  showIntegrationsButton: true,
   integrationsLabel: 'Connected apps',
+  maxIntegrationLogos: 6,
 };
 
 /**
@@ -216,6 +222,19 @@ function ChatDrawerInner({
   const [coreMemoryOpen, setCoreMemoryOpen] = useState(false);
   const [integrationsOpen, setIntegrationsOpen] = useState(false);
   const avatarFetchedRef = useRef<string | null>(null);
+
+  // The apps this assistant offers its tenants. Loaded once, here, because the
+  // header control cannot decide whether to exist without it — and lent to the
+  // modal so opening it does not ask for the same listing again. Nothing is
+  // fetched until the drawer is opened for the first time.
+  const integrationsState = useIntegrations({
+    assistantId,
+    tenantId,
+    subtenantId,
+    apiKey: resolvedApiKey,
+    baseUrl: resolvedBaseUrl,
+    enabled: mergedOptions.showIntegrationsButton !== false && isOpen,
+  });
 
   useEffect(() => {
     if (!mergedOptions.showAvatar || !resolvedApiKey || avatarFetchedRef.current === assistantId) return;
@@ -633,16 +652,14 @@ function ChatDrawerInner({
             conversationPreview={mergedOptions.conversationPreview}
           />
           <div className="devic-drawer-header-actions">
-            {mergedOptions.showIntegrationsButton && (
-              <button
-                className="devic-new-chat-btn"
+            {mergedOptions.showIntegrationsButton !== false && (
+              <IntegrationsLauncher
+                state={integrationsState}
                 onClick={() => setIntegrationsOpen(true)}
-                type="button"
-                aria-label={mergedOptions.integrationsLabel}
-                title={mergedOptions.integrationsLabel}
-              >
-                <PlugIcon />
-              </button>
+                label={mergedOptions.integrationsLabel}
+                maxLogos={mergedOptions.maxIntegrationLogos}
+                dark={isDarkTheme(modalTheme)}
+              />
             )}
             {mergedOptions.showCoreMemoryButton && (
               <button
@@ -813,8 +830,8 @@ function ChatDrawerInner({
         />
       )}
 
-      {/* Connected apps modal (opened from the header plug button) */}
-      {mergedOptions.showIntegrationsButton && (
+      {/* Connected apps modal (opened from the header app stack) */}
+      {mergedOptions.showIntegrationsButton !== false && (
         <IntegrationsModal
           isOpen={integrationsOpen}
           onClose={() => setIntegrationsOpen(false)}
@@ -825,35 +842,10 @@ function ChatDrawerInner({
           baseUrl={resolvedBaseUrl}
           title={mergedOptions.integrationsLabel}
           theme={modalTheme}
+          state={integrationsState}
         />
       )}
     </>
-  );
-}
-
-/**
- * Close icon
- */
-/**
- * Plug icon for the connected-apps button
- */
-function PlugIcon(): JSX.Element {
-  return (
-    <svg
-      width="17"
-      height="17"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 22v-5" />
-      <path d="M9 8V2" />
-      <path d="M15 8V2" />
-      <path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" />
-    </svg>
   );
 }
 

@@ -84,6 +84,13 @@
   font-size: 16px;
   font-weight: 600;
   margin: 0;
+  /* Gives way first. Everything else in this row is a control the user needs
+     to reach; the title is the one thing they already know. */
+  min-width: 0;
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .devic-drawer-close {
@@ -1283,7 +1290,9 @@
 .devic-conversation-selector {
   position: relative;
   flex: 1;
-  min-width: 0;
+  /* Enough to stay a usable control when the header is full — a long title and
+     a row of app logos would otherwise squeeze it into a stub. */
+  min-width: 72px;
   margin: 0 8px;
 }
 

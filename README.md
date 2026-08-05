@@ -212,17 +212,28 @@ the apps you enabled for tenants of the assistant, each with the accounts
 *that* tenant has connected. Never the workspace-wide accounts you connected
 as an admin, and never another tenant's.
 
+In the drawer it is opened from a stack of the apps' own logos in the header,
+which **appears on its own** when the assistant offers apps to its tenants and
+stays out of the way — no button, no request — when it does not:
+
 ```tsx
 <ChatDrawer
   assistantId="my-assistant"
   tenantId="acme-corp"
   subtenantId="user-123"
   options={{
-    showIntegrationsButton: true,      // plug button in the header
+    // showIntegrationsButton defaults to true and only shows the control when
+    // there is something behind it. Set it to false to keep it out entirely.
+    showIntegrationsButton: false,
     integrationsLabel: 'Connected apps',
+    maxIntegrationLogos: 6,   // rest are counted in a +N box; fewer if the
+                              // header is narrow
   }}
 />
 ```
+
+Connected apps come first in the stack and unconnected ones are dimmed, so it
+doubles as the status.
 
 Or standalone, with your own trigger:
 
@@ -242,9 +253,22 @@ list the apps on offer — nothing outside that list is connectable — and the
 API key to allow `/api/v1/tenant-integrations/*` (included in the devic-ui key
 preset).
 
-Connecting opens the provider's consent screen in a pop-up and refreshes as
-soon as it closes. If the browser blocks the pop-up, the authorisation URL is
-offered as a link instead.
+The apps are shown as a searchable grid of cards; connecting opens the
+provider's consent screen in a pop-up and refreshes as soon as it closes. If the
+browser blocks the pop-up, the authorisation URL is offered as a link instead.
+
+To put the same stack somewhere else, or to know whether an assistant offers
+anything at all before rendering your own control, use the pieces directly. The
+listing is loaded once and shared, so the launcher and the modal never ask for
+it twice:
+
+```tsx
+const apps = useIntegrations({ assistantId, tenantId, enabled: true });
+
+{apps.offered && <MyButton count={apps.integrations.length} />}
+<IntegrationsLauncher state={apps} onClick={open} dark />
+<IntegrationsModal isOpen={isOpen} onClose={close} state={apps} {...scope} />
+```
 
 Opened from the drawer it inherits the drawer's colours and font. Standalone,
 pass them yourself with `theme` (same names as the drawer's style options) —
