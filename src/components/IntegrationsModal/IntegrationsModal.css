@@ -426,3 +426,133 @@
   .devic-int-logo-fallback {
   color: #595959;
 }
+
+/* Hint strip above the composer.
+   The header control is a row of small logos and nothing else — discoverable
+   once you know what it is, invisible until then. This says it in words, and
+   then gets out of the way for good. */
+.devic-int-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 8px;
+  padding: 6px 8px 6px 12px;
+  border: 1px solid var(--devic-border, #e8e8e8);
+  border-radius: 12px;
+  background: var(--devic-bg-secondary, #f7f7f7);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.devic-int-hint[data-leaving="true"] {
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+}
+
+.devic-int-hint-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: none;
+  background: none;
+  padding: 2px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.devic-int-hint-label {
+  color: var(--devic-text-muted, #8c8c8c);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devic-int-hint-main:hover .devic-int-hint-label {
+  color: var(--devic-text, #333);
+}
+
+.devic-int-hint-logos {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.devic-int-hint-item {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  background: var(--devic-bg, #fff);
+  border: 1px solid var(--devic-border, #e8e8e8);
+}
+
+/* Dimmed until connected, exactly as in the header. */
+.devic-int-hint-item[data-connected="false"] {
+  opacity: 0.6;
+}
+
+.devic-int-logo.devic-int-hint-logo {
+  width: 17px;
+  height: 17px;
+  border-radius: 3px;
+  background: transparent;
+  font-size: 11px;
+}
+
+.devic-int-hint-more {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--devic-text-muted, #999);
+  background: var(--devic-bg-secondary, #f0f0f0);
+}
+
+.devic-int-hint-close {
+  border: none;
+  background: transparent;
+  color: var(--devic-text-muted, #999);
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.devic-int-hint-close:hover {
+  background: var(--devic-bg, #fff);
+  color: var(--devic-text, #333);
+}
+
+/* Same reasoning as the header stack: a black-on-transparent logo needs a light
+   chip to be a logo at all. */
+.devic-int-hint[data-dark="true"] .devic-int-hint-item {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.devic-int-hint[data-dark="true"] .devic-int-hint-more {
+  background: var(--devic-bg, #1f1f1f);
+  border-color: var(--devic-border, #303030);
+}
+
+/* The copy that flies to the header when the strip is dismissed. */
+.devic-int-hint-ghost {
+  position: fixed;
+  z-index: 10001;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

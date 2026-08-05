@@ -45,12 +45,14 @@ export type { CoreMemoryModalProps } from './components/CoreMemoryModal';
 export {
   IntegrationsModal,
   IntegrationsLauncher,
+  IntegrationsHint,
   IntegrationLogo,
   useIntegrations,
 } from './components/IntegrationsModal';
 export type {
   IntegrationsModalProps,
   IntegrationsLauncherProps,
+  IntegrationsHintProps,
   IntegrationLogoProps,
   IntegrationsState,
   IntegrationsScope,

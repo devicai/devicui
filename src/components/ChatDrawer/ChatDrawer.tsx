@@ -10,6 +10,7 @@ import { UsageBar } from './UsageBar';
 import { LimitBanner } from './LimitBanner';
 import { CoreMemoryModal } from '../CoreMemoryModal';
 import {
+  IntegrationsHint,
   IntegrationsLauncher,
   IntegrationsModal,
   useIntegrations,
@@ -88,6 +89,10 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   showIntegrationsButton: true,
   integrationsLabel: 'Connected apps',
   maxIntegrationLogos: 6,
+  showIntegrationsHint: true,
+  // Left unset so the strip can say "Connect your apps" or "Explore connected
+  // apps" depending on what the end user has actually done.
+  integrationsHintLabel: undefined as any,
 };
 
 /**
@@ -533,6 +538,21 @@ function ChatDrawerInner({
     ]
   );
 
+  // The strip above the composer. Dismissed per end user, because the whole
+  // point of remembering a dismissal is that the same person is not told twice.
+  const integrationsHintNode =
+    mergedOptions.showIntegrationsButton !== false &&
+    mergedOptions.showIntegrationsHint !== false ? (
+      <IntegrationsHint
+        state={integrationsState}
+        onOpen={() => setIntegrationsOpen(true)}
+        label={mergedOptions.integrationsHintLabel}
+        maxLogos={mergedOptions.maxIntegrationLogos}
+        storageKey={`${assistantId}:${resolvedTenantId ?? ''}:${resolvedSubtenantId ?? ''}`}
+        dark={isDarkTheme(modalTheme)}
+      />
+    ) : null;
+
   // Resizable drawer
   const [resizedWidth, setResizedWidth] = useState<number | null>(null);
 
@@ -740,6 +760,7 @@ function ChatDrawerInner({
           <div className="devic-input-area">
             {limitBannerNode}
             {usageBarNode}
+            {integrationsHintNode}
             {mergedOptions.customPromptBox({
               sendMessage: handleSend,
               transcribeAudio,
@@ -799,6 +820,7 @@ function ChatDrawerInner({
             onRemoveReference={removeReference}
             usageBar={usageBarNode}
             limitBanner={limitBannerNode}
+            integrationsHint={integrationsHintNode}
           />
         )}
       </div>
