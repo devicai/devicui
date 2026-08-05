@@ -115,6 +115,7 @@ function ChatInputBox({
   onRemoveReference,
   usageBar,
   limitBanner,
+  integrationsHint,
 }: ChatInputProps): JSX.Element {
   const [message, setMessage] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -688,6 +689,7 @@ function ChatInputBox({
       )}
       {limitBanner}
       {usageBar}
+      {integrationsHint}
       {disabledMessage && disabled && (
         <div className="devic-input-disabled-notice">
           <WaitingIcon />

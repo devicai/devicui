@@ -599,6 +599,21 @@ export interface ChatDrawerOptions {
    * @default 6
    */
   maxIntegrationLogos?: number;
+
+  /**
+   * Show the connected-apps strip above the composer — the row that says in
+   * words what the header logos only imply. The end user can close it, and the
+   * dismissal is remembered per assistant and tenant/subtenant, so nobody is
+   * told twice. Ignored when `showIntegrationsButton` is false.
+   * @default true
+   */
+  showIntegrationsHint?: boolean;
+
+  /**
+   * Text on that strip. Left unset it reads "Connect your apps", and "Your
+   * connected apps" once the end user has connected one.
+   */
+  integrationsHintLabel?: string;
 }
 
 /**
@@ -874,6 +889,12 @@ export interface ChatInputProps {
    * blocked by a usage limit. When present, the input is disabled.
    */
   limitBanner?: React.ReactNode;
+  /**
+   * Connected-apps strip, rendered immediately above the textarea. Sits below
+   * the banner and the usage bar: those are about the message being blocked,
+   * this is an offer.
+   */
+  integrationsHint?: React.ReactNode;
 }
 
 /**

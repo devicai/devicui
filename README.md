@@ -235,6 +235,21 @@ stays out of the way — no button, no request — when it does not:
 Connected apps come first in the stack and unconnected ones are dimmed, so it
 doubles as the status.
 
+Because a row of small logos is discoverable only once you know what it is, a
+strip above the composer says it in words — with the same logos, and a close
+button. Closing it animates towards the header, so what was dismissed is
+understood to still be there, and the dismissal is remembered per assistant and
+tenant/subtenant: the same end user is never told twice, the next one still is.
+
+```tsx
+options={{
+  showIntegrationsHint: true,          // default
+  integrationsHintLabel: 'Connect your apps',
+  // Unset, it reads "Connect your apps" and becomes "Your connected apps"
+  // once the end user has connected one.
+}}
+```
+
 Or standalone, with your own trigger:
 
 ```tsx
