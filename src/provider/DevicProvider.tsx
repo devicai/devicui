@@ -28,6 +28,7 @@ const DEFAULT_BASE_URL = 'https://api.devic.ai';
  */
 export function DevicProvider({
   apiKey,
+  getToken,
   baseUrl = DEFAULT_BASE_URL,
   tenantId,
   tenantMetadata,
@@ -67,22 +68,37 @@ export function DevicProvider({
     drawerRef.current?.open();
   }, []);
 
+  // Held in a ref so an inline `getToken={() => …}` — which is a new function
+  // on every render — does not rebuild the client and throw away the session
+  // it is holding, which would mean fetching a token per render.
+  const getTokenRef = useRef(getToken);
+  getTokenRef.current = getToken;
+  const usesSessions = !!getToken;
+
   const client = useMemo(
-    () => new DevicApiClient({ apiKey, baseUrl }),
-    [apiKey, baseUrl]
+    () =>
+      new DevicApiClient({
+        apiKey,
+        baseUrl,
+        getToken: usesSessions
+          ? () => getTokenRef.current!()
+          : undefined,
+      }),
+    [apiKey, baseUrl, usesSessions]
   );
 
   const contextValue = useMemo<DevicContextValue>(
     () => ({
       client,
       apiKey,
+      getToken,
       baseUrl,
       tenantId,
       tenantMetadata,
       subtenantId,
       subtenantMetadata,
       tags,
-      isConfigured: !!apiKey,
+      isConfigured: !!apiKey || usesSessions,
       debug,
       references,
       addReference,
@@ -94,6 +110,8 @@ export function DevicProvider({
     [
       client,
       apiKey,
+      getToken,
+      usesSessions,
       baseUrl,
       tenantId,
       tenantMetadata,

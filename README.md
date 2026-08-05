@@ -89,7 +89,7 @@ Context provider for global configuration.
 
 ```tsx
 <DevicProvider
-  apiKey="devic-xxx"           // Required
+  apiKey="devic-xxx"           // Required, unless you use getToken
   baseUrl="https://api.devic.ai"
   tenantId="tenant-123"        // Optional global tenant
   tenantMetadata={{ ... }}     // Optional global metadata
@@ -97,6 +97,53 @@ Context provider for global configuration.
   <App />
 </DevicProvider>
 ```
+
+#### Tenant sessions — proving who the end user is
+
+With an API key alone, the tenant is whatever the page says it is. The key sits
+in your bundle where anyone can read it, so anyone can say they are any of your
+customers, and read that customer's conversations.
+
+`getToken` replaces that claim with a fact. Your backend — the only place that
+knows who is logged in — mints a short-lived session, and the widget renews it
+on its own:
+
+```tsx
+<DevicProvider getToken={async () => {
+  const r = await fetch('/api/devic-session', { credentials: 'include' });
+  return r.json();                     // { token, expiresAt }
+}}>
+  <App />
+</DevicProvider>
+```
+
+On your server, with a **server-side** API key (not the one in your bundle):
+
+```ts
+app.post('/api/devic-session', requireLogin, async (req, res) => {
+  const r = await fetch('https://api.devic.ai/api/v1/tenant-sessions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.DEVIC_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    // From YOUR session, never from the request body.
+    body: JSON.stringify({
+      tenantId: req.user.organisationId,
+      subtenantId: req.user.id,
+    }),
+  });
+  res.json(await r.json());
+});
+```
+
+A session lasts minutes, is confined to what an end user does — chatting, their
+own conversations, attachments, their own limits, their own connected apps — and
+dies with the API key that minted it. It cannot create assistants, read your
+costs or reach another tenant, whatever the page asks for.
+
+You can also require it: an assistant with `identityMode: 'signed'` refuses
+unsigned callers outright for connected apps.
 
 ### ChatDrawer
 

@@ -598,6 +598,7 @@ export function ThreadStateTag({
 }: ThreadStateTagProps): JSX.Element {
   const context = useOptionalDevicContext();
   const resolvedApiKey = apiKey || context?.apiKey;
+  const resolvedGetToken = context?.getToken;
   const resolvedBaseUrl = baseUrl || context?.baseUrl || 'https://api.devic.ai';
 
   // State
@@ -637,9 +638,13 @@ export function ThreadStateTag({
 
   // API client
   const getClient = useCallback((): DevicApiClient | null => {
-    if (!resolvedApiKey) return null;
-    return new DevicApiClient({ apiKey: resolvedApiKey, baseUrl: resolvedBaseUrl });
-  }, [resolvedApiKey, resolvedBaseUrl]);
+    if (!resolvedApiKey && !resolvedGetToken) return null;
+    return new DevicApiClient({
+      apiKey: resolvedApiKey,
+      baseUrl: resolvedBaseUrl,
+      getToken: resolvedGetToken,
+    });
+  }, [resolvedApiKey, resolvedGetToken, resolvedBaseUrl]);
 
   // Config
   const config = getStateConfig(state, subthreadCount);

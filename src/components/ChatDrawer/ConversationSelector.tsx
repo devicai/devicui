@@ -34,19 +34,20 @@ export function ConversationSelector({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const clientRef = useRef<DevicApiClient | null>(null);
+  const getToken = context?.getToken;
 
-  if (!clientRef.current && apiKey) {
-    clientRef.current = new DevicApiClient({ apiKey, baseUrl });
+  if (!clientRef.current && (apiKey || getToken)) {
+    clientRef.current = new DevicApiClient({ apiKey, baseUrl, getToken });
   }
 
   // Update client config when props/context change
   useEffect(() => {
-    if (clientRef.current && apiKey) {
-      clientRef.current.setConfig({ apiKey, baseUrl });
-    } else if (!clientRef.current && apiKey) {
-      clientRef.current = new DevicApiClient({ apiKey, baseUrl });
+    if (clientRef.current) {
+      clientRef.current.setConfig({ apiKey, baseUrl, getToken });
+    } else if (apiKey || getToken) {
+      clientRef.current = new DevicApiClient({ apiKey, baseUrl, getToken });
     }
-  }, [apiKey, baseUrl]);
+  }, [apiKey, baseUrl, getToken]);
 
   const fetchConversations = useCallback(async (offset = 0, append = false) => {
     if (!clientRef.current) return;

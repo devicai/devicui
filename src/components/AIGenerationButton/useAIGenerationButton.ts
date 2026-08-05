@@ -87,6 +87,7 @@ export function useAIGenerationButton(
   // Get context
   const context = useOptionalDevicContext();
   const apiKey = propsApiKey || context?.apiKey;
+  const getToken = context?.getToken;
   const baseUrl = propsBaseUrl || context?.baseUrl || 'https://api.devic.ai';
   const resolvedTenantId = tenantId || context?.tenantId;
   const resolvedTenantMetadata = { ...context?.tenantMetadata, ...tenantMetadata };
@@ -130,8 +131,8 @@ export function useAIGenerationButton(
 
   // API client
   const clientRef = useRef<DevicApiClient | null>(null);
-  if (!clientRef.current && apiKey) {
-    clientRef.current = new DevicApiClient({ apiKey, baseUrl });
+  if (!clientRef.current && (apiKey || getToken)) {
+    clientRef.current = new DevicApiClient({ apiKey, baseUrl, getToken });
   }
 
   useEffect(() => {

@@ -222,6 +222,10 @@ function ChatDrawerInner({
   // Fetch assistant avatar when showAvatar is enabled
   const context = useOptionalDevicContext();
   const resolvedApiKey = apiKey || context?.apiKey;
+  // The session source, when the page authenticates with one. Every client
+  // built below gets it, or a page without an API key would have nothing to
+  // authenticate with.
+  const resolvedGetToken = context?.getToken;
   const resolvedBaseUrl = baseUrl || context?.baseUrl || 'https://api.devic.ai';
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [coreMemoryOpen, setCoreMemoryOpen] = useState(false);
@@ -242,13 +246,14 @@ function ChatDrawerInner({
   });
 
   useEffect(() => {
-    if (!mergedOptions.showAvatar || !resolvedApiKey || avatarFetchedRef.current === assistantId) return;
+    if (!mergedOptions.showAvatar || avatarFetchedRef.current === assistantId) return;
+    if (!resolvedApiKey && !resolvedGetToken) return;
     avatarFetchedRef.current = assistantId;
-    const client = new DevicApiClient({ apiKey: resolvedApiKey, baseUrl: resolvedBaseUrl });
+    const client = new DevicApiClient({ apiKey: resolvedApiKey, baseUrl: resolvedBaseUrl, getToken: resolvedGetToken });
     client.getAssistant(assistantId).then((a) => {
       if (a.imgUrl) setAvatarUrl(a.imgUrl);
     }).catch(() => {});
-  }, [mergedOptions.showAvatar, assistantId, resolvedApiKey, resolvedBaseUrl]);
+  }, [mergedOptions.showAvatar, assistantId, resolvedApiKey, resolvedGetToken, resolvedBaseUrl]);
 
   // Tenant/subtenant resolution mirrors useDevicChat (prop overrides provider).
   const resolvedTenantId = tenantId || context?.tenantId;
@@ -296,12 +301,12 @@ function ChatDrawerInner({
         tenantId?: string;
       },
     ) => {
-      if (!resolvedApiKey) {
+      if (!resolvedApiKey && !resolvedGetToken) {
         return Promise.reject(
-          new Error('API key not configured. Cannot transcribe audio.'),
+          new Error('No credentials configured. Cannot transcribe audio.'),
         );
       }
-      const client = new DevicApiClient({ apiKey: resolvedApiKey, baseUrl: resolvedBaseUrl });
+      const client = new DevicApiClient({ apiKey: resolvedApiKey, baseUrl: resolvedBaseUrl, getToken: resolvedGetToken });
       return client.transcribeAudio(audio, {
         language: transcribeOptions?.language ?? mergedOptions.speechLanguage,
         messageUid: transcribeOptions?.messageUid,
@@ -309,7 +314,7 @@ function ChatDrawerInner({
         tenantId: transcribeOptions?.tenantId ?? tenantId,
       });
     },
-    [resolvedApiKey, resolvedBaseUrl, mergedOptions.speechLanguage, tenantId],
+    [resolvedApiKey, resolvedGetToken, resolvedBaseUrl, mergedOptions.speechLanguage, tenantId],
   );
 
   // Handle open/close
@@ -433,13 +438,14 @@ function ChatDrawerInner({
 
   // Initialize feedback client
   useEffect(() => {
-    if (resolvedApiKey && !feedbackClientRef.current) {
+    if ((resolvedApiKey || resolvedGetToken) && !feedbackClientRef.current) {
       feedbackClientRef.current = new DevicApiClient({
         apiKey: resolvedApiKey,
         baseUrl: resolvedBaseUrl,
+        getToken: resolvedGetToken,
       });
     }
-  }, [resolvedApiKey, resolvedBaseUrl]);
+  }, [resolvedApiKey, resolvedGetToken, resolvedBaseUrl]);
 
   // Load existing feedback when chat changes
   useEffect(() => {

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from '../../api/client';
 import type { TenantUsage, TenantUsageRule } from '../../api/types';
 
@@ -160,13 +161,15 @@ export function UsageBar({
 }: UsageBarProps): JSX.Element | null {
   const cfg = useMemo(() => ({ ...DEFAULT_DISPLAY, ...display }), [display]);
 
+  const getToken = useOptionalDevicContext()?.getToken;
   const client = useMemo(() => {
-    if (!apiKey) return null;
+    if (!apiKey && !getToken) return null;
     return new DevicApiClient({
       apiKey,
       baseUrl: baseUrl || 'https://api.devic.ai',
+      getToken,
     });
-  }, [apiKey, baseUrl]);
+  }, [apiKey, getToken, baseUrl]);
 
   const [usage, setUsage] = useState<TenantUsage | null>(null);
   const [loaded, setLoaded] = useState(false);

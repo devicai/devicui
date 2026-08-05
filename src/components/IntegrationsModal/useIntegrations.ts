@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DevicApiClient } from "../../api/client";
 import type { DevicApiError } from "../../api/client";
+import { DevicApiClient } from "../../api/client";
 import type { Integration } from "../../api/types";
 import { useOptionalDevicContext } from "../../provider";
 
@@ -72,17 +72,23 @@ export function useIntegrations(
   } = options;
 
   const context = useOptionalDevicContext();
-  const resolvedApiKey = apiKey || context?.apiKey;
   const resolvedBaseUrl = baseUrl || context?.baseUrl || "https://api.devic.ai";
   const resolvedTenantId = tenantId || context?.tenantId;
   const resolvedSubtenantId = subtenantId || context?.subtenantId;
 
+  const resolvedApiKey = apiKey || context?.apiKey;
+  const resolvedGetToken = context?.getToken;
+
   const client = useMemo(
     () =>
-      resolvedApiKey
-        ? new DevicApiClient({ apiKey: resolvedApiKey, baseUrl: resolvedBaseUrl })
+      resolvedApiKey || resolvedGetToken
+        ? new DevicApiClient({
+            apiKey: resolvedApiKey,
+            baseUrl: resolvedBaseUrl,
+            getToken: resolvedGetToken,
+          })
         : null,
-    [resolvedApiKey, resolvedBaseUrl]
+    [resolvedApiKey, resolvedGetToken, resolvedBaseUrl]
   );
 
   const scope = useMemo(
@@ -103,7 +109,7 @@ export function useIntegrations(
   const refresh = useCallback(
     async (dropCache = false) => {
       if (!client) {
-        setError("API key not configured");
+        setError("No credentials configured");
         setSettled(true);
         return;
       }

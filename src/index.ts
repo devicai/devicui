@@ -127,7 +127,7 @@ export type {
 
 // API Client
 export { DevicApiClient, DevicApiError } from './api/client';
-export type { DevicApiClientConfig } from './api/client';
+export type { DevicApiClientConfig, TenantSessionToken } from './api/client';
 
 // API Types
 export {

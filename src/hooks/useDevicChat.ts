@@ -276,6 +276,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
 
   // Resolve configuration
   const apiKey = propsApiKey || context?.apiKey;
+  const getToken = context?.getToken;
   const baseUrl = propsBaseUrl || context?.baseUrl || 'https://api.devic.ai';
   const resolvedTenantId = tenantId || context?.tenantId;
   const resolvedTenantMetadata = { ...context?.tenantMetadata, ...tenantMetadata };
@@ -345,8 +346,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
 
   // Create API client
   const clientRef = useRef<DevicApiClient | null>(null);
-  if (!clientRef.current && apiKey) {
-    clientRef.current = new DevicApiClient({ apiKey, baseUrl });
+  if (!clientRef.current && (apiKey || getToken)) {
+    clientRef.current = new DevicApiClient({ apiKey, baseUrl, getToken });
   }
 
   // Update client config if it changes

@@ -171,13 +171,14 @@ export const AICommandBar = forwardRef<AICommandBarHandle, AICommandBarProps>(
 
     // Initialize feedback client
     useEffect(() => {
-      if (resolvedApiKey && !feedbackClientRef.current) {
+      if ((resolvedApiKey || context?.getToken) && !feedbackClientRef.current) {
         feedbackClientRef.current = new DevicApiClient({
           apiKey: resolvedApiKey,
           baseUrl: resolvedBaseUrl,
+          getToken: context?.getToken,
         });
       }
-    }, [resolvedApiKey, resolvedBaseUrl]);
+    }, [resolvedApiKey, context?.getToken, resolvedBaseUrl]);
 
     // Reset feedback state when result changes
     useEffect(() => {

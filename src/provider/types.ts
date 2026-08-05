@@ -45,9 +45,38 @@ export interface SubtenantMetadata {
  */
 export interface DevicProviderConfig {
   /**
-   * API key for authentication
+   * API key for authentication.
+   *
+   * Optional when `getToken` is supplied — a page that authenticates with
+   * tenant sessions has no reason to carry a key at all.
    */
-  apiKey: string;
+  apiKey?: string;
+
+  /**
+   * Fetches a tenant session from YOUR backend, which is the only place that
+   * knows which of your users is logged in.
+   *
+   * This is what makes the tenant a fact rather than a claim. With an API key
+   * alone the tenant is whatever the page declares, and the key sits in the
+   * bundle for anyone to read — so anyone can declare any tenant. A session is
+   * signed by your server, expires in minutes, and cannot reach beyond what an
+   * end user is allowed to do.
+   *
+   * Return the token, or `{ token, expiresAt }` if you know when it dies. It is
+   * called again on its own before expiry and after a rejected request, so it
+   * must be safe to call repeatedly.
+   *
+   * @example
+   * ```tsx
+   * <DevicProvider
+   *   getToken={async () => {
+   *     const r = await fetch('/api/devic-session', { credentials: 'include' });
+   *     return r.json();          // { token, expiresAt }
+   *   }}
+   * >
+   * ```
+   */
+  getToken?: () => Promise<string | { token: string; expiresAt?: number; expiresIn?: number }>;
 
   /**
    * Base URL for the Devic API
@@ -127,9 +156,15 @@ export interface DevicContextValue {
   client: DevicApiClient;
 
   /**
-   * Current API key
+   * Current API key. Absent when the page authenticates with tenant sessions.
    */
-  apiKey: string;
+  apiKey?: string;
+
+  /**
+   * The session source, when one was configured. Passed down so a component
+   * used outside this provider can still authenticate the same way.
+   */
+  getToken?: DevicProviderConfig['getToken'];
 
   /**
    * Base URL for the API
