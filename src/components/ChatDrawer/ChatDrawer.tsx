@@ -10,6 +10,7 @@ import { UsageBar } from './UsageBar';
 import { LimitBanner } from './LimitBanner';
 import { CoreMemoryModal } from '../CoreMemoryModal';
 import { IntegrationsModal } from '../IntegrationsModal';
+import type { DevicTheme } from '../theme';
 import type { ChatDrawerProps, ChatDrawerOptions, ChatDrawerHandle } from './ChatDrawer.types';
 import './styles.css';
 
@@ -488,6 +489,31 @@ function ChatDrawerInner({
     }
   }, [mergedOptions.color, mergedOptions.fontFamily, mergedOptions.backgroundColor, mergedOptions.textColor, mergedOptions.secondaryBackgroundColor, mergedOptions.borderColor, mergedOptions.userBubbleColor, mergedOptions.userBubbleTextColor, mergedOptions.assistantBubbleColor, mergedOptions.assistantBubbleTextColor, mergedOptions.sendButtonColor]);
 
+  // The same values, handed to the dialogs this drawer opens. They render
+  // through a portal into document.body, so the variables set above — which
+  // live on the drawer element — never reach them.
+  const modalTheme: DevicTheme = useMemo(
+    () => ({
+      color:
+        mergedOptions.color !== DEFAULT_OPTIONS.color
+          ? mergedOptions.color
+          : undefined,
+      fontFamily: mergedOptions.fontFamily,
+      backgroundColor: mergedOptions.backgroundColor,
+      textColor: mergedOptions.textColor,
+      secondaryBackgroundColor: mergedOptions.secondaryBackgroundColor,
+      borderColor: mergedOptions.borderColor,
+    }),
+    [
+      mergedOptions.color,
+      mergedOptions.fontFamily,
+      mergedOptions.backgroundColor,
+      mergedOptions.textColor,
+      mergedOptions.secondaryBackgroundColor,
+      mergedOptions.borderColor,
+    ]
+  );
+
   // Resizable drawer
   const [resizedWidth, setResizedWidth] = useState<number | null>(null);
 
@@ -783,6 +809,7 @@ function ChatDrawerInner({
           subtenantId={subtenantId}
           apiKey={resolvedApiKey}
           baseUrl={resolvedBaseUrl}
+          theme={modalTheme}
         />
       )}
 
@@ -797,6 +824,7 @@ function ChatDrawerInner({
           apiKey={resolvedApiKey}
           baseUrl={resolvedBaseUrl}
           title={mergedOptions.integrationsLabel}
+          theme={modalTheme}
         />
       )}
     </>

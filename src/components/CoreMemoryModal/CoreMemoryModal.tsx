@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import { DevicApiClient } from "../../api/client";
 import type { CoreMemoryEntry, CoreMemoryLimits } from "../../api/types";
 import { useOptionalDevicContext } from "../../provider";
+import { themeVars, type DevicTheme } from "../theme";
 import "./CoreMemoryModal.css";
 
 /** Canonical sections of the core tier, in display order. */
@@ -37,6 +38,12 @@ export interface CoreMemoryModalProps {
   editable?: boolean;
   /** Modal title. @default "Assistant memory" */
   title?: string;
+  /**
+   * Colours and font. Same names as the drawer's style options, and the drawer
+   * passes its own down — a dialog opening in the default light palette over a
+   * themed application is the one thing this must not do.
+   */
+  theme?: DevicTheme;
 }
 
 function BrainIcon(): JSX.Element {
@@ -93,6 +100,7 @@ export function CoreMemoryModal({
   baseUrl,
   editable = true,
   title = "Assistant memory",
+  theme,
 }: CoreMemoryModalProps): JSX.Element | null {
   const context = useOptionalDevicContext();
   const resolvedApiKey = apiKey || context?.apiKey;
@@ -247,7 +255,13 @@ export function CoreMemoryModal({
   for (const [name, list] of bySection) sections.push({ name, entries: list });
 
   return createPortal(
-    <div className="devic-cm-overlay" onClick={onClose}>
+    // The variables go on the overlay: a portal inherits nothing from the
+    // drawer that opened it, so without this the dialog ignores the theme.
+    <div
+      className="devic-cm-overlay"
+      style={themeVars(theme)}
+      onClick={onClose}
+    >
       <div
         className="devic-cm-modal"
         role="dialog"

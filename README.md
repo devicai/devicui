@@ -246,6 +246,18 @@ Connecting opens the provider's consent screen in a pop-up and refreshes as
 soon as it closes. If the browser blocks the pop-up, the authorisation URL is
 offered as a link instead.
 
+Opened from the drawer it inherits the drawer's colours and font. Standalone,
+pass them yourself with `theme` (same names as the drawer's style options) —
+both dialogs render through a portal, so nothing cascades into them on its own:
+
+```tsx
+<IntegrationsModal
+  ...
+  theme={{ backgroundColor: '#1a1a1a', textColor: '#e6e6e6', color: '#e8833a',
+           secondaryBackgroundColor: '#0f0f0f', borderColor: '#333' }}
+/>
+```
+
 ### AICommandBar
 
 A floating command bar (similar to Spotlight/Command Palette) for quick AI interactions.
