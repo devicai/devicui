@@ -214,30 +214,45 @@ export function IntegrationsHint({
     const bowY = ((dx / len) * bow) * side;
     const lift = Math.min(70, Math.max(18, len * 0.18));
 
-    const animation = ghost.animate?.(
-      [
-        {
-          transform: "translate(0, 0) scale(1)",
-          opacity: 0.95,
-          offset: 0,
-          easing: "cubic-bezier(0.22, 0.7, 0.4, 1)",
-        },
-        {
-          // Bigger in the middle: it grows as it leaves the bar and shrinks
-          // into the header, so the eye follows the thing rather than the fade.
-          transform: `translate(${dx * 0.45 + bowX}px, ${dy * 0.5 - lift + bowY}px) scale(1.2)`,
-          opacity: 1,
-          offset: 0.5,
-          easing: "cubic-bezier(0.5, 0, 0.7, 0.9)",
-        },
-        {
-          transform: `translate(${dx}px, ${dy}px) scale(${scale})`,
-          opacity: 0,
-          offset: 1,
-        },
-      ],
-      { duration: 780, fill: "forwards" }
-    );
+    // The curve the copy travels, as a quadratic Bézier through that midpoint.
+    // The control point is derived so the curve actually passes through it —
+    // a Bézier does not go through its control.
+    const midX = dx * 0.45 + bowX;
+    const midY = dy * 0.5 - lift + bowY;
+    const ctrlX = 2 * midX - dx / 2;
+    const ctrlY = 2 * midY - dy / 2;
+
+    // Sampled into many linear steps rather than three keyframes with an easing
+    // each. Per-keyframe easings ease OUT into the midpoint and IN out of it,
+    // which is a stop halfway — the shape was right and the motion was two
+    // hops. Here the keyframes carry only the shape, and one global easing
+    // carries the pace: speed builds to a peak at the centre and settles into
+    // the target.
+    const STEPS = 24;
+    // Above the 1.2 of a plain keyframe: this rides on top of the shrink
+    // towards the target's size, so the two partly cancel at the apex.
+    const PEAK = 1.35;
+    const frames = Array.from({ length: STEPS + 1 }, (_, i) => {
+      const t = i / STEPS;
+      const u = 1 - t;
+      return {
+        offset: t,
+        transform:
+          `translate(${2 * u * t * ctrlX + t * t * dx}px, ` +
+          `${2 * u * t * ctrlY + t * t * dy}px) ` +
+          // Swells on the way and shrinks into the header, so the eye follows
+          // the thing rather than the fade.
+          `scale(${1 + (scale - 1) * t + (PEAK - 1) * Math.sin(Math.PI * t)})`,
+        opacity: t <= 0.5 ? 1 : 1 - Math.pow((t - 0.5) * 2, 1.6),
+        easing: "linear",
+      };
+    });
+
+    const animation = ghost.animate?.(frames, {
+      duration: 780,
+      easing: "cubic-bezier(0.5, 0, 0.5, 1)",
+      fill: "forwards",
+    });
 
     const remove = () => ghost.remove();
     if (animation) animation.onfinish = remove;
