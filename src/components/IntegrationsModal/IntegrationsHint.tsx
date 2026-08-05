@@ -79,6 +79,50 @@ function boxesThatFit(width: number, max: number): number {
   return Math.max(3, Math.min(max + 1, Math.floor((width - LABEL_AND_CLOSE) / 30)));
 }
 
+/** Whether an element is on screen right now. */
+function isVisible(el: Element): boolean {
+  const r = el.getBoundingClientRect();
+  if (!r.width || !r.height) return false;
+  return (
+    r.bottom > 0 &&
+    r.right > 0 &&
+    r.top < window.innerHeight &&
+    r.left < window.innerWidth
+  );
+}
+
+/**
+ * The header control this bar belongs to.
+ *
+ * Scoped to its own drawer first — a page can hold several, each with its own
+ * header — and only then to the nearest visible one anywhere. The class name is
+ * checked against both the drawer's own container and the legacy one, because
+ * getting this wrong is silent: `closest` returns null, the search widens to the
+ * whole document, and the copy flies to whichever control happens to be first
+ * in the DOM.
+ */
+function flyTarget(bar: Element, selector: string): HTMLElement | null {
+  if (!selector) return null;
+
+  const drawer = bar.closest(".devic-chat-drawer, .devic-drawer");
+  const own = drawer?.querySelector(selector) as HTMLElement | null;
+  if (own && isVisible(own)) return own;
+
+  const barRect = bar.getBoundingClientRect();
+  const candidates = [...document.querySelectorAll(selector)].filter(isVisible);
+  if (!candidates.length) return null;
+
+  // Nearest to the bar, so a page with several drawers still animates towards
+  // the one the user is looking at.
+  return candidates.reduce((best, el) => {
+    const d = (e: Element) => {
+      const r = e.getBoundingClientRect();
+      return Math.hypot(r.left - barRect.left, r.top - barRect.top);
+    };
+    return d(el) < d(best) ? el : best;
+  }) as HTMLElement;
+}
+
 /**
  * The strip above the composer that tells the end user their own apps can be
  * connected here.
@@ -135,12 +179,10 @@ export function IntegrationsHint({
     if (!bar || typeof document === "undefined") return;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
 
-    // Scoped to the drawer this bar lives in: a page with two drawers has two
-    // launchers, and the copy must fly to its own.
-    const root = bar.closest(".devic-drawer") ?? document;
-    const target = flyToSelector
-      ? (root.querySelector(flyToSelector) as HTMLElement | null)
-      : null;
+    const target = flyTarget(bar, flyToSelector);
+    // Nothing to fly to, or nothing the user can see: the bar just closes.
+    // A copy sailing off towards something 2000px down the page says the
+    // opposite of what this animation is for.
     if (!target) return;
 
     const logos = bar.querySelector(".devic-int-hint-logos");
@@ -211,7 +253,6 @@ export function IntegrationsHint({
         type="button"
         className="devic-int-hint-main"
         onClick={onOpen}
-        title={text}
       >
         <span className="devic-int-hint-label">{text}</span>
         <span className="devic-int-hint-logos" aria-hidden="true">
