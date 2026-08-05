@@ -450,6 +450,11 @@ export function IntegrationsModal({
                       }`}
                       onClick={() => handleConnect(integration)}
                       disabled={busy || !!busyApp}
+                      title={
+                        cardState.key === "connected"
+                          ? "Sign in with a different account. The one connected now is replaced."
+                          : undefined
+                      }
                     >
                       {busy
                         ? "Waiting…"
@@ -457,7 +462,10 @@ export function IntegrationsModal({
                           ? "Connect"
                           : cardState.key === "reconnect"
                             ? "Reconnect"
-                            : "Add account"}
+                            : // Not "Add account": one account per app is all
+                              // the assistant can use, and connecting again
+                              // retires the previous one.
+                              "Switch account"}
                     </button>
 
                     {integration.accounts.length > 0 && (

@@ -257,6 +257,11 @@ The apps are shown as a searchable grid of cards; connecting opens the
 provider's consent screen in a pop-up and refreshes as soon as it closes. If the
 browser blocks the pop-up, the authorisation URL is offered as a link instead.
 
+**One account per app.** A tenant that connects an app again is switching
+account, not adding one: the previous account is retired server-side. Two
+accounts for the same app would be indistinguishable — the run has to pick one,
+and the end user cannot see which.
+
 To put the same stack somewhere else, or to know whether an assistant offers
 anything at all before rendering your own control, use the pieces directly. The
 listing is loaded once and shared, so the launcher and the modal never ask for
