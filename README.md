@@ -245,7 +245,7 @@ tenant/subtenant: the same end user is never told twice, the next one still is.
 options={{
   showIntegrationsHint: true,          // default
   integrationsHintLabel: 'Connect your apps',
-  // Unset, it reads "Connect your apps" and becomes "Your connected apps"
+  // Unset, it reads "Connect your apps" and becomes "Explore connected apps"
   // once the end user has connected one.
 }}
 ```

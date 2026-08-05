@@ -90,7 +90,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   integrationsLabel: 'Connected apps',
   maxIntegrationLogos: 6,
   showIntegrationsHint: true,
-  // Left unset so the strip can say "Connect your apps" or "Your connected
+  // Left unset so the strip can say "Connect your apps" or "Explore connected
   // apps" depending on what the end user has actually done.
   integrationsHintLabel: undefined as any,
 };

@@ -17,7 +17,7 @@ export interface IntegrationsHintProps {
   /** Opens the connected-apps modal. */
   onOpen: () => void;
   /**
-   * Text on the left. Defaults to "Connect your apps", or "Your connected
+   * Text on the left. Defaults to "Connect your apps", or "Explore connected
    * apps" once at least one is connected — an invitation the user has already
    * accepted stops being an invitation.
    */
@@ -189,7 +189,7 @@ export function IntegrationsHint({
   const text =
     label ??
     (sorted.some((i) => i.connected)
-      ? "Your connected apps"
+      ? "Explore connected apps"
       : "Connect your apps");
 
   // When some apps will not fit, the `+N` box takes one of the slots itself.

@@ -610,7 +610,7 @@ export interface ChatDrawerOptions {
   showIntegrationsHint?: boolean;
 
   /**
-   * Text on that strip. Left unset it reads "Connect your apps", and "Your
+   * Text on that strip. Left unset it reads "Connect your apps", and "Explore
    * connected apps" once the end user has connected one.
    */
   integrationsHintLabel?: string;
