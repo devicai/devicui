@@ -201,22 +201,49 @@ export function IntegrationsHint({
     const dy = to.top + to.height / 2 - (from.top + from.height / 2);
     const scale = from.width ? Math.max(0.4, to.width / from.width) : 0.6;
 
+    // An arc, not a straight line. The bow is perpendicular to the path, which
+    // is what actually reads as a curve: this trip is nearly vertical, and
+    // pulling only on Y just makes it accelerate. It opens away from the
+    // target's side so the copy swings out and comes back in, and both terms
+    // scale with the distance — a short hop should not loop — and are capped so
+    // a long page does not throw it off screen.
+    const len = Math.hypot(dx, dy) || 1;
+    const bow = Math.min(48, Math.max(16, len * 0.18));
+    const side = dx <= 0 ? 1 : -1;
+    const bowX = ((-dy / len) * bow) * side;
+    const bowY = ((dx / len) * bow) * side;
+    const lift = Math.min(70, Math.max(18, len * 0.18));
+
     const animation = ghost.animate?.(
       [
-        { transform: "translate(0, 0) scale(1)", opacity: 0.95 },
+        {
+          transform: "translate(0, 0) scale(1)",
+          opacity: 0.95,
+          offset: 0,
+          easing: "cubic-bezier(0.22, 0.7, 0.4, 1)",
+        },
+        {
+          // Bigger in the middle: it grows as it leaves the bar and shrinks
+          // into the header, so the eye follows the thing rather than the fade.
+          transform: `translate(${dx * 0.45 + bowX}px, ${dy * 0.5 - lift + bowY}px) scale(1.2)`,
+          opacity: 1,
+          offset: 0.5,
+          easing: "cubic-bezier(0.5, 0, 0.7, 0.9)",
+        },
         {
           transform: `translate(${dx}px, ${dy}px) scale(${scale})`,
           opacity: 0,
+          offset: 1,
         },
       ],
-      { duration: 420, easing: "cubic-bezier(0.4, 0, 0.2, 1)" }
+      { duration: 780, fill: "forwards" }
     );
 
     const remove = () => ghost.remove();
     if (animation) animation.onfinish = remove;
     else remove();
     // Belt and braces: a tab backgrounded mid-flight never fires onfinish.
-    window.setTimeout(remove, 1200);
+    window.setTimeout(remove, 2000);
   }, [flyToSelector]);
 
   const dismiss = () => {
