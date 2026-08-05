@@ -19,6 +19,7 @@ import type {
   TenantUsageHistoryQuery,
   CoreMemoryList,
   CoreMemoryEntry,
+  Integration,
 } from "./types";
 
 export interface DevicApiClientConfig {
@@ -612,6 +613,92 @@ export class DevicApiClient {
         entryId,
       ),
       { method: "DELETE" },
+    );
+  }
+
+  // ── Connected apps of the end user ────────────────────────────────
+  //
+  // Backed by `/api/v1/tenant-integrations`: the tenant is resolved on the
+  // server and never taken from the path. The tenant/subtenant sent here
+  // identify the end user in front of the widget, so one tenant's accounts are
+  // never reachable from another's.
+
+  private integrationsQuery(options: {
+    assistantId: string;
+    tenantId?: string;
+    subtenantId?: string;
+    returnTo?: string;
+  }): string {
+    const params = new URLSearchParams({ assistantId: options.assistantId });
+    if (options.tenantId) params.set("tenantId", options.tenantId);
+    if (options.subtenantId) params.set("subtenantId", options.subtenantId);
+    if (options.returnTo) params.set("returnTo", options.returnTo);
+    return params.toString();
+  }
+
+  /** Apps this assistant offers, with the end user's own connection status. */
+  async getIntegrations(options: {
+    assistantId: string;
+    tenantId?: string;
+    subtenantId?: string;
+  }): Promise<Integration[]> {
+    return this.request<Integration[]>(
+      `/api/v1/tenant-integrations?${this.integrationsQuery(options)}`,
+    );
+  }
+
+  /**
+   * Starts connecting an account. Returns the URL to open in a popup.
+   *
+   * `returnTo` is where the callback posts the result back to, and the server
+   * refuses any value that does not match the origin this request came from —
+   * so it cannot be turned into an open redirector.
+   */
+  async connectIntegration(
+    app: string,
+    options: {
+      assistantId: string;
+      tenantId?: string;
+      subtenantId?: string;
+      returnTo?: string;
+    },
+  ): Promise<{ authorizationUrl: string }> {
+    return this.request<{ authorizationUrl: string }>(
+      `/api/v1/tenant-integrations/${encodeURIComponent(app)}/connect?${this.integrationsQuery(options)}`,
+      { method: "POST" },
+    );
+  }
+
+  /** Disconnects one of the end user's own accounts. */
+  async disconnectIntegration(
+    accountId: string,
+    options: {
+      assistantId: string;
+      tenantId?: string;
+      subtenantId?: string;
+    },
+  ): Promise<{ disconnected: boolean }> {
+    return this.request(
+      `/api/v1/tenant-integrations/accounts/${encodeURIComponent(accountId)}?${this.integrationsQuery(options)}`,
+      { method: "DELETE" },
+    );
+  }
+
+  /**
+   * Drops the server's short-lived cache of the end user's connections.
+   *
+   * Called right after the OAuth popup closes: without it the freshly connected
+   * app would keep reading as disconnected until the cache expires, which looks
+   * like the connection silently failed.
+   */
+  async refreshIntegrations(options: {
+    assistantId: string;
+    tenantId?: string;
+    subtenantId?: string;
+  }): Promise<{ refreshed: boolean }> {
+    return this.request(
+      `/api/v1/tenant-integrations/refresh?${this.integrationsQuery(options)}`,
+      { method: "POST" },
     );
   }
 }

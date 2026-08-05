@@ -574,6 +574,22 @@ export interface ChatDrawerOptions {
    * @default false
    */
   showCoreMemoryButton?: boolean;
+
+  /**
+   * Show a button in the drawer header that opens the IntegrationsModal: the
+   * apps the assistant offers to its tenants, where the end user connects and
+   * removes their OWN accounts. Requires the assistant (or its environment) to
+   * enable tenant integrations, and the API key to allow
+   * `/api/v1/tenant-integrations/*`.
+   * @default false
+   */
+  showIntegrationsButton?: boolean;
+
+  /**
+   * Label of the integrations button, used as its tooltip and accessible name.
+   * @default "Connected apps"
+   */
+  integrationsLabel?: string;
 }
 
 /**

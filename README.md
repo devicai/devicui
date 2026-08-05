@@ -205,6 +205,47 @@ Backed by the public memory API (`GET/POST/PATCH/DELETE
 /api/v1/memory/assistants/:identifier/core`); the API key must allow
 `/api/v1/memory/*` (included in the devic-ui key preset).
 
+### IntegrationsModal
+
+Modal where the **end user** connects their **own** third-party accounts —
+the apps you enabled for tenants of the assistant, each with the accounts
+*that* tenant has connected. Never the workspace-wide accounts you connected
+as an admin, and never another tenant's.
+
+```tsx
+<ChatDrawer
+  assistantId="my-assistant"
+  tenantId="acme-corp"
+  subtenantId="user-123"
+  options={{
+    showIntegrationsButton: true,      // plug button in the header
+    integrationsLabel: 'Connected apps',
+  }}
+/>
+```
+
+Or standalone, with your own trigger:
+
+```tsx
+<IntegrationsModal
+  isOpen={open}
+  onClose={() => setOpen(false)}
+  assistantId="my-assistant"
+  tenantId="acme-corp"        // falls back to the provider's
+  subtenantId="user-123"      // falls back to the provider's
+  onChange={(apps) => console.log(apps.filter((a) => a.connected))}
+/>
+```
+
+Requires the assistant (or its environment) to enable tenant integrations and
+list the apps on offer — nothing outside that list is connectable — and the
+API key to allow `/api/v1/tenant-integrations/*` (included in the devic-ui key
+preset).
+
+Connecting opens the provider's consent screen in a pop-up and refreshes as
+soon as it closes. If the browser blocks the pop-up, the authorisation URL is
+offered as a link instead.
+
 ### AICommandBar
 
 A floating command bar (similar to Spotlight/Command Palette) for quick AI interactions.
