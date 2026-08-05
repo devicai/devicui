@@ -28,6 +28,8 @@ const DEFAULT_BASE_URL = 'https://api.devic.ai';
  */
 export function DevicProvider({
   apiKey,
+  getTenantSession,
+  onSessionExpired,
   baseUrl = DEFAULT_BASE_URL,
   tenantId,
   tenantMetadata,
@@ -67,22 +69,50 @@ export function DevicProvider({
     drawerRef.current?.open();
   }, []);
 
+  // Both callbacks are read through a ref and handed on as stable wrappers.
+  // An inline `getTenantSession={() => …}` is a new function on every render,
+  // and passing it straight through would rebuild the client — throwing away
+  // the session it holds, so the page fetches a token per render — and rebuild
+  // the context, so every component below it would do the same.
+  const sessionSourceRef = useRef(getTenantSession);
+  sessionSourceRef.current = getTenantSession;
+  const expiredRef = useRef(onSessionExpired);
+  expiredRef.current = onSessionExpired;
+  const usesSessions = !!getTenantSession;
+
+  const tenantSession = useMemo(
+    () =>
+      usesSessions
+        ? () => sessionSourceRef.current!()
+        : undefined,
+    [usesSessions]
+  );
+  const sessionExpired = useMemo(() => () => expiredRef.current?.(), []);
+
   const client = useMemo(
-    () => new DevicApiClient({ apiKey, baseUrl }),
-    [apiKey, baseUrl]
+    () =>
+      new DevicApiClient({
+        apiKey,
+        baseUrl,
+        getTenantSession: tenantSession,
+        onSessionExpired: sessionExpired,
+      }),
+    [apiKey, baseUrl, tenantSession, sessionExpired]
   );
 
   const contextValue = useMemo<DevicContextValue>(
     () => ({
       client,
       apiKey,
+      getTenantSession: tenantSession,
+      onSessionExpired: sessionExpired,
       baseUrl,
       tenantId,
       tenantMetadata,
       subtenantId,
       subtenantMetadata,
       tags,
-      isConfigured: !!apiKey,
+      isConfigured: !!apiKey || usesSessions,
       debug,
       references,
       addReference,
@@ -94,6 +124,9 @@ export function DevicProvider({
     [
       client,
       apiKey,
+      tenantSession,
+      sessionExpired,
+      usesSessions,
       baseUrl,
       tenantId,
       tenantMetadata,

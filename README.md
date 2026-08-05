@@ -89,7 +89,7 @@ Context provider for global configuration.
 
 ```tsx
 <DevicProvider
-  apiKey="devic-xxx"           // Required
+  apiKey="devic-xxx"           // Required, unless you use getTenantSession
   baseUrl="https://api.devic.ai"
   tenantId="tenant-123"        // Optional global tenant
   tenantMetadata={{ ... }}     // Optional global metadata
@@ -97,6 +97,79 @@ Context provider for global configuration.
   <App />
 </DevicProvider>
 ```
+
+#### Tenant sessions — proving who the end user is
+
+With an API key alone, the tenant is whatever the page says it is. The key sits
+in your bundle where anyone can read it, so anyone can say they are any of your
+customers, and read that customer's conversations.
+
+`getTenantSession` replaces that claim with a fact. Your backend — the only
+place that knows who is logged in — mints the session, and the widget renews it
+on its own before it expires:
+
+```tsx
+<DevicProvider
+  getTenantSession={async () => {
+    const r = await fetch('/api/devic-session', { credentials: 'include' });
+    return r.json();                   // { token, expiresAt }
+  }}
+  onSessionExpired={() => location.reload()}
+>
+  <App />
+</DevicProvider>
+```
+
+On your server, with a **server-side** API key (not the one in your bundle):
+
+```ts
+app.post('/api/devic-session', requireLogin, async (req, res) => {
+  const r = await fetch('https://api.devic.ai/api/v1/tenant-sessions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.DEVIC_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    // From YOUR session, never from the request body.
+    body: JSON.stringify({
+      tenantId: req.user.organisationId,
+      subtenantId: req.user.id,
+      ttlSeconds: 3600,                // default; up to 12 h
+    }),
+  });
+  res.json(await r.json());
+});
+```
+
+A session is confined to what an end user does — chatting, their own
+conversations, attachments, their own limits, their own connected apps — and
+dies with the API key that minted it. It cannot create assistants, read your
+costs or reach another tenant, whatever the page asks for.
+
+**Without a renewal endpoint.** You do not have to expose one. Mint the session
+inside your own login, give it `ttlSeconds` matching your session, and hand it
+to the page:
+
+```tsx
+<DevicProvider
+  getTenantSession={async () => readCookie('devic_session')}
+  onSessionExpired={() => location.assign('/login')}
+>
+```
+
+Simpler, and the trade is only the window if a token is stolen — the same one
+your own session cookie already accepts. What matters is untouched: a stolen
+session still cannot act as another tenant or reach beyond an end user. The
+cookie has to be readable by JavaScript, so it is exposed to XSS; injecting the
+token into the page at render time carries the same risk without sending it on
+every request to your own domain.
+
+Do set `onSessionExpired` in this mode. There is nothing to renew from, so
+without it the widget just stops answering — at the exact moment the user's own
+login has expired too.
+
+You can also require sessions: an assistant with `identityMode: 'signed'`
+refuses unsigned callers outright for connected apps.
 
 ### ChatDrawer
 

@@ -103,20 +103,25 @@ export function CoreMemoryModal({
   theme,
 }: CoreMemoryModalProps): JSX.Element | null {
   const context = useOptionalDevicContext();
-  const resolvedApiKey = apiKey || context?.apiKey;
   const resolvedBaseUrl = baseUrl || context?.baseUrl || "https://api.devic.ai";
   const resolvedTenantId = tenantId || context?.tenantId;
   const resolvedSubtenantId = subtenantId || context?.subtenantId;
 
+  const resolvedApiKey = apiKey || context?.apiKey;
+  const resolvedTenantSession = context?.getTenantSession;
+  const onSessionExpired = context?.onSessionExpired;
+
   const client = useMemo(
     () =>
-      resolvedApiKey
+      resolvedApiKey || resolvedTenantSession
         ? new DevicApiClient({
             apiKey: resolvedApiKey,
             baseUrl: resolvedBaseUrl,
+            getTenantSession: resolvedTenantSession,
+      onSessionExpired,
           })
         : null,
-    [resolvedApiKey, resolvedBaseUrl]
+    [resolvedApiKey, resolvedTenantSession, resolvedBaseUrl]
   );
 
   const [loading, setLoading] = useState(false);

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import { useOptionalDevicContext } from '../../provider';
 import type { ChatInputProps } from './ChatDrawer.types';
 import { useSpeechRecording } from '../../hooks/useSpeechRecording';
 import { DevicApiClient } from '../../api/client';
@@ -180,13 +181,18 @@ function ChatInputBox({
   const holdFiredRef = useRef(false);
 
   // Client used only for the /whisper transcription call.
+  const devicContext = useOptionalDevicContext();
+  const getTenantSession = devicContext?.getTenantSession;
+  const onSessionExpired = devicContext?.onSessionExpired;
   const transcribeClient = useMemo(() => {
-    if (!enableSpeechToText || !apiKey) return null;
+    if (!enableSpeechToText || (!apiKey && !getTenantSession)) return null;
     return new DevicApiClient({
       apiKey,
       baseUrl: baseUrl || 'https://api.devic.ai',
+      getTenantSession,
+      onSessionExpired,
     });
-  }, [enableSpeechToText, apiKey, baseUrl]);
+  }, [enableSpeechToText, apiKey, getTenantSession, baseUrl]);
 
   const speechEnabled =
     enableSpeechToText && recording.isSupported && !!transcribeClient;

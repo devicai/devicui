@@ -22,9 +22,72 @@ import type {
   Integration,
 } from "./types";
 
+/**
+ * A tenant session, as the integrator's backend hands it over.
+ *
+ * A bare string is accepted too — the expiry is then read out of the token
+ * itself, so the simplest possible source still gets proactive renewal.
+ */
+export interface TenantSessionToken {
+  token: string;
+  /** Epoch milliseconds. */
+  expiresAt?: number;
+  /** Seconds from now. Used when `expiresAt` is absent. */
+  expiresIn?: number;
+}
+
 export interface DevicApiClientConfig {
-  apiKey: string;
+  /**
+   * The public API key. Optional when `getTenantSession` is supplied — a page
+   * using tenant sessions has no reason to carry one.
+   */
+  apiKey?: string;
   baseUrl: string;
+  /**
+   * Where the tenant session comes from.
+   *
+   * Supplying this changes what the tenant IS: with an API key alone the tenant
+   * is whatever the page says it is, and the page can say anything. With a
+   * session it is what your server signed.
+   *
+   * A function rather than a value because it is called again on its own —
+   * before the token expires and after the API rejects one. It does not have to
+   * reach your backend: reading a cookie your login already set is a perfectly
+   * good answer, and then the whole thing is `async () => readCookie(…)`.
+   */
+  getTenantSession?: () => Promise<string | TenantSessionToken>;
+  /**
+   * Called when the session is dead and cannot be replaced — the API rejected
+   * it and `getTenantSession` handed back the same expired token.
+   *
+   * Matters most when the session comes from a cookie with no way to renew it:
+   * without this the widget simply stops answering, at the exact moment the
+   * user's own login has also expired. Refresh the page, send them to log in,
+   * or say something — but say it.
+   */
+  onSessionExpired?: () => void;
+}
+
+/** Renew this long before expiry, so a request never leaves with a dead token. */
+const RENEWAL_MARGIN_MS = 60_000;
+
+/**
+ * The expiry inside a JWT, in epoch milliseconds.
+ *
+ * Read rather than required, so the session source can return just the string.
+ * Any failure means "no idea", and the token is then renewed only when the API
+ * rejects it — correct, just less graceful.
+ */
+function expiryOf(token: string): number | undefined {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return undefined;
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    const exp = JSON.parse(json)?.exp;
+    return typeof exp === "number" ? exp * 1000 : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -32,6 +95,11 @@ export interface DevicApiClientConfig {
  */
 export class DevicApiClient {
   private config: DevicApiClientConfig;
+  private session?: { token: string; expiresAt?: number };
+  /** In flight renewal, shared so a burst of calls fetches one token. */
+  private renewing?: Promise<string>;
+  /** So a page full of widgets reports one expiry, not one per widget. */
+  private expiryReported = false;
 
   constructor(config: DevicApiClientConfig) {
     this.config = config;
@@ -41,7 +109,88 @@ export class DevicApiClient {
    * Update client configuration
    */
   setConfig(config: Partial<DevicApiClientConfig>): void {
+    const previous = this.config;
     this.config = { ...this.config, ...config };
+    // A new session source speaks for a different end user; keeping the old
+    // token would show them the previous one's conversations.
+    if (
+      config.getTenantSession &&
+      config.getTenantSession !== previous.getTenantSession
+    ) {
+      this.session = undefined;
+      this.expiryReported = false;
+    }
+  }
+
+  /** The credential for the next request, renewed if it is about to expire. */
+  private async authorization(force = false): Promise<string> {
+    if (!this.config.getTenantSession) return this.config.apiKey ?? "";
+
+    const current = this.session;
+    const stillGood =
+      current &&
+      (current.expiresAt === undefined ||
+        current.expiresAt - Date.now() > RENEWAL_MARGIN_MS);
+    if (stillGood && !force) return current.token;
+
+    return this.renew();
+  }
+
+  private renew(): Promise<string> {
+    if (!this.renewing) {
+      this.renewing = Promise.resolve(this.config.getTenantSession!())
+        .then((result) => {
+          const token = typeof result === "string" ? result : result.token;
+          const declared =
+            typeof result === "string"
+              ? undefined
+              : (result.expiresAt ??
+                (result.expiresIn
+                  ? Date.now() + result.expiresIn * 1000
+                  : undefined));
+          this.session = { token, expiresAt: declared ?? expiryOf(token) };
+          return token;
+        })
+        .finally(() => {
+          this.renewing = undefined;
+        });
+    }
+    return this.renewing;
+  }
+
+  /**
+   * Whether a rejected request is worth retrying, having got a live session.
+   *
+   * Takes the token the request actually went out with, not the current one:
+   * with several requests in flight another may already have replaced it, and
+   * comparing against the current one would read that success as a failure.
+   *
+   * False means the session is dead and cannot be replaced — a cookie set at
+   * login, now expired, with nowhere to renew it from. That is worth telling
+   * the host application about, once.
+   */
+  private async recoverSession(rejected: string): Promise<boolean> {
+    if (this.session && this.session.token !== rejected) {
+      this.expiryReported = false;
+      return true;
+    }
+
+    let fresh: string | undefined;
+    try {
+      fresh = await this.renew();
+    } catch {
+      fresh = undefined;
+    }
+    if (fresh && fresh !== rejected) {
+      this.expiryReported = false;
+      return true;
+    }
+
+    if (!this.expiryReported) {
+      this.expiryReported = true;
+      this.config.onSessionExpired?.();
+    }
+    return false;
   }
 
   /**
@@ -50,12 +199,14 @@ export class DevicApiClient {
   private async request<T>(
     endpoint: string,
     options: RequestInit = {},
+    isRetry = false,
   ): Promise<T> {
     const url = `${this.config.baseUrl}${endpoint}`;
+    const credential = await this.authorization();
 
     const headers: HeadersInit = {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${this.config.apiKey}`,
+      Authorization: `Bearer ${credential}`,
       "devic-api-source": "ui",
       ...options.headers,
     };
@@ -64,6 +215,15 @@ export class DevicApiClient {
       ...options,
       headers,
     });
+
+    // A session can die between being checked and being used — a clock adrift,
+    // a tab asleep for an hour, the key revoked. One retry with a fresh token
+    // turns that into a pause instead of a broken conversation.
+    if (response.status === 401 && this.config.getTenantSession && !isRetry) {
+      if (await this.recoverSession(credential)) {
+        return this.request<T>(endpoint, options, true);
+      }
+    }
 
     if (!response.ok) {
       let errorData: ApiError;
@@ -381,20 +541,28 @@ export class DevicApiClient {
    */
   async uploadFile(
     file: File,
+    isRetry = false,
   ): Promise<{ name: string; downloadUrl: string; fileType: string }> {
     const url = `${this.config.baseUrl}/api/v1/files/upload`;
 
     const formData = new FormData();
     formData.append("file", file);
 
+    const credential = await this.authorization();
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${this.config.apiKey}`,
+        Authorization: `Bearer ${credential}`,
         "devic-api-source": "ui",
       },
       body: formData,
     });
+
+    // The FormData is rebuilt from `file` on the way back in, so unlike a
+    // consumed stream this retry is safe.
+    if (response.status === 401 && this.config.getTenantSession && !isRetry) {
+      if (await this.recoverSession(credential)) return this.uploadFile(file, true);
+    }
 
     if (!response.ok) {
       let errorData: { statusCode: number; message: string };
@@ -432,6 +600,7 @@ export class DevicApiClient {
       tenantId?: string;
       fileName?: string;
     },
+    isRetry = false,
   ): Promise<WhisperTranscriptionResponse> {
     const url = `${this.config.baseUrl}/api/v1/whisper`;
 
@@ -446,14 +615,21 @@ export class DevicApiClient {
     if (options?.chatUid) formData.append("chatUid", options.chatUid);
     if (options?.tenantId) formData.append("tenantId", options.tenantId);
 
+    const credential = await this.authorization();
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${this.config.apiKey}`,
+        Authorization: `Bearer ${credential}`,
         "devic-api-source": "ui",
       },
       body: formData,
     });
+
+    if (response.status === 401 && this.config.getTenantSession && !isRetry) {
+      if (await this.recoverSession(credential)) {
+        return this.transcribeAudio(audio, options, true);
+      }
+    }
 
     if (!response.ok) {
       let errorData: { statusCode: number; message: string };

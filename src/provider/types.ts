@@ -45,9 +45,54 @@ export interface SubtenantMetadata {
  */
 export interface DevicProviderConfig {
   /**
-   * API key for authentication
+   * API key for authentication.
+   *
+   * Optional when `getTenantSession` is supplied — a page that authenticates with
+   * tenant sessions has no reason to carry a key at all.
    */
-  apiKey: string;
+  apiKey?: string;
+
+  /**
+   * Fetches a tenant session from YOUR backend, which is the only place that
+   * knows which of your users is logged in.
+   *
+   * This is what makes the tenant a fact rather than a claim. With an API key
+   * alone the tenant is whatever the page declares, and the key sits in the
+   * bundle for anyone to read — so anyone can declare any tenant. A session is
+   * signed by your server, expires, and cannot reach beyond what an end user is
+   * allowed to do.
+   *
+   * It does not have to reach your backend on every call: if you mint the
+   * session inside your own login and put it in a cookie, this is just
+   * `async () => readCookie(…)`. Give it a lifetime matching your own session
+   * (`ttlSeconds`, up to 12 h) and pair it with `onSessionExpired`.
+   *
+   * Return the token, or `{ token, expiresAt }` if you know when it dies. It is
+   * called again on its own before expiry and after a rejected request, so it
+   * must be safe to call repeatedly.
+   *
+   * @example
+   * ```tsx
+   * <DevicProvider
+   *   getTenantSession={async () => {
+   *     const r = await fetch('/api/devic-session', { credentials: 'include' });
+   *     return r.json();          // { token, expiresAt }
+   *   }}
+   * >
+   * ```
+   */
+  getTenantSession?: () => Promise<string | { token: string; expiresAt?: number; expiresIn?: number }>;
+
+  /**
+   * Called when the session is dead and cannot be replaced — the API rejected
+   * it and `getTenantSession` handed back the same expired token.
+   *
+   * Matters most when the session comes from a cookie with no way to renew it:
+   * without this the widget simply stops answering, at the exact moment the
+   * user's own login has also expired. Refresh, send them to log in, or say
+   * something — but say it.
+   */
+  onSessionExpired?: () => void;
 
   /**
    * Base URL for the Devic API
@@ -127,9 +172,21 @@ export interface DevicContextValue {
   client: DevicApiClient;
 
   /**
-   * Current API key
+   * Current API key. Absent when the page authenticates with tenant sessions.
    */
-  apiKey: string;
+  apiKey?: string;
+
+  /**
+   * The session source, when one was configured. Passed down so a component
+   * used outside this provider can still authenticate the same way.
+   */
+  getTenantSession?: DevicProviderConfig['getTenantSession'];
+
+  /**
+   * Reported when the session cannot be replaced. Passed down for the same
+   * reason as the session source itself.
+   */
+  onSessionExpired?: DevicProviderConfig['onSessionExpired'];
 
   /**
    * Base URL for the API

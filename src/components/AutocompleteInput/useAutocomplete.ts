@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from "../../api/client";
 import { storage } from "../../utils";
 import type { ChatMessage } from "../../api/types";
@@ -174,15 +175,18 @@ export function useAutocomplete(
   const debouncedValue = useDebounce(value, debounceMs);
 
   // Lazily create/update client
+  const devicContext = useOptionalDevicContext();
+  const getTenantSession = devicContext?.getTenantSession;
+  const onSessionExpired = devicContext?.onSessionExpired;
   const getClient = useCallback(() => {
-    if (!apiKey || !baseUrl) return null;
+    if ((!apiKey && !getTenantSession) || !baseUrl) return null;
     if (!clientRef.current) {
-      clientRef.current = new DevicApiClient({ apiKey, baseUrl });
+      clientRef.current = new DevicApiClient({ apiKey, baseUrl, getTenantSession, onSessionExpired });
     } else {
-      clientRef.current.setConfig({ apiKey, baseUrl });
+      clientRef.current.setConfig({ apiKey, baseUrl, getTenantSession, onSessionExpired });
     }
     return clientRef.current;
-  }, [apiKey, baseUrl]);
+  }, [apiKey, getTenantSession, baseUrl]);
 
   const cancelRequest = useCallback(() => {
     if (abortRef.current) {
