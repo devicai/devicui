@@ -88,7 +88,9 @@ function TranscriptPlayback({
   apiKey?: string;
   baseUrl?: string;
 }): JSX.Element {
-  const getToken = useOptionalDevicContext()?.getToken;
+  const devicContext = useOptionalDevicContext();
+  const getTenantSession = devicContext?.getTenantSession;
+  const onSessionExpired = devicContext?.onSessionExpired;
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +110,7 @@ function TranscriptPlayback({
     if (audioRef.current) return audioRef.current;
     let url = audioUrlRef.current;
     if (!url) {
-      if (!apiKey && !getToken) {
+      if (!apiKey && !getTenantSession) {
         setError("Unavailable");
         return null;
       }
@@ -118,7 +120,8 @@ function TranscriptPlayback({
         const client = new DevicApiClient({
           apiKey,
           baseUrl: baseUrl || "https://api.devic.ai",
-          getToken,
+          getTenantSession,
+          onSessionExpired,
         });
         const transcript = await client.getTranscript(transcriptId);
         url = transcript.audioUrl || null;

@@ -51,7 +51,8 @@ export function useAIElementWrapper(
 
   const context = useOptionalDevicContext();
   const apiKey = propsApiKey || context?.apiKey;
-  const getToken = context?.getToken;
+  const getTenantSession = context?.getTenantSession;
+  const onSessionExpired = context?.onSessionExpired;
   const baseUrl = propsBaseUrl || context?.baseUrl || 'https://api.devic.ai';
   const resolvedTenantId = tenantId || context?.tenantId;
   const resolvedTenantMetadata = { ...context?.tenantMetadata, ...tenantMetadata };
@@ -70,8 +71,8 @@ export function useAIElementWrapper(
   });
 
   const clientRef = useRef<DevicApiClient | null>(null);
-  if (!clientRef.current && (apiKey || getToken)) {
-    clientRef.current = new DevicApiClient({ apiKey, baseUrl, getToken });
+  if (!clientRef.current && (apiKey || getTenantSession)) {
+    clientRef.current = new DevicApiClient({ apiKey, baseUrl, getTenantSession, onSessionExpired });
   }
   useEffect(() => {
     if (clientRef.current && apiKey) {

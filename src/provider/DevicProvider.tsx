@@ -28,7 +28,8 @@ const DEFAULT_BASE_URL = 'https://api.devic.ai';
  */
 export function DevicProvider({
   apiKey,
-  getToken,
+  getTenantSession,
+  onSessionExpired,
   baseUrl = DEFAULT_BASE_URL,
   tenantId,
   tenantMetadata,
@@ -68,30 +69,43 @@ export function DevicProvider({
     drawerRef.current?.open();
   }, []);
 
-  // Held in a ref so an inline `getToken={() => …}` — which is a new function
-  // on every render — does not rebuild the client and throw away the session
-  // it is holding, which would mean fetching a token per render.
-  const getTokenRef = useRef(getToken);
-  getTokenRef.current = getToken;
-  const usesSessions = !!getToken;
+  // Both callbacks are read through a ref and handed on as stable wrappers.
+  // An inline `getTenantSession={() => …}` is a new function on every render,
+  // and passing it straight through would rebuild the client — throwing away
+  // the session it holds, so the page fetches a token per render — and rebuild
+  // the context, so every component below it would do the same.
+  const sessionSourceRef = useRef(getTenantSession);
+  sessionSourceRef.current = getTenantSession;
+  const expiredRef = useRef(onSessionExpired);
+  expiredRef.current = onSessionExpired;
+  const usesSessions = !!getTenantSession;
+
+  const tenantSession = useMemo(
+    () =>
+      usesSessions
+        ? () => sessionSourceRef.current!()
+        : undefined,
+    [usesSessions]
+  );
+  const sessionExpired = useMemo(() => () => expiredRef.current?.(), []);
 
   const client = useMemo(
     () =>
       new DevicApiClient({
         apiKey,
         baseUrl,
-        getToken: usesSessions
-          ? () => getTokenRef.current!()
-          : undefined,
+        getTenantSession: tenantSession,
+        onSessionExpired: sessionExpired,
       }),
-    [apiKey, baseUrl, usesSessions]
+    [apiKey, baseUrl, tenantSession, sessionExpired]
   );
 
   const contextValue = useMemo<DevicContextValue>(
     () => ({
       client,
       apiKey,
-      getToken,
+      getTenantSession: tenantSession,
+      onSessionExpired: sessionExpired,
       baseUrl,
       tenantId,
       tenantMetadata,
@@ -110,7 +124,8 @@ export function DevicProvider({
     [
       client,
       apiKey,
-      getToken,
+      tenantSession,
+      sessionExpired,
       usesSessions,
       baseUrl,
       tenantId,

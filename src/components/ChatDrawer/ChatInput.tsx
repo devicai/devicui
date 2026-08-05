@@ -181,15 +181,18 @@ function ChatInputBox({
   const holdFiredRef = useRef(false);
 
   // Client used only for the /whisper transcription call.
-  const getToken = useOptionalDevicContext()?.getToken;
+  const devicContext = useOptionalDevicContext();
+  const getTenantSession = devicContext?.getTenantSession;
+  const onSessionExpired = devicContext?.onSessionExpired;
   const transcribeClient = useMemo(() => {
-    if (!enableSpeechToText || (!apiKey && !getToken)) return null;
+    if (!enableSpeechToText || (!apiKey && !getTenantSession)) return null;
     return new DevicApiClient({
       apiKey,
       baseUrl: baseUrl || 'https://api.devic.ai',
-      getToken,
+      getTenantSession,
+      onSessionExpired,
     });
-  }, [enableSpeechToText, apiKey, getToken, baseUrl]);
+  }, [enableSpeechToText, apiKey, getTenantSession, baseUrl]);
 
   const speechEnabled =
     enableSpeechToText && recording.isSupported && !!transcribeClient;

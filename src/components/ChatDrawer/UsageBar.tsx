@@ -161,15 +161,18 @@ export function UsageBar({
 }: UsageBarProps): JSX.Element | null {
   const cfg = useMemo(() => ({ ...DEFAULT_DISPLAY, ...display }), [display]);
 
-  const getToken = useOptionalDevicContext()?.getToken;
+  const devicContext = useOptionalDevicContext();
+  const getTenantSession = devicContext?.getTenantSession;
+  const onSessionExpired = devicContext?.onSessionExpired;
   const client = useMemo(() => {
-    if (!apiKey && !getToken) return null;
+    if (!apiKey && !getTenantSession) return null;
     return new DevicApiClient({
       apiKey,
       baseUrl: baseUrl || 'https://api.devic.ai',
-      getToken,
+      getTenantSession,
+      onSessionExpired,
     });
-  }, [apiKey, getToken, baseUrl]);
+  }, [apiKey, getTenantSession, baseUrl]);
 
   const [usage, setUsage] = useState<TenantUsage | null>(null);
   const [loaded, setLoaded] = useState(false);

@@ -77,18 +77,20 @@ export function useIntegrations(
   const resolvedSubtenantId = subtenantId || context?.subtenantId;
 
   const resolvedApiKey = apiKey || context?.apiKey;
-  const resolvedGetToken = context?.getToken;
+  const resolvedTenantSession = context?.getTenantSession;
+  const onSessionExpired = context?.onSessionExpired;
 
   const client = useMemo(
     () =>
-      resolvedApiKey || resolvedGetToken
+      resolvedApiKey || resolvedTenantSession
         ? new DevicApiClient({
             apiKey: resolvedApiKey,
             baseUrl: resolvedBaseUrl,
-            getToken: resolvedGetToken,
+            getTenantSession: resolvedTenantSession,
+      onSessionExpired,
           })
         : null,
-    [resolvedApiKey, resolvedGetToken, resolvedBaseUrl]
+    [resolvedApiKey, resolvedTenantSession, resolvedBaseUrl]
   );
 
   const scope = useMemo(

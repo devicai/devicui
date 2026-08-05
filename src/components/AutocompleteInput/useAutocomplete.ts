@@ -175,16 +175,18 @@ export function useAutocomplete(
   const debouncedValue = useDebounce(value, debounceMs);
 
   // Lazily create/update client
-  const getToken = useOptionalDevicContext()?.getToken;
+  const devicContext = useOptionalDevicContext();
+  const getTenantSession = devicContext?.getTenantSession;
+  const onSessionExpired = devicContext?.onSessionExpired;
   const getClient = useCallback(() => {
-    if ((!apiKey && !getToken) || !baseUrl) return null;
+    if ((!apiKey && !getTenantSession) || !baseUrl) return null;
     if (!clientRef.current) {
-      clientRef.current = new DevicApiClient({ apiKey, baseUrl, getToken });
+      clientRef.current = new DevicApiClient({ apiKey, baseUrl, getTenantSession, onSessionExpired });
     } else {
-      clientRef.current.setConfig({ apiKey, baseUrl, getToken });
+      clientRef.current.setConfig({ apiKey, baseUrl, getTenantSession, onSessionExpired });
     }
     return clientRef.current;
-  }, [apiKey, getToken, baseUrl]);
+  }, [apiKey, getTenantSession, baseUrl]);
 
   const cancelRequest = useCallback(() => {
     if (abortRef.current) {

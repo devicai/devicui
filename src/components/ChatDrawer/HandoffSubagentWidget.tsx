@@ -75,15 +75,17 @@ export function HandoffSubagentWidget({
   const hasCalledCompleted = useRef(false);
   const startTimeRef = useRef(Date.now());
 
-  const resolvedGetToken = context?.getToken;
+  const resolvedTenantSession = context?.getTenantSession;
+  const onSessionExpired = context?.onSessionExpired;
   const getClient = useCallback((): DevicApiClient | null => {
-    if (!resolvedApiKey && !resolvedGetToken) return null;
+    if (!resolvedApiKey && !resolvedTenantSession) return null;
     return new DevicApiClient({
       apiKey: resolvedApiKey,
       baseUrl: resolvedBaseUrl,
-      getToken: resolvedGetToken,
+      getTenantSession: resolvedTenantSession,
+      onSessionExpired,
     });
-  }, [resolvedApiKey, resolvedGetToken, resolvedBaseUrl]);
+  }, [resolvedApiKey, resolvedTenantSession, resolvedBaseUrl]);
 
   const fetchThread = useCallback(async () => {
     const client = getClient();
