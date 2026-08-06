@@ -60,6 +60,7 @@ export type {
 } from './components/IntegrationsModal';
 
 // Theming shared by the dialogs (the drawer passes its own down)
+export { createSharedSession } from './provider/sharedSession';
 export { themeVars, isDarkTheme } from './components/theme';
 export type { DevicTheme } from './components/theme';
 
