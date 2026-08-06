@@ -7,6 +7,7 @@ React component library for integrating Devic AI assistants into your applicatio
 - **ChatDrawer** - A ready-to-use chat drawer component
 - **AICommandBar** - A spotlight-style command bar for quick AI interactions
 - **AIGenerationButton** - A button for triggering AI generation with modal, tooltip, or direct modes
+- **Tenant sessions** - Short-lived signed tokens, so the page never carries an API key
 - **useDevicChat** - Hook for building custom chat UIs
 - **Model Interface Protocol** - Support for client-side tool execution
 - **Message Feedback** - Built-in thumbs up/down feedback with comments
@@ -89,7 +90,7 @@ Context provider for global configuration.
 
 ```tsx
 <DevicProvider
-  apiKey="devic-xxx"           // Required, unless you use getTenantSession
+  apiKey="devic-xxx"           // Optional when getTenantSession is supplied
   baseUrl="https://api.devic.ai"
   tenantId="tenant-123"        // Optional global tenant
   tenantMetadata={{ ... }}     // Optional global metadata
@@ -97,6 +98,9 @@ Context provider for global configuration.
   <App />
 </DevicProvider>
 ```
+
+One of `apiKey` and `getTenantSession` has to be there. A page using sessions
+has no reason to carry a key, and should not: see below.
 
 #### Tenant sessions — proving who the end user is
 
@@ -120,7 +124,25 @@ on its own before it expires:
 </DevicProvider>
 ```
 
-On your server, with a **server-side** API key (not the one in your bundle):
+`getTenantSession` may return the token as a bare string or as
+`{ token, expiresAt }` / `{ token, expiresIn }`. With none of the three, the
+expiry is read out of the token itself, so a bare string works.
+
+On your server, with a **server-side** API key (not the one in your bundle).
+With [`@devicai/sdk`](https://www.npmjs.com/package/@devicai/sdk):
+
+```ts
+import { Devic } from '@devicai/sdk';
+
+const devic = new Devic({ apiKey: process.env.DEVIC_API_KEY });
+
+app.post('/api/devic-session', requireLogin, async (req, res) => {
+  // From YOUR session, never from the request body.
+  res.json(await devic.auth(req.user.organisationId, req.user.id).session());
+});
+```
+
+Or over HTTP, with no dependency:
 
 ```ts
 app.post('/api/devic-session', requireLogin, async (req, res) => {
@@ -168,8 +190,56 @@ Do set `onSessionExpired` in this mode. There is nothing to renew from, so
 without it the widget just stops answering — at the exact moment the user's own
 login has expired too.
 
-You can also require sessions: an assistant with `identityMode: 'signed'`
-refuses unsigned callers outright for connected apps.
+**Making the sessions compulsory.** Everything above is still only a
+convention until the key that mints them is unable to do anything else. In the
+Devic console, an API key has an identity mode:
+
+| Mode | What the key can do |
+| --- | --- |
+| `open` (default) | Anything it is allowed, declaring whichever tenant it likes beside itself. |
+| `signed` | Mint tenant sessions, and nothing else. Every other `/api/v1` call with the key alone answers `401`. |
+
+A `signed` key belongs on **your server** — it is the one in the snippet above.
+It is not the key that used to go in your bundle; with sessions, the bundle
+carries no key at all. The console reflects that: choosing `signed` narrows the
+key to `/api/v1/tenant-sessions` and drops allowed domains, because there is no
+browser origin to check.
+
+A session cannot mint another session, so nothing that reaches the page can
+widen itself back.
+
+If you already ship an `open` key in a bundle, switching *that* key to `signed`
+takes the page down. Mint a second key for the server, move the page to
+`getTenantSession`, and only then revoke the old one.
+
+You can also require sessions per assistant: an assistant with
+`identityMode: 'signed'` refuses unsigned callers outright for connected apps.
+
+#### One session for the whole tree
+
+Every component builds its own API client, so a tree with a drawer, a command
+bar and a modal would ask your backend for three tokens on load. `DevicProvider`
+already shares one between everything below it — you get this for free.
+
+Outside a provider, or when your own code needs the same token the widgets are
+using, `createSharedSession` wraps your minting function with the same
+behaviour: one in-flight request, reused until it is close to expiry, and
+re-fetched when a client passes `force` after the API refused the token it just
+used.
+
+```tsx
+import { createSharedSession, DevicApiClient } from '@devicai/ui';
+
+const session = createSharedSession(() =>
+  fetch('/api/devic-session', { credentials: 'include' }).then((r) => r.json())
+);
+
+const client = new DevicApiClient({
+  baseUrl: 'https://api.devic.ai',
+  getTenantSession: session,          // no apiKey
+  onSessionExpired: () => location.assign('/login'),
+});
+```
 
 ### ChatDrawer
 
@@ -304,6 +374,17 @@ stays out of the way — no button, no request — when it does not:
   }}
 />
 ```
+
+It knows without asking because the assistant says so: the API returns
+`tenantIntegrations: { enabled, count }` on the assistant the drawer already
+fetches for its header, so an assistant that offers nothing costs no extra
+request. While the listing is on its way, `count` holds the header's place with
+that many dimmed circles, instead of the control appearing a moment later and
+pushing the title sideways.
+
+An older deployment omits the field entirely. That is read as *cannot tell*, not
+as *no* — the listing is requested and the control appears if there is anything
+behind it, exactly as before.
 
 Connected apps come first in the stack and unconnected ones are dimmed, so it
 doubles as the status.
@@ -703,6 +784,42 @@ const {
 });
 ```
 
+### useAssistantInfo
+
+What the API says about an assistant — name, avatar, whether it offers connected
+apps — fetched **at most once per assistant**, however many components ask.
+
+The drawer uses it for its header. Export exists because a host that builds its
+own header, or its own connected-apps control, needs the same answer, and asking
+for it twice is what this avoids. The promise is cached, not the result, so a
+second caller arriving mid-request waits for the first one.
+
+```tsx
+import { useAssistantInfo, forgetAssistant } from '@devicai/ui';
+
+const { assistant, settled } = useAssistantInfo({
+  assistantId: 'my-assistant',
+  client,                       // DevicApiClient
+  baseUrl: 'https://api.devic.ai',
+  credential: apiKey ?? 'session',  // separates accounts in the cache
+  enabled: true,
+});
+
+// Gate on `settled`, never on `assistant`: a null before it has settled only
+// means "not yet", and reading it as "no" makes controls flicker.
+if (settled && assistant?.tenantIntegrations?.enabled) {
+  ...
+}
+```
+
+A failure resolves to `assistant: null` with `settled: true` — not knowing is an
+ordinary outcome, and every caller should have something reasonable to do
+without the answer.
+
+`forgetAssistant(baseUrl, assistantId, credential?)` drops the cached answer, so
+the next ask reaches the API. Use it after changing the assistant from your own
+admin UI; a page that only chats never needs it.
+
 ### useModelInterface
 
 Hook for implementing the Model Interface Protocol.
@@ -890,9 +1007,14 @@ import type {
 
   // API types
   RealtimeChatHistory,
+  AssistantSpecialization,
+  DevicApiClientConfig,
+  TenantSessionToken,
 
   // Hook types
   UseDevicChatOptions,
+  UseAssistantInfoOptions,
+  AssistantInfoState,
 } from '@devicai/ui';
 ```
 
