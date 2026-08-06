@@ -533,6 +533,16 @@ export interface AssistantSpecialization {
   model?: string;
   isCustom?: boolean;
   creationTimestampMs?: number;
+  /**
+   * Whether this assistant offers connected apps to its tenants.
+   *
+   * **Absent means "cannot tell", not "no"** — an API older than this field
+   * says nothing, and treating silence as a no would hide the connected-apps
+   * button from anyone whose deployment has not caught up yet.
+   */
+  tenantIntegrations?: {
+    enabled: boolean;
+  };
 }
 
 /**

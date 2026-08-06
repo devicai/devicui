@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef, forwardRef, u
 import { useDevicChat } from '../../hooks/useDevicChat';
 import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from '../../api/client';
+import { useAssistantInfo } from '../../api/assistantInfo';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
 import { ConversationSelector } from './ConversationSelector';
@@ -228,10 +229,60 @@ function ChatDrawerInner({
   const resolvedTenantSession = context?.getTenantSession;
   const onSessionExpired = context?.onSessionExpired;
   const resolvedBaseUrl = baseUrl || context?.baseUrl || 'https://api.devic.ai';
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [coreMemoryOpen, setCoreMemoryOpen] = useState(false);
   const [integrationsOpen, setIntegrationsOpen] = useState(false);
-  const avatarFetchedRef = useRef<string | null>(null);
+
+  const infoClient = useMemo(
+    () =>
+      resolvedApiKey || resolvedTenantSession
+        ? new DevicApiClient({
+            apiKey: resolvedApiKey,
+            baseUrl: resolvedBaseUrl,
+            getTenantSession: resolvedTenantSession,
+            onSessionExpired,
+          })
+        : null,
+    [resolvedApiKey, resolvedTenantSession, resolvedBaseUrl]
+  );
+
+  // Asked for only when something on screen depends on it, and then at most
+  // once per assistant however many times this drawer is mounted — a host that
+  // remounts it to start a fresh conversation used to pay for the answer again
+  // every time.
+  const assistantInfo = useAssistantInfo({
+    assistantId,
+    client: infoClient,
+    baseUrl: resolvedBaseUrl,
+    credential: resolvedApiKey || 'session',
+    enabled:
+      !!mergedOptions.showAvatar ||
+      (mergedOptions.showIntegrationsButton !== false && isOpen),
+  });
+  const avatarUrl = mergedOptions.showAvatar
+    ? (assistantInfo.assistant?.imgUrl ?? null)
+    : null;
+
+  /**
+   * Whether to ask which apps this assistant offers.
+   *
+   * The listing is worth a request only when there is something to list, and
+   * most assistants offer nothing — for those, the call existed purely to be
+   * refused, once per page load. The assistant now says so itself, so a plain
+   * `false` settles it without asking.
+   *
+   * Anything else asks, exactly as before: a field that is absent means the API
+   * is older than it, not that the answer is no, and a failed lookup means we
+   * could not find out. Hiding the button on either would lose the feature for
+   * a deployment that has it, which is far worse than one spare request.
+   *
+   * Where there are apps to show, this puts the two requests in sequence rather
+   * than at once, so the button arrives a beat later than it used to. That is
+   * the price of not making the request at all everywhere else, and the control
+   * has never been part of the first paint anyway.
+   */
+  const mayOfferIntegrations =
+    assistantInfo.settled &&
+    assistantInfo.assistant?.tenantIntegrations?.enabled !== false;
 
   // The apps this assistant offers its tenants. Loaded once, here, because the
   // header control cannot decide whether to exist without it — and lent to the
@@ -243,18 +294,11 @@ function ChatDrawerInner({
     subtenantId,
     apiKey: resolvedApiKey,
     baseUrl: resolvedBaseUrl,
-    enabled: mergedOptions.showIntegrationsButton !== false && isOpen,
+    enabled:
+      mergedOptions.showIntegrationsButton !== false &&
+      isOpen &&
+      mayOfferIntegrations,
   });
-
-  useEffect(() => {
-    if (!mergedOptions.showAvatar || avatarFetchedRef.current === assistantId) return;
-    if (!resolvedApiKey && !resolvedTenantSession) return;
-    avatarFetchedRef.current = assistantId;
-    const client = new DevicApiClient({ apiKey: resolvedApiKey, baseUrl: resolvedBaseUrl, getTenantSession: resolvedTenantSession, onSessionExpired });
-    client.getAssistant(assistantId).then((a) => {
-      if (a.imgUrl) setAvatarUrl(a.imgUrl);
-    }).catch(() => {});
-  }, [mergedOptions.showAvatar, assistantId, resolvedApiKey, resolvedTenantSession, resolvedBaseUrl]);
 
   // Tenant/subtenant resolution mirrors useDevicChat (prop overrides provider).
   const resolvedTenantId = tenantId || context?.tenantId;
