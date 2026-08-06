@@ -276,9 +276,8 @@ function ChatDrawerInner({
    * a deployment that has it, which is far worse than one spare request.
    *
    * Where there are apps to show, this puts the two requests in sequence rather
-   * than at once, so the button arrives a beat later than it used to. That is
-   * the price of not making the request at all everywhere else, and the control
-   * has never been part of the first paint anyway.
+   * than at once, so the listing lands later than it used to. The header holds
+   * its place in the meantime — see `pendingIntegrations`.
    */
   const mayOfferIntegrations =
     assistantInfo.settled &&
@@ -299,6 +298,21 @@ function ChatDrawerInner({
       isOpen &&
       mayOfferIntegrations,
   });
+
+  /**
+   * Placeholder chips to hold while the listing is in flight.
+   *
+   * Only when the assistant has said outright that it offers apps, and how
+   * many: on a maybe there would be nothing to hold the place of half the time,
+   * and a control that appears and then vanishes is worse than one that arrives
+   * late. So this stays at zero for an API that does not say, which is also the
+   * behaviour every version until now had.
+   */
+  const pendingIntegrations =
+    assistantInfo.assistant?.tenantIntegrations?.enabled === true &&
+    !integrationsState.settled
+      ? (assistantInfo.assistant.tenantIntegrations.count ?? 0)
+      : 0;
 
   // Tenant/subtenant resolution mirrors useDevicChat (prop overrides provider).
   const resolvedTenantId = tenantId || context?.tenantId;
@@ -731,6 +745,7 @@ function ChatDrawerInner({
                 label={mergedOptions.integrationsLabel}
                 maxLogos={mergedOptions.maxIntegrationLogos}
                 dark={isDarkTheme(modalTheme)}
+                placeholders={pendingIntegrations}
               />
             )}
             {mergedOptions.showCoreMemoryButton && (

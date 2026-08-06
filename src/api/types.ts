@@ -542,6 +542,11 @@ export interface AssistantSpecialization {
    */
   tenantIntegrations?: {
     enabled: boolean;
+    /**
+     * How many apps the catalogue offers. An upper bound — the listing drops
+     * any the provider cannot resolve — and enough to size a placeholder.
+     */
+    count?: number;
   };
 }
 
