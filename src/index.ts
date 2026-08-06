@@ -59,6 +59,15 @@ export type {
   UseIntegrationsOptions,
 } from './components/IntegrationsModal';
 
+// What the API says about an assistant, fetched at most once per assistant.
+// Exported because a host that builds its own header needs the same answer the
+// drawer uses, and asking for it twice is exactly what this avoids.
+export { useAssistantInfo, forgetAssistant } from './api/assistantInfo';
+export type {
+  AssistantInfoState,
+  UseAssistantInfoOptions,
+} from './api/assistantInfo';
+
 // Theming shared by the dialogs (the drawer passes its own down)
 export { createSharedSession } from './provider/sharedSession';
 export { themeVars, isDarkTheme } from './components/theme';

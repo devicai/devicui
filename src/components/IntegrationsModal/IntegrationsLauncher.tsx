@@ -20,6 +20,15 @@ export interface IntegrationsLauncherProps {
    * app logos are solid black on transparency and vanish otherwise.
    */
   dark?: boolean;
+  /**
+   * How many placeholder chips to hold while the listing is on its way.
+   *
+   * Only pass a number when the apps are known to exist — the assistant having
+   * said so — never on the chance that they might. A placeholder is a promise
+   * that something is coming, and one that resolves to nothing is worse than
+   * the gap it filled.
+   */
+  placeholders?: number;
   className?: string;
 }
 
@@ -61,6 +70,7 @@ export function IntegrationsLauncher({
   label = "Connected apps",
   maxLogos = DEFAULT_MAX_LOGOS,
   dark = false,
+  placeholders = 0,
   className = "",
 }: IntegrationsLauncherProps): JSX.Element | null {
   const sorted = useMemo(() => order(state.integrations), [state.integrations]);
@@ -79,6 +89,28 @@ export function IntegrationsLauncher({
     observer.observe(host);
     return () => observer.disconnect();
   }, [maxLogos, state.offered]);
+
+  // Nothing yet, but the assistant has already said there will be: hold the
+  // shape rather than let the header reflow when the logos land.
+  if (sorted.length === 0 && placeholders > 0) {
+    return (
+      <span
+        className={`devic-int-launcher devic-int-launcher-loading ${className}`.trim()}
+        data-dark={dark}
+        aria-busy="true"
+        aria-label={`${label} (loading)`}
+      >
+        {Array.from({ length: Math.min(placeholders, Math.max(1, fit)) }).map(
+          (_, i) => (
+            <span
+              key={i}
+              className="devic-int-launcher-item devic-int-launcher-skeleton"
+            />
+          )
+        )}
+      </span>
+    );
+  }
 
   if (!state.offered || sorted.length === 0) return null;
 

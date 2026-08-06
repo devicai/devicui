@@ -403,6 +403,54 @@
   background: var(--devic-bg-secondary, #f0f0f0);
 }
 
+/* Holding the shape while the listing arrives. Not a button: there is nothing
+   to open yet, and a control that ignores a click reads as broken. */
+.devic-int-launcher-loading {
+  cursor: default;
+}
+
+.devic-int-launcher-loading:hover {
+  background: none;
+}
+
+.devic-int-launcher-skeleton {
+  background: var(--devic-bg-secondary, #f0f0f0);
+  animation: devic-int-pulse 1.4s ease-in-out infinite;
+}
+
+/* Staggered, so the row reads as loading rather than as a set of empty chips
+   somebody forgot to fill. */
+.devic-int-launcher-skeleton:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.devic-int-launcher-skeleton:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+.devic-int-launcher-skeleton:nth-child(n + 4) {
+  animation-delay: 0.48s;
+}
+
+@keyframes devic-int-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+/* Someone who asked for less motion gets a still placeholder, which still says
+   "something is coming" without the throb. */
+@media (prefers-reduced-motion: reduce) {
+  .devic-int-launcher-skeleton {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
 /* On a dark surface the chip behind a logo goes light. Provider logos are
    commonly solid black on transparency — GitHub, Notion, X — and on a dark
    chip they read as a smudge rather than as the app. The counter keeps the
