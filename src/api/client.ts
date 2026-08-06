@@ -54,8 +54,13 @@ export interface DevicApiClientConfig {
    * before the token expires and after the API rejects one. It does not have to
    * reach your backend: reading a cookie your login already set is a perfectly
    * good answer, and then the whole thing is `async () => readCookie(…)`.
+   *
+   * It is called with `force: true` when the API has just rejected the token in
+   * hand, meaning a cached answer is known to be dead. Your own function can
+   * ignore the argument — `DevicProvider` uses it to share one session across
+   * every component without ever serving a refused token back.
    */
-  getTenantSession?: () => Promise<string | TenantSessionToken>;
+  getTenantSession?: (force?: boolean) => Promise<string | TenantSessionToken>;
   /**
    * Called when the session is dead and cannot be replaced — the API rejected
    * it and `getTenantSession` handed back the same expired token.
@@ -133,12 +138,12 @@ export class DevicApiClient {
         current.expiresAt - Date.now() > RENEWAL_MARGIN_MS);
     if (stillGood && !force) return current.token;
 
-    return this.renew();
+    return this.renew(force);
   }
 
-  private renew(): Promise<string> {
+  private renew(force = false): Promise<string> {
     if (!this.renewing) {
-      this.renewing = Promise.resolve(this.config.getTenantSession!())
+      this.renewing = Promise.resolve(this.config.getTenantSession!(force))
         .then((result) => {
           const token = typeof result === "string" ? result : result.token;
           const declared =
@@ -177,7 +182,9 @@ export class DevicApiClient {
 
     let fresh: string | undefined;
     try {
-      fresh = await this.renew();
+      // Forced: whatever is cached upstream is the token that was just
+      // refused, so asking for it again would only confirm the refusal.
+      fresh = await this.renew(true);
     } catch {
       fresh = undefined;
     }

@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
 import { DevicContext } from './DevicContext';
 import { DevicApiClient } from '../api/client';
+import { createSharedSession } from './sharedSession';
 import { generateId } from '../utils';
 import type {
   DevicProviderProps,
@@ -80,10 +81,13 @@ export function DevicProvider({
   expiredRef.current = onSessionExpired;
   const usesSessions = !!getTenantSession;
 
+  // One session for the whole tree: every component below builds its own API
+  // client, and each dedupes only its own renewals — so without this, N clients
+  // ask for N tokens. See `createSharedSession`.
   const tenantSession = useMemo(
     () =>
       usesSessions
-        ? () => sessionSourceRef.current!()
+        ? createSharedSession(() => sessionSourceRef.current!())
         : undefined,
     [usesSessions]
   );
