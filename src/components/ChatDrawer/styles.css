@@ -527,6 +527,11 @@
   background: var(--devic-bg-secondary);
   border-radius: var(--devic-radius);
   padding: 8px 12px;
+  /* Height of one row: a 20px icon plus the 4px padding of its button. The
+     textarea pads its single line to the same box, so text and icons share a
+     centre line while the field still grows downward from the bottom edge. */
+  --devic-input-row-height: 28px;
+  --devic-input-line-height: 20px;
 }
 
 .devic-input {
@@ -535,9 +540,17 @@
   background: none;
   font-family: inherit;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: var(--devic-input-line-height);
   resize: none;
-  min-height: 24px;
+  /* Padding (not a bare min-height) so the first line is centred on the row:
+     the auto-resize sets height from scrollHeight, which counts padding —
+     hence border-box, or every line would add 8px of drift. */
+  box-sizing: border-box;
+  padding: calc(
+      (var(--devic-input-row-height) - var(--devic-input-line-height)) / 2
+    )
+    0;
+  min-height: var(--devic-input-row-height);
   max-height: 120px;
   outline: none;
   color: var(--devic-text);
@@ -556,6 +569,14 @@
   border-radius: var(--devic-radius-sm);
   transition: color var(--devic-transition);
   flex-shrink: 0;
+  /* Inline-flex kills the baseline gap an inline <svg> leaves under itself,
+     which otherwise pushes the glyph a few pixels above the text it sits next
+     to once the row is bottom-aligned. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: var(--devic-input-row-height, 28px);
 }
 
 .devic-input-btn:hover:not(:disabled) {
@@ -570,18 +591,17 @@
 .devic-send-btn {
   background: var(--devic-send-btn, var(--devic-primary));
   color: white;
-  padding: 6px 12px;
+  padding: 4px 12px;
   border-radius: var(--devic-radius-sm);
 }
 
 .devic-stop-btn {
   background: var(--devic-send-btn, var(--devic-primary));
   color: white;
-  padding: 6px;
+  padding: 4px;
+  /* Square, since it carries no label to widen it. */
+  min-width: var(--devic-input-row-height, 28px);
   border-radius: var(--devic-radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .devic-stop-btn:hover {
@@ -682,7 +702,7 @@
   align-items: center;
   gap: 8px;
   flex: 1;
-  min-height: 24px;
+  min-height: var(--devic-input-row-height, 28px);
 }
 
 .devic-speech-live {
