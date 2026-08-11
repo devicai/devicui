@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from '../../api/client';
-import { usePolling } from '../../hooks/usePolling';
+import { usePolling, resolvePollingInterval } from '../../hooks/usePolling';
 import { useModelInterface } from '../../hooks/useModelInterface';
 import type {
   ChatMessage,
@@ -24,6 +24,8 @@ export interface UseAICommandBarOptions {
   tenantMetadata?: Record<string, any>;
   /** Tags applied to the conversation (merged/deduped with the provider's). */
   tags?: string[];
+  /** Poll cadence (ms) for the command in progress (overrides the provider's). */
+  pollingInterval?: number;
   options?: AICommandBarOptions;
   isVisible?: boolean;
   onVisibilityChange?: (visible: boolean) => void;
@@ -141,6 +143,7 @@ export function useAICommandBar(options: UseAICommandBarOptions): UseAICommandBa
     tenantId,
     tenantMetadata,
     tags,
+    pollingInterval: propsPollingInterval,
     options: barOptions = {},
     isVisible: controlledVisible,
     onVisibilityChange,
@@ -167,6 +170,10 @@ export function useAICommandBar(options: UseAICommandBarOptions): UseAICommandBa
   const resolvedTenantMetadata = { ...context?.tenantMetadata, ...tenantMetadata };
   const resolvedTags = Array.from(
     new Set([...(context?.tags ?? []), ...(tags ?? [])])
+  );
+  const pollingInterval = resolvePollingInterval(
+    propsPollingInterval,
+    context?.pollingInterval
   );
 
   // Visibility state
@@ -501,7 +508,7 @@ export function useAICommandBar(options: UseAICommandBarOptions): UseAICommandBa
       return clientRef.current.getRealtimeHistory(assistantId, chatUid);
     },
     {
-      interval: 1000,
+      interval: pollingInterval,
       enabled: shouldPoll,
       stopStatuses: ['completed', 'error', 'waiting_for_tool_response'],
       onUpdate: async (data: RealtimeChatHistory) => {

@@ -4,6 +4,7 @@ import { DevicApiClient } from '../../api/client';
 import { AgentThreadState } from '../../api/types';
 import type { AgentThreadDto, AgentDto } from '../../api/types';
 import { ThreadStateTag } from '../ThreadStateTag';
+import { resolvePollingInterval } from '../../hooks/usePolling';
 import { createLogger } from '../../utils/logger';
 
 const TERMINAL_STATES: AgentThreadState[] = [
@@ -12,7 +13,11 @@ const TERMINAL_STATES: AgentThreadState[] = [
   AgentThreadState.TERMINATED,
 ];
 
-const POLL_INTERVAL_MS = 5000;
+/**
+ * The subagent runs for as long as it runs, so watching it does not need the
+ * main conversation's rhythm. A configured `pollingInterval` still wins.
+ */
+const DEFAULT_POLL_INTERVAL_MS = 5000;
 
 export interface HandoffSubagentWidgetProps {
   /**
@@ -34,6 +39,13 @@ export interface HandoffSubagentWidgetProps {
    * Base URL (overrides provider context)
    */
   baseUrl?: string;
+
+  /**
+   * How often (ms) the subthread is polled while it runs. Overrides the
+   * DevicProvider's `pollingInterval`. Values below 250 ms are clamped.
+   * @default 5000
+   */
+  pollingInterval?: number;
 
   /**
    * Custom renderer to replace the entire widget content.
@@ -58,11 +70,17 @@ export function HandoffSubagentWidget({
   onCompleted,
   apiKey,
   baseUrl,
+  pollingInterval,
   renderWidget,
 }: HandoffSubagentWidgetProps): JSX.Element {
   const context = useOptionalDevicContext();
   const resolvedApiKey = apiKey || context?.apiKey;
   const resolvedBaseUrl = baseUrl || context?.baseUrl || 'https://api.devic.ai';
+  const resolvedPollInterval = resolvePollingInterval(
+    pollingInterval,
+    context?.pollingInterval,
+    DEFAULT_POLL_INTERVAL_MS
+  );
   const debug = context?.debug ?? false;
   const log = useMemo(() => createLogger(debug), [debug]);
 
@@ -118,11 +136,11 @@ export function HandoffSubagentWidget({
   // Initial fetch + polling
   useEffect(() => {
     fetchThread();
-    pollRef.current = setInterval(fetchThread, POLL_INTERVAL_MS);
+    pollRef.current = setInterval(fetchThread, resolvedPollInterval);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [fetchThread]);
+  }, [fetchThread, resolvedPollInterval]);
 
   // Fetch agent details once we have a thread with an agent ID
   const agentIdToFetch = thread?.agentId || thread?.parentAgentId;

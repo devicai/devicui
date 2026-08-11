@@ -245,6 +245,14 @@ export interface AIGenerationButtonProps {
   baseUrl?: string;
 
   /**
+   * How often (ms) the generation in progress is polled for its answer.
+   * Overrides the DevicProvider's `pollingInterval`. Values below 250 ms are
+   * clamped.
+   * @default 1000
+   */
+  pollingInterval?: number;
+
+  /**
    * Tenant ID
    */
   tenantId?: string;

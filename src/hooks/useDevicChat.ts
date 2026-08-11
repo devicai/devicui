@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useOptionalDevicContext } from '../provider';
 import type { TenantMetadata, SubtenantMetadata } from '../provider';
 import { DevicApiClient, DevicApiError } from '../api/client';
-import { usePolling } from './usePolling';
+import { usePolling, resolvePollingInterval } from './usePolling';
 import { useModelInterface, type PendingWidgetCall } from './useModelInterface';
 import { createLogger } from '../utils/logger';
 import type {
@@ -14,6 +14,13 @@ import type {
   RecalledMemoryRecord,
   TenantLimitExceeded,
 } from '../api/types';
+
+/**
+ * Cadence for the handoff watch, which only waits for the parent thread to
+ * leave `handed_off` and so does not need the main conversation's rhythm.
+ * A configured `pollingInterval` still wins over it.
+ */
+const DEFAULT_HANDOFF_POLL_INTERVAL_MS = 5000;
 
 export interface UseDevicChatOptions {
   /**
@@ -74,7 +81,9 @@ export interface UseDevicChatOptions {
   modelInterfaceTools?: ModelInterfaceTool[];
 
   /**
-   * Polling interval for async mode (ms)
+   * How often (ms) the conversation in progress is polled for new content.
+   * Overrides the DevicProvider's `pollingInterval`. Values below 250 ms are
+   * clamped.
    * @default 1000
    */
   pollingInterval?: number;
@@ -261,7 +270,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     tags,
     enabledTools,
     modelInterfaceTools = [],
-    pollingInterval = 1000,
+    pollingInterval: propsPollingInterval,
     onMessageSent,
     onMessageReceived,
     onToolCall,
@@ -290,6 +299,15 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   const resolvedTags = useMemo(
     () => Array.from(new Set([...(context?.tags ?? []), ...(tags ?? [])])),
     [context?.tags, tags]
+  );
+  const pollingInterval = resolvePollingInterval(
+    propsPollingInterval,
+    context?.pollingInterval
+  );
+  const handoffPollingInterval = resolvePollingInterval(
+    propsPollingInterval,
+    context?.pollingInterval,
+    DEFAULT_HANDOFF_POLL_INTERVAL_MS
   );
   const debug = propsDebug ?? context?.debug ?? false;
   const log = useMemo(() => createLogger(debug), [debug]);
@@ -865,8 +883,9 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     [assistantId, resolvedTenantId, resumeFromRealtimeStatus, mergeRecalledMemories]
   );
 
-  // Handoff polling: while handedOff is true, poll the realtime endpoint every 5s
-  // to detect when the parent thread is no longer in handed_off state.
+  // Handoff polling: while handedOff is true, poll the realtime endpoint every
+  // 5s (or the configured cadence) to detect when the parent thread is no
+  // longer in handed_off state.
   useEffect(() => {
     if (!handedOff || !chatUid || !clientRef.current) return;
 
@@ -888,14 +907,14 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       } catch {}
     };
 
-    handoffPollRef.current = setInterval(pollHandoff, 5000);
+    handoffPollRef.current = setInterval(pollHandoff, handoffPollingInterval);
     return () => {
       if (handoffPollRef.current) {
         clearInterval(handoffPollRef.current);
         handoffPollRef.current = null;
       }
     };
-  }, [handedOff, chatUid, assistantId]);
+  }, [handedOff, chatUid, assistantId, handoffPollingInterval]);
 
   // Called by HandoffSubagentWidget when the subthread reaches a terminal state
   const onHandoffCompleted = useCallback(() => {

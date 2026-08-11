@@ -2,6 +2,35 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { RealtimeChatHistory, RealtimeStatus } from '../api/types';
 import { createLogger } from '../utils/logger';
 
+/**
+ * Cadence used when nobody configures one.
+ */
+export const DEFAULT_POLLING_INTERVAL_MS = 1000;
+
+/**
+ * Floor applied to any configured cadence. A conversation in flight is polled
+ * from every mounted component, so a value below this turns the widget into a
+ * request loop against the API rather than a faster chat.
+ */
+export const MIN_POLLING_INTERVAL_MS = 250;
+
+/**
+ * Picks the first usable cadence out of the candidates, in priority order
+ * (component prop, then provider, then the caller's own default), ignoring
+ * anything that is not a positive finite number and clamping the winner to
+ * `MIN_POLLING_INTERVAL_MS`.
+ */
+export function resolvePollingInterval(
+  ...candidates: Array<number | undefined | null>
+): number {
+  for (const value of candidates) {
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+      return Math.max(value, MIN_POLLING_INTERVAL_MS);
+    }
+  }
+  return DEFAULT_POLLING_INTERVAL_MS;
+}
+
 export interface UsePollingOptions {
   /**
    * Polling interval in milliseconds
@@ -88,7 +117,7 @@ export function usePolling(
   options: UsePollingOptions = {}
 ): UsePollingResult {
   const {
-    interval = 1000,
+    interval = DEFAULT_POLLING_INTERVAL_MS,
     enabled = true,
     stopStatuses = ['completed', 'error'],
     onStop,
@@ -116,6 +145,8 @@ export function usePolling(
   const stopStatusesRef = useRef(stopStatuses);
   const intervalValueRef = useRef(interval);
   const isPollingRef = useRef(false);
+  // Cadence the running timer was armed with, so a change can be detected.
+  const armedIntervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     onStopRef.current = onStop;
@@ -131,6 +162,7 @@ export function usePolling(
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    armedIntervalRef.current = null;
     isPollingRef.current = false;
   }, []);
 
@@ -183,6 +215,7 @@ export function usePolling(
     fetchData();
 
     // Set up interval
+    armedIntervalRef.current = intervalValueRef.current;
     intervalRef.current = setInterval(fetchData, intervalValueRef.current);
   }, [fetchData]);
 
@@ -220,6 +253,7 @@ export function usePolling(
       fetchData();
 
       // Set up interval
+      armedIntervalRef.current = intervalValueRef.current;
       intervalRef.current = setInterval(fetchData, intervalValueRef.current);
       logRef.current.log('[usePolling] Interval set:', intervalRef.current);
     } else {
@@ -228,6 +262,22 @@ export function usePolling(
 
     // Only cleanup on unmount, not on every dependency change
   }, [enabled, chatUid, fetchData, clearPolling]);
+
+  // Re-arm the timer when the cadence changes while a conversation is already
+  // in flight. Without this a new `interval` would only take effect on the next
+  // conversation, which is not what changing a provider setting looks like.
+  useEffect(() => {
+    if (!isPollingRef.current || armedIntervalRef.current === null) return;
+    if (armedIntervalRef.current === interval) return;
+
+    logRef.current.log('[usePolling] Interval changed mid-flight:', {
+      from: armedIntervalRef.current,
+      to: interval,
+    });
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    armedIntervalRef.current = interval;
+    intervalRef.current = setInterval(fetchData, interval);
+  }, [interval, fetchData]);
 
   // Cleanup on unmount
   useEffect(() => {

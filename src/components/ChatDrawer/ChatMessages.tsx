@@ -301,6 +301,7 @@ function ToolGroup({
   handoffWidgetRenderer,
   apiKey,
   baseUrl,
+  pollingInterval,
 }: {
   toolMessages: ChatMessage[];
   isActive: boolean;
@@ -313,6 +314,7 @@ function ToolGroup({
   handoffWidgetRenderer?: ChatMessagesProps["handoffWidgetRenderer"];
   apiKey?: string;
   baseUrl?: string;
+  pollingInterval?: number;
 }): JSX.Element {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const shouldCollapse = toolMessages.length > 3 && !isActive;
@@ -352,6 +354,7 @@ function ToolGroup({
             renderWidget={handoffWidgetRenderer}
             apiKey={apiKey}
             baseUrl={baseUrl}
+            pollingInterval={pollingInterval}
           />
         );
       }
@@ -578,6 +581,7 @@ export function ChatMessages({
   assistantMessageRenderer,
   apiKey,
   baseUrl,
+  pollingInterval,
   pendingInlineWidgets,
   onSubmitWidget,
   onCancelWidget,
@@ -688,6 +692,7 @@ export function ChatMessages({
                 handoffWidgetRenderer={handoffWidgetRenderer}
                 apiKey={apiKey}
                 baseUrl={baseUrl}
+                pollingInterval={pollingInterval}
               />
               {groupRecalls.length > 0 && (
                 <RecalledMemoriesWidget
