@@ -32,7 +32,7 @@ pnpm add @devicai/ui
 
 ```tsx
 import { DevicProvider, ChatDrawer } from '@devicai/ui';
-import '@devicai/ui/dist/esm/styles.css';
+import '@devicai/ui/styles.css';
 
 function App() {
   return (

@@ -319,6 +319,89 @@
   text-align: center;
 }
 
+/* Credentials form, in place of the card's Connect button.
+   Most apps authenticate with a key the user pastes rather than an OAuth
+   round trip, so this is an ordinary way to connect — not an error state. */
+.devic-int-connect-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--devic-border, #e8e8e8);
+}
+
+.devic-int-connect-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.devic-int-connect-head a {
+  color: var(--devic-primary, #1677ff);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.devic-int-connect-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--devic-text-muted, #999);
+}
+
+.devic-int-connect-field em {
+  font-style: normal;
+  opacity: 0.75;
+}
+
+.devic-int-connect-field input,
+.devic-int-connect-field select {
+  border: 1px solid var(--devic-border, #d9d9d9);
+  background: var(--devic-bg, #fff);
+  color: var(--devic-text, #333);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.devic-int-connect-field input:focus,
+.devic-int-connect-field select:focus {
+  outline: none;
+  border-color: var(--devic-primary, #1677ff);
+}
+
+.devic-int-connect-field input[data-invalid] {
+  border-color: #ff4d4f;
+}
+
+/* Clamped: a provider's own description of a field runs to a paragraph, and
+   the card is one of a grid. */
+.devic-int-connect-hint {
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--devic-text-muted, #999);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.devic-int-connect-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.devic-int-connect-actions .devic-int-btn {
+  flex: 1;
+}
+
 .devic-int-btn-primary {
   background: var(--devic-primary, #1677ff);
   border-color: var(--devic-primary, #1677ff);

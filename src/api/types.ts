@@ -708,6 +708,66 @@ export interface IntegrationAccount {
 }
 
 /**
+ * One value the end user is asked for before an account can be connected —
+ * their API key, the subdomain of their instance.
+ *
+ * Comes from the provider's own catalogue, so the form is rendered from this
+ * rather than from anything app-specific: most apps do not authenticate with
+ * credentials Devic holds, and there are hundreds of them.
+ */
+export interface IntegrationAuthField {
+  name: string;
+  label: string;
+  type: string;
+  required: boolean;
+  description?: string;
+  /** Prefilled — usually a provider endpoint most accounts should keep. */
+  default?: string;
+  /** Mask it on screen. */
+  secret: boolean;
+}
+
+/**
+ * One way of connecting an app.
+ *
+ * `redirect` schemes send the user to the provider; the rest are connected
+ * with the values they type, without ever leaving the page.
+ *
+ * There is deliberately no field for the *application's* credentials: the
+ * OAuth application belongs to the developer who embedded this widget, is
+ * registered once for every tenant, and is never the end user's to supply.
+ */
+export interface IntegrationAuthScheme {
+  /** The provider's own name for it: `OAUTH2`, `API_KEY`, … */
+  mode: string;
+  /** Credentials for this scheme are held for you — nothing to fill in. */
+  composioManaged: boolean;
+  redirect: boolean;
+  /** What this account supplies. Empty for a scheme that asks nothing. */
+  accountFields: IntegrationAuthField[];
+  /** The provider's own setup guide, when there is one. */
+  guideUrl?: string;
+}
+
+/**
+ * The answer when connecting needs values that were not sent.
+ *
+ * `stage` decides who can act on it: `account` is the end user, and the form
+ * asks them. `app` is the developer's OAuth application, which the end user
+ * cannot register — so that case is shown as "not available yet" instead of a
+ * form asking a stranger for someone else's client secret.
+ */
+export interface IntegrationSetupRequired {
+  code: "INTEGRATION_SETUP_REQUIRED";
+  message: string;
+  toolkit: string;
+  authScheme: string;
+  stage: "app" | "account";
+  fields: IntegrationAuthField[];
+  guideUrl?: string;
+}
+
+/**
  * An app the assistant offers to its tenants, with the accounts THIS tenant
  * has connected. Never another tenant's.
  */

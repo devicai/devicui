@@ -7,8 +7,15 @@ import {
   type JSX,
 } from "react";
 import { createPortal } from "react-dom";
-import type { Integration, IntegrationAccount } from "../../api/types";
+import type { DevicApiError } from "../../api/client";
+import type {
+  Integration,
+  IntegrationAccount,
+  IntegrationAuthScheme,
+  IntegrationSetupRequired,
+} from "../../api/types";
 import { isDarkTheme, themeVars, type DevicTheme } from "../theme";
+import { ConnectFieldsForm } from "./ConnectFieldsForm";
 import { IntegrationLogo } from "./IntegrationLogo";
 import { useIntegrations, type IntegrationsState } from "./useIntegrations";
 import "./IntegrationsModal.css";
@@ -184,6 +191,14 @@ export function IntegrationsModal({
   const [blockedUrl, setBlockedUrl] = useState<{ app: string; url: string } | null>(
     null
   );
+  /** The app whose credentials are being asked for, with what the server asked
+   *  and every way it can be connected. Rendered inside that app's own card,
+   *  where the user pressed Connect. */
+  const [setupPrompt, setSetupPrompt] = useState<{
+    app: string;
+    setup: IntegrationSetupRequired;
+    schemes: IntegrationAuthScheme[];
+  } | null>(null);
   const [query, setQuery] = useState("");
 
   const visible = useMemo(
@@ -207,6 +222,7 @@ export function IntegrationsModal({
     if (isOpen && !wasOpenRef.current) {
       setBlockedUrl(null);
       setActionError(null);
+      setSetupPrompt(null);
       setQuery("");
       // The very first open of an uncontrolled modal is already covered by the
       // hook switching on; asking again here would double every first open.
@@ -271,15 +287,27 @@ export function IntegrationsModal({
     []
   );
 
-  const handleConnect = async (integration: Integration) => {
-    if (!client || busyApp) return;
+  /**
+   * Connects an app, asking for credentials only if it needs them.
+   *
+   * Optimistic: the request goes out first, and the form appears only when the
+   * server answers that something is missing. Most apps take an API key rather
+   * than an OAuth round trip, so this is the path that used to fail outright.
+   */
+  const handleConnect = async (
+    integration: Integration,
+    values?: { authScheme: string; accountFields: Record<string, string> }
+  ) => {
+    if (!client || (busyApp && busyApp !== integration.app)) return;
     setActionError(null);
     setBlockedUrl(null);
     setBusyApp(integration.app);
 
     const nonce = newNonce();
     const returnTo = `${window.location.origin}/?devic_oauth=${nonce}`;
-    // Opened empty inside the click, navigated once the URL is known.
+    // Opened empty inside the click, navigated once the URL is known. Both
+    // entry points are gestures — the card's button and the form's submit —
+    // so this holds on the retry too.
     const popup = window.open(
       "",
       "devic-oauth",
@@ -287,11 +315,22 @@ export function IntegrationsModal({
     );
 
     try {
-      const { authorizationUrl } = await client.connectIntegration(
+      const { connected, authorizationUrl } = await client.connectIntegration(
         integration.app,
-        { ...scope, returnTo }
+        { ...scope, returnTo, ...values }
       );
+
+      // Nothing to authorise: the key the user typed is the account. Close the
+      // window that was opened in case it was needed and re-read the listing.
+      if (connected || !authorizationUrl) {
+        popup?.close();
+        setSetupPrompt(null);
+        finishConnect();
+        return;
+      }
+
       pendingRef.current = { app: integration.app, returnTo };
+      setSetupPrompt(null);
       if (popup && !popup.closed) {
         popupRef.current = popup;
         popup.location.href = authorizationUrl;
@@ -310,8 +349,45 @@ export function IntegrationsModal({
     } catch (err) {
       popup?.close();
       pendingRef.current = null;
-      setActionError(err instanceof Error ? err.message : String(err));
       setBusyApp(null);
+      const setup = (err as DevicApiError)?.setupRequired;
+      if (setup) {
+        await openSetupForm(integration, setup);
+        return;
+      }
+      setActionError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  /**
+   * Opens the credentials form for an app that needs one.
+   *
+   * `stage: "app"` is not the end user's to fix — it means the developer who
+   * embedded this widget has not registered an application with the provider
+   * yet. Asking a stranger for someone else's client secret would be both
+   * useless and a good way to teach them to hand credentials to a form, so it
+   * is reported as unavailable instead.
+   */
+  const openSetupForm = async (
+    integration: Integration,
+    setup: IntegrationSetupRequired
+  ) => {
+    if (setup.stage === "app") {
+      setActionError(
+        `${integration.name} is not available yet — it still needs to be set up ` +
+          `by the app's provider.`
+      );
+      return;
+    }
+    try {
+      const { schemes } = await client!.getIntegrationAuth(
+        integration.app,
+        scope
+      );
+      if (!schemes.length) throw new Error(setup.message);
+      setSetupPrompt({ app: integration.app, setup, schemes });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -441,32 +517,47 @@ export function IntegrationsModal({
                       </div>
                     )}
 
-                    <button
-                      type="button"
-                      className={`devic-int-btn devic-int-btn-block${
-                        cardState.key === "connected"
-                          ? ""
-                          : " devic-int-btn-primary"
-                      }`}
-                      onClick={() => handleConnect(integration)}
-                      disabled={busy || !!busyApp}
-                      title={
-                        cardState.key === "connected"
-                          ? "Sign in with a different account. The one connected now is replaced."
-                          : undefined
-                      }
-                    >
-                      {busy
-                        ? "Waiting…"
-                        : cardState.key === "disconnected"
-                          ? "Connect"
-                          : cardState.key === "reconnect"
-                            ? "Reconnect"
-                            : // Not "Add account": one account per app is all
-                              // the assistant can use, and connecting again
-                              // retires the previous one.
-                              "Switch account"}
-                    </button>
+                    {/* The form replaces this app's button rather than opening
+                        a dialog of its own: it belongs to the card the user
+                        pressed, and the modal is already a dialog. */}
+                    {setupPrompt?.app === integration.app ? (
+                      <ConnectFieldsForm
+                        integration={integration}
+                        schemes={setupPrompt.schemes}
+                        initialScheme={setupPrompt.setup.authScheme}
+                        onlyFields={setupPrompt.setup.fields}
+                        submitting={busy}
+                        onCancel={() => setSetupPrompt(null)}
+                        onSubmit={(values) => handleConnect(integration, values)}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className={`devic-int-btn devic-int-btn-block${
+                          cardState.key === "connected"
+                            ? ""
+                            : " devic-int-btn-primary"
+                        }`}
+                        onClick={() => handleConnect(integration)}
+                        disabled={busy || !!busyApp}
+                        title={
+                          cardState.key === "connected"
+                            ? "Sign in with a different account. The one connected now is replaced."
+                            : undefined
+                        }
+                      >
+                        {busy
+                          ? "Waiting…"
+                          : cardState.key === "disconnected"
+                            ? "Connect"
+                            : cardState.key === "reconnect"
+                              ? "Reconnect"
+                              : // Not "Add account": one account per app is all
+                                // the assistant can use, and connecting again
+                                // retires the previous one.
+                                "Switch account"}
+                      </button>
+                    )}
 
                     {integration.accounts.length > 0 && (
                       <ul className="devic-int-accounts">
