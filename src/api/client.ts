@@ -20,6 +20,8 @@ import type {
   CoreMemoryList,
   CoreMemoryEntry,
   Integration,
+  IntegrationAuthScheme,
+  IntegrationSetupRequired,
 } from "./types";
 
 /**
@@ -831,11 +833,37 @@ export class DevicApiClient {
   }
 
   /**
-   * Starts connecting an account. Returns the URL to open in a popup.
+   * How this app can be connected, and what it asks the end user for.
+   *
+   * Scoped like everything else here: the schemes of an app this assistant
+   * does not offer cannot be read by asking for them.
+   */
+  async getIntegrationAuth(
+    app: string,
+    options: {
+      assistantId: string;
+      tenantId?: string;
+      subtenantId?: string;
+    },
+  ): Promise<{ schemes: IntegrationAuthScheme[] }> {
+    return this.request(
+      `/api/v1/tenant-integrations/${encodeURIComponent(app)}/auth?${this.integrationsQuery(options)}`,
+    );
+  }
+
+  /**
+   * Connects an account, in one of two ways.
+   *
+   * `connected: true` means it is done: the app authenticates with a key the
+   * user supplied, so there is nobody to authorise with. Otherwise
+   * `authorizationUrl` must be opened in a popup.
    *
    * `returnTo` is where the callback posts the result back to, and the server
    * refuses any value that does not match the origin this request came from —
    * so it cannot be turned into an open redirector.
+   *
+   * Rejects with a `DevicApiError` carrying `setupRequired` when the app needs
+   * values that were not sent.
    */
   async connectIntegration(
     app: string,
@@ -844,11 +872,20 @@ export class DevicApiClient {
       tenantId?: string;
       subtenantId?: string;
       returnTo?: string;
+      /** Which scheme to use, from {@link getIntegrationAuth}. */
+      authScheme?: string;
+      /** This account's own values: its API key, its subdomain. */
+      accountFields?: Record<string, string>;
     },
-  ): Promise<{ authorizationUrl: string }> {
-    return this.request<{ authorizationUrl: string }>(
-      `/api/v1/tenant-integrations/${encodeURIComponent(app)}/connect?${this.integrationsQuery(options)}`,
-      { method: "POST" },
+  ): Promise<{ connected: boolean; authorizationUrl?: string }> {
+    const { authScheme, accountFields, ...query } = options;
+    return this.request(
+      `/api/v1/tenant-integrations/${encodeURIComponent(app)}/connect?${this.integrationsQuery(query)}`,
+      {
+        method: "POST",
+        body: JSON.stringify({ authScheme, accountFields }),
+        headers: { "Content-Type": "application/json" },
+      },
     );
   }
 
@@ -894,6 +931,9 @@ export class DevicApiError extends Error {
   public errorType?: string;
   /** Structured error details (e.g. usage-limit blocking info on a 429). */
   public details?: any;
+  /** What connecting an app is still waiting for, when that is why it failed.
+   *  Carried whole because the fields *are* the form to render. */
+  public setupRequired?: IntegrationSetupRequired;
 
   constructor(error: ApiError) {
     super(error.message);
@@ -901,5 +941,8 @@ export class DevicApiError extends Error {
     this.statusCode = error.statusCode;
     this.errorType = error.error;
     this.details = error.details;
+    if ((error as any)?.code === "INTEGRATION_SETUP_REQUIRED") {
+      this.setupRequired = error as unknown as IntegrationSetupRequired;
+    }
   }
 }

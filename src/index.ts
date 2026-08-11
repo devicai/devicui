@@ -196,6 +196,9 @@ export type {
   CoreMemoryList,
   Integration,
   IntegrationAccount,
+  IntegrationAuthField,
+  IntegrationAuthScheme,
+  IntegrationSetupRequired,
 } from './api/types';
 
 // Feedback Components
