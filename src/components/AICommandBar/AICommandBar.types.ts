@@ -317,6 +317,14 @@ export interface AICommandBarProps {
   baseUrl?: string;
 
   /**
+   * How often (ms) the command in progress is polled for its answer.
+   * Overrides the DevicProvider's `pollingInterval`. Values below 250 ms are
+   * clamped.
+   * @default 1000
+   */
+  pollingInterval?: number;
+
+  /**
    * Tenant ID
    */
   tenantId?: string;

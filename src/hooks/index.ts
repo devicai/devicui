@@ -1,7 +1,12 @@
 export { useDevicChat } from './useDevicChat';
 export type { UseDevicChatOptions, UseDevicChatResult } from './useDevicChat';
 
-export { usePolling } from './usePolling';
+export {
+  usePolling,
+  resolvePollingInterval,
+  DEFAULT_POLLING_INTERVAL_MS,
+  MIN_POLLING_INTERVAL_MS,
+} from './usePolling';
 export type { UsePollingOptions, UsePollingResult } from './usePolling';
 
 export { useModelInterface } from './useModelInterface';

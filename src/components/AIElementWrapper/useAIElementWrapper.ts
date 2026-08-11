@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from '../../api/client';
-import { usePolling } from '../../hooks/usePolling';
+import { usePolling, resolvePollingInterval } from '../../hooks/usePolling';
 import { useModelInterface } from '../../hooks/useModelInterface';
 import type {
   ChatMessage,
@@ -15,6 +15,8 @@ export interface UseAIElementWrapperOptions {
   baseUrl?: string;
   tenantId?: string;
   tenantMetadata?: Record<string, any>;
+  /** Poll cadence (ms) for the generation in progress (overrides the provider's). */
+  pollingInterval?: number;
   modelInterfaceTools?: ModelInterfaceTool[];
   onResponse?: (message: ChatMessage) => void;
   onError?: (error: Error) => void;
@@ -44,6 +46,7 @@ export function useAIElementWrapper(
     baseUrl: propsBaseUrl,
     tenantId,
     tenantMetadata,
+    pollingInterval: propsPollingInterval,
     modelInterfaceTools = [],
     onResponse,
     onError,
@@ -56,6 +59,10 @@ export function useAIElementWrapper(
   const baseUrl = propsBaseUrl || context?.baseUrl || 'https://api.devic.ai';
   const resolvedTenantId = tenantId || context?.tenantId;
   const resolvedTenantMetadata = { ...context?.tenantMetadata, ...tenantMetadata };
+  const pollingInterval = resolvePollingInterval(
+    propsPollingInterval,
+    context?.pollingInterval
+  );
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<ChatMessage | null>(null);
@@ -116,7 +123,7 @@ export function useAIElementWrapper(
       return clientRef.current.getRealtimeHistory(assistantId, chatUid);
     },
     {
-      interval: 1000,
+      interval: pollingInterval,
       enabled: shouldPoll,
       stopStatuses: ['completed', 'error', 'waiting_for_tool_response'],
       onUpdate: async (data: RealtimeChatHistory) => {

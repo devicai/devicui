@@ -37,6 +37,7 @@ export function DevicProvider({
   subtenantId,
   subtenantMetadata,
   tags,
+  pollingInterval,
   debug,
   children,
 }: DevicProviderProps): JSX.Element {
@@ -116,6 +117,7 @@ export function DevicProvider({
       subtenantId,
       subtenantMetadata,
       tags,
+      pollingInterval,
       isConfigured: !!apiKey || usesSessions,
       debug,
       references,
@@ -137,6 +139,7 @@ export function DevicProvider({
       subtenantId,
       subtenantMetadata,
       tags,
+      pollingInterval,
       debug,
       references,
       addReference,

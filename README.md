@@ -94,6 +94,7 @@ Context provider for global configuration.
   baseUrl="https://api.devic.ai"
   tenantId="tenant-123"        // Optional global tenant
   tenantMetadata={{ ... }}     // Optional global metadata
+  pollingInterval={1000}       // How often a conversation in progress is polled
 >
   <App />
 </DevicProvider>
@@ -101,6 +102,36 @@ Context provider for global configuration.
 
 One of `apiKey` and `getTenantSession` has to be there. A page using sessions
 has no reason to carry a key, and should not: see below.
+
+#### Polling cadence
+
+While a conversation is in progress the widgets ask the API for what has been
+produced so far, once per second by default. `pollingInterval` (ms) sets that
+cadence for everything below the provider — the drawer, the command bar, the
+generation button, the element wrapper and the handoff widget:
+
+```tsx
+<DevicProvider apiKey="devic-xxx" pollingInterval={3000}>
+  <App />
+</DevicProvider>
+```
+
+The default answers as fast as the API produces tokens. Raise it when the cost
+of the requests matters more than the latency of the answer — a dashboard with
+several widgets mounted, a page left open all day, a mobile client on a metered
+connection. Every component accepts its own `pollingInterval` to override the
+provider's:
+
+```tsx
+// The whole page is calm, this one drawer is not.
+<DevicProvider apiKey="devic-xxx" pollingInterval={5000}>
+  <ChatDrawer assistantId="support" pollingInterval={1000} />
+</DevicProvider>
+```
+
+Values below 250 ms are clamped — below that the widget floods the API instead
+of answering sooner. The handoff widget, which only watches a subagent run,
+keeps its own 5 s default when nothing is configured.
 
 #### Tenant sessions — proving who the end user is
 
@@ -283,6 +314,7 @@ A complete chat drawer component.
   tenantId="specific-tenant"     // Override provider
   tenantMetadata={{ userId: '123' }}
   apiKey="override-key"          // Override provider
+  pollingInterval={1000}         // Override provider (ms, min 250)
 
   // Callbacks
   onMessageSent={(message) => {}}
@@ -707,7 +739,7 @@ const {
   tenantMetadata: { userId: '456' },
   enabledTools: ['tool1', 'tool2'],
   modelInterfaceTools: [...],
-  pollingInterval: 1000,
+  pollingInterval: 1000,        // Overrides the provider's (ms, min 250)
   onMessageSent: (message) => {},
   onMessageReceived: (message) => {},
   onToolCall: (toolName, params) => {},

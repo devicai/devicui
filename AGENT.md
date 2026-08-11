@@ -156,7 +156,16 @@ Core hook that manages:
 - Model Interface Protocol (client-side tools)
 - Error handling
 
-### 6. Model Interface Protocol
+### 6. Polling cadence
+Conversations are answered asynchronously, so every component polls the
+realtime endpoint while a run is in progress. The cadence resolves as
+component prop → `DevicProvider.pollingInterval` → the component's own default
+(1000 ms; 5000 ms for the handoff watch), through `resolvePollingInterval` in
+`src/hooks/usePolling.ts`, which ignores non-positive values and clamps to
+`MIN_POLLING_INTERVAL_MS`. `usePolling` re-arms its timer when the value
+changes mid-run.
+
+### 7. Model Interface Protocol
 Allows the AI assistant to call client-side functions. Tools are defined with OpenAI function-calling schema format.
 
 ```tsx
@@ -174,7 +183,7 @@ const tools: ModelInterfaceTool[] = [{
 }];
 ```
 
-### 7. API Client
+### 8. API Client
 Uses native `fetch` - no external HTTP libraries. Communicates with:
 - `POST /api/v1/assistants/:id/messages?async=true` - Send message
 - `GET /api/v1/assistants/:id/chats/:chatUid/realtime` - Poll for response
