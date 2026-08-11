@@ -433,6 +433,40 @@ For SaaS applications with multiple tenants:
 </DevicProvider>
 ```
 
+## Polling Cadence
+
+While a conversation is in progress the components ask the API for what has
+been produced so far, once per second by default. `pollingInterval` (ms) sets
+that cadence for everything below the provider — the drawer, the command bar,
+the generation button, the element wrapper and the handoff widget:
+
+```tsx
+<DevicProvider apiKey="your-api-key" pollingInterval={3000}>
+  <YourApp />
+</DevicProvider>
+```
+
+Raise it when the cost of the requests matters more than the latency of the
+answer — a dashboard with several widgets mounted, a page left open all day, a
+mobile client on a metered connection. Any component can override it:
+
+```tsx
+<DevicProvider apiKey="your-api-key" pollingInterval={5000}>
+  <ChatDrawer assistantId="support-assistant" pollingInterval={1000} />
+</DevicProvider>
+```
+
+| Where | Prop | Default |
+| --- | --- | --- |
+| `DevicProvider` | `pollingInterval` | `1000` |
+| `ChatDrawer` | `pollingInterval` | provider's, else `1000` |
+| `AICommandBar`, `AIGenerationButton`, `AIElementWrapper` | `pollingInterval` | provider's, else `1000` |
+| `useDevicChat` | `pollingInterval` | provider's, else `1000` |
+| `HandoffSubagentWidget` | `pollingInterval` | provider's, else `5000` |
+
+Values below 250 ms are clamped. A change applies to the conversation already
+running, not only to the next one.
+
 ## Client-Side Tools (Model Interface Protocol)
 
 Enable the assistant to call functions in your application:

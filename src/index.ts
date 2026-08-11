@@ -120,7 +120,15 @@ export type {
 // } from './components/AutocompleteInput';
 
 // Hooks
-export { useDevicChat, usePolling, useModelInterface, useSpeechRecording } from './hooks';
+export {
+  useDevicChat,
+  usePolling,
+  resolvePollingInterval,
+  DEFAULT_POLLING_INTERVAL_MS,
+  MIN_POLLING_INTERVAL_MS,
+  useModelInterface,
+  useSpeechRecording,
+} from './hooks';
 export type {
   UseDevicChatOptions,
   UseDevicChatResult,

@@ -709,6 +709,20 @@ export interface ChatDrawerProps {
   baseUrl?: string;
 
   /**
+   * How often (ms) a conversation still in progress is polled for new content
+   * (the assistant's reply, its tool calls and the handoff watch). Overrides
+   * the DevicProvider's `pollingInterval`.
+   *
+   * The default answers as fast as the API produces tokens. Raise it when the
+   * cost of the requests matters more than the latency of the answer — a
+   * drawer kept mounted all day, a mobile client on a metered connection.
+   * Values below 250 ms are clamped.
+   *
+   * @default 1000
+   */
+  pollingInterval?: number;
+
+  /**
    * Callback when a message is sent
    */
   onMessageSent?: (message: ChatMessage) => void;
@@ -796,6 +810,8 @@ export interface ChatMessagesProps {
   apiKey?: string;
   /** Base URL for handoff widget API calls */
   baseUrl?: string;
+  /** Polling cadence (ms) for the handoff widget. Overrides the provider's. */
+  pollingInterval?: number;
   /** Tool group configurations for grouped rendering */
   toolGroups?: ToolGroupConfig[];
   /** Custom renderer replacing markdown for user message bubbles */

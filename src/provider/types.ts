@@ -130,6 +130,24 @@ export interface DevicProviderConfig {
   tags?: string[];
 
   /**
+   * How often (ms) a conversation still in progress is polled for new content,
+   * for every component under this provider: the ChatDrawer, the command bar,
+   * the generation button, the element wrapper and the handoff widget.
+   *
+   * The default answers as fast as the API produces tokens. Raise it when the
+   * cost of the requests matters more than the latency of the answer — a
+   * dashboard with several drawers mounted, a page left open all day, a
+   * mobile client on a metered connection.
+   *
+   * Values below 250 ms are clamped: below that the widget floods the API
+   * rather than answering sooner. Overridable per component via its own
+   * `pollingInterval`.
+   *
+   * @default 1000
+   */
+  pollingInterval?: number;
+
+  /**
    * Enable debug logging to the browser console
    * @default false
    */
@@ -217,6 +235,12 @@ export interface DevicContextValue {
    * Global tags applied to every conversation started under this provider.
    */
   tags?: string[];
+
+  /**
+   * Interval (ms) used to poll conversations in progress. Undefined when the
+   * integrator did not configure one, so each component keeps its own default.
+   */
+  pollingInterval?: number;
 
   /**
    * Whether the provider is properly configured

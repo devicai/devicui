@@ -148,6 +148,7 @@ function ChatDrawerInner({
   tags,
   apiKey,
   baseUrl,
+  pollingInterval,
   onMessageSent,
   onMessageReceived,
   onToolCall,
@@ -211,6 +212,7 @@ function ChatDrawerInner({
     tags,
     enabledTools,
     modelInterfaceTools,
+    pollingInterval,
     onMessageSent,
     onMessageReceived,
     onToolCall,
@@ -811,6 +813,7 @@ function ChatDrawerInner({
           assistantMessageRenderer={mergedOptions.assistantMessageRenderer}
           apiKey={resolvedApiKey}
           baseUrl={resolvedBaseUrl}
+          pollingInterval={pollingInterval}
           pendingInlineWidgets={inlineWidgets}
           onSubmitWidget={chat.submitWidgetResponse}
           onCancelWidget={chat.cancelWidgetCall}
