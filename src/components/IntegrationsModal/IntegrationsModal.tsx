@@ -129,6 +129,23 @@ function accountLabel(account: IntegrationAccount): string {
   return `connected ${when.toLocaleDateString()}`;
 }
 
+/**
+ * The scheme the server would pick, given no explicit choice: the one asking
+ * for least setup.
+ *
+ * Mirrors the engine's own preference deliberately. It is only used to decide
+ * whether to open a popup or a form before asking, and being wrong is
+ * recoverable — the form sends its scheme explicitly, and a redirect that
+ * arrives anyway is still honoured.
+ */
+function preferredScheme(
+  schemes?: IntegrationAuthScheme[]
+): IntegrationAuthScheme | undefined {
+  if (!schemes?.length) return undefined;
+  const friction = (s: IntegrationAuthScheme) => (s.composioManaged ? 0 : 1);
+  return [...schemes].sort((a, b) => friction(a) - friction(b))[0];
+}
+
 function matches(integration: Integration, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
@@ -191,20 +208,66 @@ export function IntegrationsModal({
   const [blockedUrl, setBlockedUrl] = useState<{ app: string; url: string } | null>(
     null
   );
-  /** The app whose credentials are being asked for, with what the server asked
-   *  and every way it can be connected. Rendered inside that app's own card,
-   *  where the user pressed Connect. */
+  /** The app whose credentials are being asked for, and every way it can be
+   *  connected. `setup` is present when the server named what was missing. */
   const [setupPrompt, setSetupPrompt] = useState<{
     app: string;
-    setup: IntegrationSetupRequired;
     schemes: IntegrationAuthScheme[];
+    setup?: IntegrationSetupRequired;
   } | null>(null);
+  /**
+   * How each offered app can be connected, read once the listing arrives.
+   *
+   * Loaded ahead of the click rather than on it: knowing whether an app needs
+   * a browser is what decides between opening a popup and opening a form, and
+   * that decision has to be made *inside* the user's gesture — a popup opened
+   * after an await is blocked.
+   */
+  const [authByApp, setAuthByApp] = useState<
+    Record<string, IntegrationAuthScheme[]>
+  >({});
+  /** Failure from the last submit, shown inside the credentials dialog. */
+  const [formError, setFormError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
   const visible = useMemo(
     () => integrations.filter((i) => matches(i, query)),
     [integrations, query]
   );
+
+  // Resolved from the listing rather than stored in the prompt: the dialog
+  // stays open across a refresh, and a copy taken when it opened would go
+  // stale — showing "Not connected" on an app that just connected.
+  const promptIntegration = useMemo(
+    () => integrations.find((i) => i.app === setupPrompt?.app),
+    [integrations, setupPrompt?.app]
+  );
+
+  // One request per offered app, once the listing is in. They are small,
+  // cached server-side, and nothing waits on them: a click that lands before
+  // its answer simply falls back to asking the server, as it did before.
+  useEffect(() => {
+    if (!isOpen || !client || !integrations.length) return;
+    let cancelled = false;
+    void Promise.all(
+      integrations.map(async (integration) => {
+        try {
+          const { schemes } = await client.getIntegrationAuth(
+            integration.app,
+            scope
+          );
+          if (!cancelled && schemes?.length) {
+            setAuthByApp((prev) => ({ ...prev, [integration.app]: schemes }));
+          }
+        } catch {
+          // Not knowing is survivable — the click path handles it.
+        }
+      })
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, client, integrations, scope]);
 
   // Report the listing without making the caller's identity part of the
   // dependency: an inline arrow would fire this on every render.
@@ -235,15 +298,22 @@ export function IntegrationsModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // Escape closes
+  // Escape closes — the credentials dialog first, when one is open. Closing
+  // everything from under a half-typed key would be its own small disaster.
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      if (setupPrompt) {
+        setSetupPrompt(null);
+        setFormError(null);
+        return;
+      }
+      onClose();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, setupPrompt]);
 
   /** The round trip currently in flight, if any. */
   const pendingRef = useRef<{ app: string; returnTo: string } | null>(null);
@@ -301,18 +371,34 @@ export function IntegrationsModal({
     if (!client || (busyApp && busyApp !== integration.app)) return;
     setActionError(null);
     setBlockedUrl(null);
+
+    // Ask before doing anything when the app is known to take credentials and
+    // no browser is involved. Connecting first would flash an empty popup and
+    // spend a request that can only fail — the user has not been asked yet.
+    const known = authByApp[integration.app];
+    const scheme = values
+      ? known?.find((s) => s.mode === values.authScheme)
+      : preferredScheme(known);
+    if (!values && scheme && !scheme.redirect && scheme.accountFields.length) {
+      setSetupPrompt({ app: integration.app, schemes: known! });
+      return;
+    }
+
     setBusyApp(integration.app);
 
     const nonce = newNonce();
     const returnTo = `${window.location.origin}/?devic_oauth=${nonce}`;
-    // Opened empty inside the click, navigated once the URL is known. Both
-    // entry points are gestures — the card's button and the form's submit —
-    // so this holds on the retry too.
-    const popup = window.open(
-      "",
-      "devic-oauth",
-      "width=520,height=680,menubar=no,toolbar=no"
-    );
+    // Opened empty inside the click, navigated once the URL is known — browsers
+    // only honour `window.open` inside the gesture that triggered it. Skipped
+    // when the scheme in hand needs no browser at all.
+    const popup =
+      scheme && !scheme.redirect
+        ? null
+        : window.open(
+            "",
+            "devic-oauth",
+            "width=520,height=680,menubar=no,toolbar=no"
+          );
 
     try {
       const { connected, authorizationUrl } = await client.connectIntegration(
@@ -350,12 +436,16 @@ export function IntegrationsModal({
       popup?.close();
       pendingRef.current = null;
       setBusyApp(null);
+      const message = err instanceof Error ? err.message : String(err);
       const setup = (err as DevicApiError)?.setupRequired;
       if (setup) {
         await openSetupForm(integration, setup);
         return;
       }
-      setActionError(err instanceof Error ? err.message : String(err));
+      // While the form is up its own failures belong in it, next to the fields
+      // that caused them — a message behind a dialog is a message nobody reads.
+      if (setupPrompt?.app === integration.app) setFormError(message);
+      else setActionError(message);
     }
   };
 
@@ -380,11 +470,12 @@ export function IntegrationsModal({
       return;
     }
     try {
-      const { schemes } = await client!.getIntegrationAuth(
-        integration.app,
-        scope
-      );
+      const schemes =
+        authByApp[integration.app] ??
+        (await client!.getIntegrationAuth(integration.app, scope)).schemes;
       if (!schemes.length) throw new Error(setup.message);
+      setAuthByApp((prev) => ({ ...prev, [integration.app]: schemes }));
+      setFormError(null);
       setSetupPrompt({ app: integration.app, setup, schemes });
     } catch (err) {
       setActionError(err instanceof Error ? err.message : String(err));
@@ -517,47 +608,32 @@ export function IntegrationsModal({
                       </div>
                     )}
 
-                    {/* The form replaces this app's button rather than opening
-                        a dialog of its own: it belongs to the card the user
-                        pressed, and the modal is already a dialog. */}
-                    {setupPrompt?.app === integration.app ? (
-                      <ConnectFieldsForm
-                        integration={integration}
-                        schemes={setupPrompt.schemes}
-                        initialScheme={setupPrompt.setup.authScheme}
-                        onlyFields={setupPrompt.setup.fields}
-                        submitting={busy}
-                        onCancel={() => setSetupPrompt(null)}
-                        onSubmit={(values) => handleConnect(integration, values)}
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        className={`devic-int-btn devic-int-btn-block${
-                          cardState.key === "connected"
-                            ? ""
-                            : " devic-int-btn-primary"
-                        }`}
-                        onClick={() => handleConnect(integration)}
-                        disabled={busy || !!busyApp}
-                        title={
-                          cardState.key === "connected"
-                            ? "Sign in with a different account. The one connected now is replaced."
-                            : undefined
-                        }
-                      >
-                        {busy
-                          ? "Waiting…"
-                          : cardState.key === "disconnected"
-                            ? "Connect"
-                            : cardState.key === "reconnect"
-                              ? "Reconnect"
-                              : // Not "Add account": one account per app is all
-                                // the assistant can use, and connecting again
-                                // retires the previous one.
-                                "Switch account"}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className={`devic-int-btn devic-int-btn-block${
+                        cardState.key === "connected"
+                          ? ""
+                          : " devic-int-btn-primary"
+                      }`}
+                      onClick={() => handleConnect(integration)}
+                      disabled={busy || !!busyApp}
+                      title={
+                        cardState.key === "connected"
+                          ? "Sign in with a different account. The one connected now is replaced."
+                          : undefined
+                      }
+                    >
+                      {busy
+                        ? "Waiting…"
+                        : cardState.key === "disconnected"
+                          ? "Connect"
+                          : cardState.key === "reconnect"
+                            ? "Reconnect"
+                            : // Not "Add account": one account per app is all
+                              // the assistant can use, and connecting again
+                              // retires the previous one.
+                              "Switch account"}
+                    </button>
 
                     {integration.accounts.length > 0 && (
                       <ul className="devic-int-accounts">
@@ -612,6 +688,25 @@ export function IntegrationsModal({
           </button>
         </div>
       </div>
+
+      {/* Its own dialog, over this one: the fields and a provider's
+          explanation of where to find a key do not fit in a card of a grid. */}
+      {setupPrompt && promptIntegration && (
+        <ConnectFieldsForm
+          integration={promptIntegration}
+          schemes={setupPrompt.schemes}
+          initialScheme={setupPrompt.setup?.authScheme}
+          onlyFields={setupPrompt.setup?.fields}
+          submitting={busyApp === setupPrompt.app}
+          error={formError}
+          theme={theme}
+          onCancel={() => {
+            setSetupPrompt(null);
+            setFormError(null);
+          }}
+          onSubmit={(values) => handleConnect(promptIntegration, values)}
+        />
+      )}
     </div>,
     document.body
   );
