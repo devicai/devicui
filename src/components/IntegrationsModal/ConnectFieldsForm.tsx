@@ -1,19 +1,26 @@
 import { useMemo, useState, type FormEvent, type JSX } from "react";
+import { createPortal } from "react-dom";
 import type {
   Integration,
   IntegrationAuthField,
   IntegrationAuthScheme,
 } from "../../api/types";
+import { isDarkTheme, themeVars, type DevicTheme } from "../theme";
+import { IntegrationLogo } from "./IntegrationLogo";
 
 export interface ConnectFieldsFormProps {
   integration: Integration;
   /** Every way this app can be connected, from `GET /:app/auth`. */
   schemes: IntegrationAuthScheme[];
-  /** The scheme the server asked about, when it named one. */
+  /** The scheme to start on, when the server named one. */
   initialScheme?: string;
   /** Only these are asked for, when the server named what was missing. */
   onlyFields?: IntegrationAuthField[];
   submitting?: boolean;
+  /** Failure from the last attempt, shown above the fields. */
+  error?: string | null;
+  /** Passed down from the dialog that opened this one. */
+  theme?: DevicTheme;
   onCancel: () => void;
   onSubmit: (values: {
     authScheme: string;
@@ -36,9 +43,13 @@ function wanted(
  * API key the user creates at the provider — so without this they cannot be
  * connected at all, no matter how many popups are opened.
  *
- * Rendered from the fields the server describes rather than from anything
- * per-app: there are hundreds of them, and their inputs are the provider's to
- * decide. Values go straight to the connection and are never kept here.
+ * A dialog of its own rather than something inside the app's card: a provider
+ * explains where to find a key in a paragraph, and three of those do not fit
+ * in one column of a grid without turning into a stack of clipped text. The
+ * fields are rendered from what the server describes, never from anything
+ * per-app — there are hundreds of them.
+ *
+ * Values go straight into the connection and are never kept here.
  */
 export function ConnectFieldsForm({
   integration,
@@ -46,12 +57,12 @@ export function ConnectFieldsForm({
   initialScheme,
   onlyFields,
   submitting,
+  error,
+  theme,
   onCancel,
   onSubmit,
 }: ConnectFieldsFormProps): JSX.Element | null {
-  const [mode, setMode] = useState(
-    initialScheme ?? schemes[0]?.mode ?? ""
-  );
+  const [mode, setMode] = useState(initialScheme ?? schemes[0]?.mode ?? "");
   const [values, setValues] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState(false);
 
@@ -87,93 +98,134 @@ export function ConnectFieldsForm({
     onSubmit({ authScheme: scheme.mode, accountFields });
   };
 
-  return (
-    <form className="devic-int-connect-form" onSubmit={handleSubmit}>
-      <div className="devic-int-connect-head">
-        <strong>Connect {integration.name}</strong>
-        {scheme.guideUrl && (
-          <a href={scheme.guideUrl} target="_blank" rel="noopener noreferrer">
-            Where do I find this?
-          </a>
-        )}
-      </div>
-
-      {/* Only when there is a real choice — a picker with one option is just
-          another thing to read before typing a key. */}
-      {schemes.length > 1 && (
-        <label className="devic-int-connect-field">
-          <span>Connect with</span>
-          <select
-            value={scheme.mode}
-            onChange={(e) => {
-              setMode(e.target.value);
-              setValues({});
-              setTouched(false);
-            }}
-          >
-            {schemes.map((s) => (
-              <option key={s.mode} value={s.mode}>
-                {s.mode}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-
-      {fields.map((field) => {
-        const invalid = touched && field.required && !valueOf(field).trim();
-        return (
-          <label key={field.name} className="devic-int-connect-field">
+  return createPortal(
+    <div
+      className="devic-int-overlay devic-int-overlay-stacked"
+      style={themeVars(theme)}
+      data-dark={isDarkTheme(theme)}
+      onClick={onCancel}
+    >
+      <form
+        className="devic-int-connect-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Connect ${integration.name}`}
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={handleSubmit}
+      >
+        <div className="devic-int-connect-header">
+          <IntegrationLogo integration={integration} />
+          <div className="devic-int-connect-heading">
+            <strong>Connect {integration.name}</strong>
             <span>
-              {field.label}
-              {!field.required && <em> (optional)</em>}
+              {scheme.redirect
+                ? `You'll be sent to ${integration.name} to finish authorising.`
+                : "Your credentials go straight to the app — only you can use this account."}
             </span>
-            <input
-              type={field.secret ? "password" : "text"}
-              value={valueOf(field)}
-              onChange={(e) =>
-                setValues((prev) => ({ ...prev, [field.name]: e.target.value }))
-              }
-              placeholder={field.default}
-              autoComplete={field.secret ? "new-password" : "off"}
-              spellCheck={false}
-              aria-invalid={invalid || undefined}
-              data-invalid={invalid || undefined}
-            />
-            {field.description && (
-              // Titled as well as shown: providers explain where to find a key
-              // in a paragraph, and the card clamps it to three lines.
-              <small className="devic-int-connect-hint" title={field.description}>
-                {field.description}
-              </small>
-            )}
-          </label>
-        );
-      })}
+          </div>
+          <button
+            type="button"
+            className="devic-int-close"
+            onClick={onCancel}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
 
-      {scheme.redirect && (
-        <small className="devic-int-connect-hint">
-          You'll be sent to {integration.name} to finish authorising.
-        </small>
-      )}
+        <div className="devic-int-connect-body">
+          {error && <div className="devic-int-error">{error}</div>}
 
-      <div className="devic-int-connect-actions">
-        <button
-          type="button"
-          className="devic-int-btn devic-int-btn-small"
-          onClick={onCancel}
-          disabled={submitting}
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="devic-int-btn devic-int-btn-small devic-int-btn-primary"
-          disabled={submitting}
-        >
-          {submitting ? "Connecting…" : scheme.redirect ? "Continue" : "Connect"}
-        </button>
-      </div>
-    </form>
+          {/* Only when there is a real choice — a picker with one option is
+              just another thing to read before typing a key. */}
+          {schemes.length > 1 && (
+            <label className="devic-int-connect-field">
+              <span className="devic-int-connect-label">Connect with</span>
+              <select
+                value={scheme.mode}
+                onChange={(e) => {
+                  setMode(e.target.value);
+                  setValues({});
+                  setTouched(false);
+                }}
+              >
+                {schemes.map((s) => (
+                  <option key={s.mode} value={s.mode}>
+                    {s.mode}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {fields.map((field, index) => {
+            const invalid = touched && field.required && !valueOf(field).trim();
+            return (
+              <label key={field.name} className="devic-int-connect-field">
+                <span className="devic-int-connect-label">
+                  {field.label}
+                  {!field.required && <em> (optional)</em>}
+                </span>
+                <input
+                  autoFocus={index === 0}
+                  type={field.secret ? "password" : "text"}
+                  value={valueOf(field)}
+                  onChange={(e) =>
+                    setValues((prev) => ({
+                      ...prev,
+                      [field.name]: e.target.value,
+                    }))
+                  }
+                  placeholder={field.default}
+                  autoComplete={field.secret ? "new-password" : "off"}
+                  spellCheck={false}
+                  aria-invalid={invalid || undefined}
+                  data-invalid={invalid || undefined}
+                />
+                {field.description && (
+                  <small className="devic-int-connect-hint">
+                    {field.description}
+                  </small>
+                )}
+              </label>
+            );
+          })}
+
+          {scheme.guideUrl && (
+            <a
+              className="devic-int-connect-guide"
+              href={scheme.guideUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Where do I find this?
+            </a>
+          )}
+        </div>
+
+        <div className="devic-int-connect-actions">
+          <button
+            type="button"
+            className="devic-int-btn"
+            onClick={onCancel}
+            disabled={submitting}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="devic-int-btn devic-int-btn-primary"
+            disabled={submitting}
+          >
+            {submitting
+              ? "Connecting…"
+              : scheme.redirect
+                ? "Continue"
+                : "Connect"}
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body
   );
 }
