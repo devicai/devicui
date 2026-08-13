@@ -117,6 +117,7 @@ function ChatInputBox({
   usageBar,
   limitBanner,
   integrationsHint,
+  integrationsToggle,
 }: ChatInputProps): JSX.Element {
   const [message, setMessage] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -858,6 +859,10 @@ function ChatInputBox({
           </div>
         ) : (
           <>
+            {/* Before the attachment: both add something to the message, and
+                which apps it may reach is the wider of the two decisions. */}
+            {integrationsToggle}
+
             {enableFileUploads && (
               <>
                 <input

@@ -14,6 +14,7 @@ import {
   IntegrationsHint,
   IntegrationsLauncher,
   IntegrationsModal,
+  IntegrationsToggle,
   useIntegrations,
 } from '../IntegrationsModal';
 import { isDarkTheme } from '../theme';
@@ -94,6 +95,8 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   // Left unset so the strip can say "Connect your apps" or "Explore connected
   // apps" depending on what the end user has actually done.
   integrationsHintLabel: undefined as any,
+  showIntegrationsToggle: true,
+  integrationsToggleLabel: 'Apps in this chat',
 };
 
 /**
@@ -199,6 +202,16 @@ function ChatDrawerInner({
     [storageKey, onChatCreated]
   );
 
+  /**
+   * Connected apps the end user has switched off, by slug.
+   *
+   * Held here for the life of the drawer rather than persisted: it is a choice
+   * about the next message, and one that quietly outlived the session would be
+   * indistinguishable from an app that had stopped working. Sent with every
+   * message while it is set; the server keeps nothing.
+   */
+  const [disabledIntegrations, setDisabledIntegrations] = useState<string[]>([]);
+
   // Use chat hook
   const chat = useDevicChat({
     assistantId,
@@ -211,6 +224,7 @@ function ChatDrawerInner({
     subtenantMetadata,
     tags,
     enabledTools,
+    disabledIntegrations,
     modelInterfaceTools,
     pollingInterval,
     onMessageSent,
@@ -621,6 +635,23 @@ function ChatDrawerInner({
       />
     ) : null;
 
+  // The per-message switch in the composer row. Shown only where there is
+  // something to switch — the control returns null with nothing connected —
+  // and hidden outright by `showIntegrationsToggle: false`.
+  const integrationsToggleNode =
+    mergedOptions.showIntegrationsButton !== false &&
+    mergedOptions.showIntegrationsToggle !== false ? (
+      <IntegrationsToggle
+        state={integrationsState}
+        disabled={disabledIntegrations}
+        onChange={setDisabledIntegrations}
+        onManage={() => setIntegrationsOpen(true)}
+        label={mergedOptions.integrationsToggleLabel}
+        dark={isDarkTheme(modalTheme)}
+        busy={chat.isLoading}
+      />
+    ) : null;
+
   // Resizable drawer
   const [resizedWidth, setResizedWidth] = useState<number | null>(null);
 
@@ -891,6 +922,7 @@ function ChatDrawerInner({
             usageBar={usageBarNode}
             limitBanner={limitBannerNode}
             integrationsHint={integrationsHintNode}
+            integrationsToggle={integrationsToggleNode}
           />
         )}
       </div>
