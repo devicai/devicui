@@ -733,3 +733,184 @@
   align-items: center;
   gap: 6px;
 }
+
+/* ── Per-message app switch, next to the composer ──────────────────────────
+   Anchored to its button rather than portalled: it belongs to the composer
+   row, and a fixed overlay would sit in the wrong place the moment the drawer
+   scrolls or the host page moves it. */
+.devic-int-toggle {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.devic-int-toggle-btn {
+  position: relative;
+}
+
+/* The count of apps sitting the next message out. Without it the control looks
+   identical whether everything is on or nothing is, which is exactly the state
+   the user needs to see before pressing send. */
+.devic-int-toggle-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--devic-primary, #1677ff);
+  color: #fff;
+  font-size: 9px;
+  line-height: 14px;
+  font-weight: 600;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.devic-int-toggle-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 10002;
+  width: 260px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 10px;
+  box-sizing: border-box;
+  border-radius: var(--devic-radius, 10px);
+  border: 1px solid var(--devic-border, #e8e8e8);
+  background: var(--devic-bg, #fff);
+  color: var(--devic-text, #333);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+
+.devic-int-toggle-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 2px 8px;
+  border-bottom: 1px solid var(--devic-border, #e8e8e8);
+  margin-bottom: 6px;
+}
+
+.devic-int-toggle-head strong {
+  font-size: 13px;
+}
+
+.devic-int-toggle-head span {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--devic-text-muted, #999);
+}
+
+.devic-int-toggle-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.devic-int-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 4px;
+  border-radius: var(--devic-radius-sm, 6px);
+  cursor: pointer;
+}
+
+.devic-int-toggle-row:hover {
+  background: var(--devic-bg-secondary, #f5f5f5);
+}
+
+.devic-int-toggle-app {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.devic-int-toggle-app .devic-int-logo {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.devic-int-toggle-name {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A switch built from the checkbox itself, so the control stays keyboard
+   reachable and announces its state without any of it being reimplemented. */
+.devic-int-toggle-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 32px;
+  height: 18px;
+  margin: 0;
+  border-radius: 9px;
+  background: var(--devic-border, #d9d9d9);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--devic-transition, 0.2s);
+}
+
+.devic-int-toggle-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform var(--devic-transition, 0.2s);
+}
+
+.devic-int-toggle-switch:checked {
+  background: var(--devic-primary, #1677ff);
+}
+
+.devic-int-toggle-switch:checked::after {
+  transform: translateX(14px);
+}
+
+.devic-int-toggle-switch:focus-visible {
+  outline: 2px solid var(--devic-primary, #1677ff);
+  outline-offset: 2px;
+}
+
+.devic-int-toggle-manage {
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px;
+  border: none;
+  border-top: 1px solid var(--devic-border, #e8e8e8);
+  background: none;
+  color: var(--devic-primary, #1677ff);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 0 0 var(--devic-radius-sm, 6px) var(--devic-radius-sm, 6px);
+}
+
+.devic-int-toggle-manage:hover {
+  background: var(--devic-bg-secondary, #f5f5f5);
+}
+
+/* Dark composer: the popover follows the drawer's own surface tokens, and the
+   track needs its own value — the light border it borrows disappears. */
+.devic-int-toggle[data-dark="true"] .devic-int-toggle-popover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.devic-int-toggle[data-dark="true"] .devic-int-toggle-switch:not(:checked) {
+  background: var(--devic-border, #434343);
+}

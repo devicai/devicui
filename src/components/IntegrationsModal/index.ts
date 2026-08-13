@@ -4,6 +4,8 @@ export { IntegrationsLauncher, DEFAULT_MAX_LOGOS } from "./IntegrationsLauncher"
 export type { IntegrationsLauncherProps } from "./IntegrationsLauncher";
 export { IntegrationsHint } from "./IntegrationsHint";
 export type { IntegrationsHintProps } from "./IntegrationsHint";
+export { IntegrationsToggle } from "./IntegrationsToggle";
+export type { IntegrationsToggleProps } from "./IntegrationsToggle";
 export { IntegrationLogo } from "./IntegrationLogo";
 export type { IntegrationLogoProps } from "./IntegrationLogo";
 export { useIntegrations } from "./useIntegrations";

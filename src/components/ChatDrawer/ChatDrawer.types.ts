@@ -614,6 +614,28 @@ export interface ChatDrawerOptions {
    * connected apps" once the end user has connected one.
    */
   integrationsHintLabel?: string;
+
+  /**
+   * Show the per-message app switch in the composer row — a control listing the
+   * apps the end user has connected, each of which they can leave out of the
+   * next message without disconnecting it.
+   *
+   * It appears only once they have connected at least one app: with nothing
+   * connected there is nothing to switch. Set this to `false` to keep it out of
+   * the composer even then — the whole conversation then reaches every app they
+   * have connected, which is how the drawer behaved before this existed.
+   *
+   * Ignored when `showIntegrationsButton` is false.
+   * @default true
+   */
+  showIntegrationsToggle?: boolean;
+
+  /**
+   * Label of that control, used as its tooltip, accessible name and popover
+   * heading.
+   * @default "Apps in this chat"
+   */
+  integrationsToggleLabel?: string;
 }
 
 /**
@@ -911,6 +933,12 @@ export interface ChatInputProps {
    * this is an offer.
    */
   integrationsHint?: React.ReactNode;
+  /**
+   * Per-message app switch, rendered in the button row beside the attach and
+   * mic controls — the same row, because it governs the message being typed
+   * rather than the conversation.
+   */
+  integrationsToggle?: React.ReactNode;
 }
 
 /**

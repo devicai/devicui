@@ -76,6 +76,17 @@ export interface UseDevicChatOptions {
   enabledTools?: string[];
 
   /**
+   * Apps the end user connected that should sit out the messages sent from
+   * here, by slug (`["gmail"]`).
+   *
+   * A deny list over their own connected apps, not over the assistant's tools:
+   * what is not named stays available. Sent with every message while it is set,
+   * so it lasts as long as the caller keeps it set — the server keeps nothing
+   * and the account is never disconnected.
+   */
+  disabledIntegrations?: string[];
+
+  /**
    * Client-side tools for model interface protocol
    */
   modelInterfaceTools?: ModelInterfaceTool[];
@@ -192,6 +203,12 @@ export interface UseDevicChatResult {
       transcriptId?: string;
       /** Per-message tags, merged (deduped) with the resolved conversation tags. */
       tags?: string[];
+      /**
+       * Connected apps to leave out of this one message, by slug. Replaces the
+       * hook's own `disabledIntegrations` rather than adding to it, so a caller
+       * can send one message with everything on by passing `[]`.
+       */
+      disabledIntegrations?: string[];
     }
   ) => Promise<void>;
 
@@ -269,6 +286,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     subtenantMetadata,
     tags,
     enabledTools,
+    disabledIntegrations,
     modelInterfaceTools = [],
     pollingInterval: propsPollingInterval,
     onMessageSent,
@@ -651,6 +669,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         metadata?: Record<string, any>;
         transcriptId?: string;
         tags?: string[];
+        disabledIntegrations?: string[];
       }
     ) => {
       if (!clientRef.current) {
@@ -754,6 +773,13 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
             return merged.length > 0 ? { tags: merged } : {};
           })(),
           enabledTools,
+          // The end user's own apps that sit this message out. Sent only when
+          // some are switched off: an older API ignores the field, and there is
+          // no reason to put an empty array in every request.
+          ...(() => {
+            const off = sendOptions?.disabledIntegrations ?? disabledIntegrations;
+            return off?.length ? { disabledIntegrations: off } : {};
+          })(),
           // Include model interface tools if any
           ...(toolSchemas.length > 0 && { tools: toolSchemas }),
           // Link to the speech-to-text transcript that seeded this message, if any
@@ -804,6 +830,10 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       chatUid,
       assistantId,
       enabledTools,
+      // Without this, the callback keeps the list from the render that created
+      // it: switching an app off would not take effect until something else
+      // happened to rebuild it.
+      disabledIntegrations,
       resolvedTenantId,
       resolvedTenantMetadata,
       resolvedSubtenantId,

@@ -436,6 +436,45 @@ options={{
 }}
 ```
 
+#### Switching an app off for one message
+
+A connected app is offered to every message from then on, and *"not this one"*
+used to mean disconnecting the account — throwing away an authorisation to get
+it back through another OAuth round trip.
+
+The composer therefore carries a switch listing the apps the end user has
+connected. Anything switched off sits out the next message: its tools are not
+loaded and cost no prompt tokens, and the account stays connected. It appears
+only once they have connected something, because with nothing connected there
+is nothing to switch.
+
+```tsx
+options={{
+  showIntegrationsToggle: true,             // default
+  integrationsToggleLabel: 'Apps in this chat',
+}}
+```
+
+The choice lasts as long as the drawer is mounted and travels with each message
+as `disabledIntegrations`. Nothing is remembered on the server, so a fresh
+conversation starts with everything on again.
+
+Driving it yourself, without the drawer:
+
+```tsx
+const { sendMessage } = useDevicChat({
+  assistantId: 'my-assistant',
+  disabledIntegrations: ['gmail'],       // every message from this hook
+});
+
+// …or for one message only. `[]` sends this one with everything on.
+sendMessage('summarise this', { disabledIntegrations: ['gmail', 'notion'] });
+```
+
+It is a deny list over the end user's **own** connected apps: what you do not
+name keeps working, and your assistant's own tools stay governed by
+`enabledTools`.
+
 Or standalone, with your own trigger:
 
 ```tsx
