@@ -225,7 +225,12 @@ export function useAIGenerationButton(
       try {
         const { responses } = await executeToolCalls(pendingCalls);
         if (responses.length > 0) {
-          await clientRef.current.sendToolResponses(assistantId, chatUid, responses);
+          await clientRef.current.sendToolResponses(
+            assistantId,
+            chatUid,
+            responses,
+            toolSchemas
+          );
           setShouldPoll(true);
         }
       } catch (err) {
@@ -234,7 +239,7 @@ export function useAIGenerationButton(
         onErrorRef.current?.(error);
       }
     },
-    [chatUid, assistantId, executeToolCalls, extractPendingToolCalls]
+    [chatUid, assistantId, executeToolCalls, extractPendingToolCalls, toolSchemas]
   );
 
   // Polling

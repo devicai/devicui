@@ -22,6 +22,7 @@ import type {
   Integration,
   IntegrationAuthScheme,
   IntegrationSetupRequired,
+  ModelInterfaceToolSchema,
 } from "./types";
 
 /**
@@ -382,18 +383,31 @@ export class DevicApiClient {
   }
 
   /**
-   * Send tool call responses back to the assistant
+   * Send tool call responses back to the assistant.
+   *
+   * `toolSchemas` re-states the client-side tools for the continuation. The
+   * API takes them from the first response of the batch, and without them the
+   * turn resumes with no client tools at all — the model stops being able to
+   * call them after the first round.
    */
   async sendToolResponses(
     assistantId: string,
     chatUid: string,
     responses: ToolCallResponse[],
+    toolSchemas?: ModelInterfaceToolSchema[],
   ): Promise<AsyncResponse> {
+    const body =
+      toolSchemas?.length && responses.length > 0
+        ? responses.map((response, index) =>
+            index === 0 ? { ...response, tools: toolSchemas } : response,
+          )
+        : responses;
+
     return this.request<AsyncResponse>(
       `/api/v1/assistants/${assistantId}/chats/${chatUid}/tool-response`,
       {
         method: "POST",
-        body: JSON.stringify({ responses }),
+        body: JSON.stringify({ responses: body }),
       },
     );
   }

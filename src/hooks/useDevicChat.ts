@@ -642,8 +642,14 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         }
 
         if (responses.length > 0) {
-          // Send tool responses back to the API
-          await clientRef.current.sendToolResponses(assistantId, chatUid, responses);
+          // Send tool responses back to the API, restating the tools so the
+          // continuation keeps them on offer
+          await clientRef.current.sendToolResponses(
+            assistantId,
+            chatUid,
+            responses,
+            toolSchemas
+          );
 
           // Only resume polling if no widgets are blocking
           if (widgetCalls.length === 0) {
@@ -657,7 +663,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         onErrorRef.current?.(error);
       }
     },
-    [chatUid, assistantId, handleToolCalls, extractPendingToolCalls]
+    [chatUid, assistantId, handleToolCalls, extractPendingToolCalls, toolSchemas]
   );
 
   // Send a message
@@ -978,9 +984,12 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
 
       try {
         logRef.current.log('[useDevicChat] sending widget tool response', toolCallId);
-        await clientRef.current.sendToolResponses(assistantId, uid, [
-          { tool_call_id: toolCallId, content: response, role: 'tool' },
-        ]);
+        await clientRef.current.sendToolResponses(
+          assistantId,
+          uid,
+          [{ tool_call_id: toolCallId, content: response, role: 'tool' }],
+          toolSchemas
+        );
         // Resume polling only if no more widget calls are blocking
         if (remaining.length === 0) {
           setShouldPoll(true);
@@ -993,7 +1002,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         onErrorRef.current?.(error);
       }
     },
-    [assistantId]
+    [assistantId, toolSchemas]
   );
 
   // Cancel a pending widget tool call (sends an error response to the model)

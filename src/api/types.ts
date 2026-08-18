@@ -182,6 +182,12 @@ export interface ToolCallResponse {
   tool_call_id: string;
   content: any;
   role: 'tool';
+  /**
+   * The client-side tools still on offer for the rest of the turn. The API
+   * reads them off the first response of the batch: leaving them out drops
+   * the tools from the continuation, so the model cannot call them again.
+   */
+  tools?: ModelInterfaceToolSchema[];
 }
 
 /**
