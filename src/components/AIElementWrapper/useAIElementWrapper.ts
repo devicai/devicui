@@ -102,7 +102,12 @@ export function useAIElementWrapper(
       try {
         const { responses } = await executeToolCalls(pendingCalls);
         if (responses.length > 0) {
-          await clientRef.current.sendToolResponses(assistantId, chatUid, responses);
+          await clientRef.current.sendToolResponses(
+            assistantId,
+            chatUid,
+            responses,
+            toolSchemas
+          );
           setShouldPoll(true);
         }
       } catch (err) {
@@ -111,7 +116,7 @@ export function useAIElementWrapper(
         onErrorRef.current?.(error);
       }
     },
-    [chatUid, assistantId, executeToolCalls, extractPendingToolCalls]
+    [chatUid, assistantId, executeToolCalls, extractPendingToolCalls, toolSchemas]
   );
 
   usePolling(
