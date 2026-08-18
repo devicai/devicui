@@ -21,6 +21,7 @@ import { isDarkTheme } from '../theme';
 import type { DevicTheme } from '../theme';
 import type { ChatDrawerProps, ChatDrawerOptions, ChatDrawerHandle } from './ChatDrawer.types';
 import './styles.css';
+import { avatarUri } from '../../utils/avatar';
 
 const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   position: 'right',
@@ -274,8 +275,16 @@ function ChatDrawerInner({
       !!mergedOptions.showAvatar ||
       (mergedOptions.showIntegrationsButton !== false && isOpen),
   });
+  // An assistant with no uploaded image still gets a face, generated from its
+  // identifier — the same one the console shows for it. Drawn from `assistantId`
+  // rather than from the fetched assistant so the header is not empty while the
+  // lookup is in flight; the two agree, since that is what was asked for.
   const avatarUrl = mergedOptions.showAvatar
-    ? (assistantInfo.assistant?.imgUrl ?? null)
+    ? (assistantInfo.assistant?.imgUrl ??
+      avatarUri(
+        assistantInfo.assistant?.identifier || assistantId,
+        assistantInfo.assistant?.avatarStyle
+      ))
     : null;
 
   /**

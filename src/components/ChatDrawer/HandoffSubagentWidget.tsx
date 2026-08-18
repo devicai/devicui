@@ -6,6 +6,7 @@ import type { AgentThreadDto, AgentDto } from '../../api/types';
 import { ThreadStateTag } from '../ThreadStateTag';
 import { resolvePollingInterval } from '../../hooks/usePolling';
 import { createLogger } from '../../utils/logger';
+import { avatarUri } from '../../utils/avatar';
 
 const TERMINAL_STATES: AgentThreadState[] = [
   AgentThreadState.COMPLETED,
@@ -212,8 +213,15 @@ export function HandoffSubagentWidget({
       {/* Header: Agent avatar + name */}
       <div className="devic-handoff-header">
         <div className="devic-handoff-agent-avatar">
-          {agent?.imgUrl ? (
-            <img src={agent.imgUrl} alt="" className="devic-handoff-avatar-img" />
+          {/* The subagent's own face — uploaded, or generated from its id. The
+              robot glyph is kept for the case where the hand-off names no
+              agent at all, which is the only time there is nothing to draw. */}
+          {agent?.imgUrl || agent?._id ? (
+            <img
+              src={agent.imgUrl || avatarUri(agent._id!, agent.avatarStyle)}
+              alt=""
+              className="devic-handoff-avatar-img"
+            />
           ) : (
             <RobotFallbackIcon />
           )}

@@ -3,7 +3,14 @@ import commonjs from '@rollup/plugin-commonjs';
 import typescript from '@rollup/plugin-typescript';
 import postcss from 'rollup-plugin-postcss';
 
-const external = ['react', 'react-dom', 'react/jsx-runtime', 'markdown-to-jsx'];
+const external = [
+  'react',
+  'react-dom',
+  'react/jsx-runtime',
+  'markdown-to-jsx',
+  'blobatar',
+  'blobatar/uri',
+];
 
 export default [
   // ESM build with types
