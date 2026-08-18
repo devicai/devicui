@@ -1,3 +1,5 @@
+import type { AvatarStyle } from '../utils/avatar';
+
 import type React from 'react';
 
 /**
@@ -520,6 +522,8 @@ export interface AssistantSpecialization {
   description: string;
   state: 'active' | 'inactive' | 'coming_soon';
   imgUrl?: string;
+  /** Pinned style of the generated avatar shown when there is no imgUrl. */
+  avatarStyle?: AvatarStyle;
   availableToolsGroups?: Array<{
     name: string;
     description?: string;
@@ -661,6 +665,8 @@ export interface AgentDto {
   name: string;
   description?: string;
   imgUrl?: string;
+  /** Pinned style of the generated avatar shown when there is no imgUrl. */
+  avatarStyle?: AvatarStyle;
   agentId?: string;
 }
 
