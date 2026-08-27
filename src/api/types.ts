@@ -544,6 +544,16 @@ export interface AssistantSpecialization {
   isCustom?: boolean;
   creationTimestampMs?: number;
   /**
+   * Whether this assistant offers MCP servers of the tenant's own.
+   *
+   * Same contract as `tenantIntegrations` below, absence included.
+   */
+  tenantMcpServers?: {
+    enabled: boolean;
+    /** Servers listed ready to connect. Says nothing about how many are connected. */
+    count?: number;
+  };
+  /**
    * Whether this assistant offers connected apps to its tenants.
    *
    * **Absent means "cannot tell", not "no"** — an API older than this field
@@ -803,6 +813,12 @@ export type TenantMcpAuthMode = "oauth" | "header" | "none";
 /** One of the end user's own MCP connections. */
 export interface TenantMcpConnection {
   id: string;
+  /**
+   * What to put in `disabledIntegrations` to have this server sit a message
+   * out. Sent by the API so the prefix that separates it from an app slug lives
+   * on the server, in one place.
+   */
+  toggleId?: string;
   name?: string;
   url: string;
   /** The developer's template this came from, when it came from one. */
