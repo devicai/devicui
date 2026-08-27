@@ -20,3 +20,10 @@ export { McpConnectForm } from "./McpConnectForm";
 export type { McpConnectFormProps } from "./McpConnectForm";
 export { useTenantMcp } from "./useTenantMcp";
 export type { TenantMcpState, UseTenantMcpOptions } from "./useTenantMcp";
+
+export {
+  integrationChoiceKey,
+  readIntegrationChoice,
+  writeIntegrationChoice,
+  pruneIntegrationChoice,
+} from "./integrationChoice";

@@ -17,6 +17,10 @@ import {
   IntegrationsToggle,
   useIntegrations,
   useTenantMcp,
+  integrationChoiceKey,
+  readIntegrationChoice,
+  writeIntegrationChoice,
+  pruneIntegrationChoice,
 } from '../IntegrationsModal';
 import { isDarkTheme } from '../theme';
 import type { DevicTheme } from '../theme';
@@ -205,12 +209,17 @@ function ChatDrawerInner({
   );
 
   /**
-   * Connected apps the end user has switched off, by slug.
+   * What the end user switched off: connected apps by slug, and their own MCP
+   * servers by the `toggleId` the API hands out.
    *
-   * Held here for the life of the drawer rather than persisted: it is a choice
-   * about the next message, and one that quietly outlived the session would be
-   * indistinguishable from an app that had stopped working. Sent with every
-   * message while it is set; the server keeps nothing.
+   * Remembered in this browser (see `integrationChoice`) rather than only for
+   * the life of the drawer — a reload used to forget it, which for someone who
+   * keeps an app switched off on purpose reads as the switch not working. The
+   * server still keeps nothing beyond the turn it was sent for; what is stored
+   * is a preference of whoever is at this keyboard.
+   *
+   * The badge on the plug is what keeps that honest: a remembered choice is
+   * visible at a glance rather than being an unexplained silence from an app.
    */
   const [disabledIntegrations, setDisabledIntegrations] = useState<string[]>([]);
 
@@ -387,6 +396,59 @@ function ChatDrawerInner({
   // Tenant/subtenant resolution mirrors useDevicChat (prop overrides provider).
   const resolvedTenantId = tenantId || context?.tenantId;
   const resolvedSubtenantId = subtenantId || context?.subtenantId;
+
+  // ── Remembering which apps and servers are switched off ────────────────
+
+  const choiceKey = integrationChoiceKey(
+    assistantId,
+    resolvedTenantId,
+    resolvedSubtenantId
+  );
+
+  // Loaded per key, so switching tenant loads that tenant's choice rather than
+  // carrying the previous one over.
+  const loadedChoiceRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (loadedChoiceRef.current === choiceKey) return;
+    loadedChoiceRef.current = choiceKey;
+    setDisabledIntegrations(readIntegrationChoice(choiceKey));
+  }, [choiceKey]);
+
+  useEffect(() => {
+    // Only once this key's stored value has been read, or the empty initial
+    // state would erase it before it was ever loaded.
+    if (loadedChoiceRef.current !== choiceKey) return;
+    writeIntegrationChoice(choiceKey, disabledIntegrations);
+  }, [choiceKey, disabledIntegrations]);
+
+  /**
+   * Forgets what is no longer on offer, once the listings can say so.
+   *
+   * Every clause of this is load-bearing. `mayOffer*` is false BEFORE the
+   * assistant has answered as well as when the answer is no, so without the
+   * `assistantInfo.settled` guard the prune runs on the first render against
+   * two empty listings and erases the very thing that was just loaded — which
+   * is exactly the reload-forgets-it bug this was meant to fix. A definite
+   * "this assistant offers none" is an answer; an unsettled listing is not.
+   *
+   * With the drawer never opened, neither listing is ever fetched, so nothing
+   * is pruned and the stored choice survives untouched.
+   */
+  const appsKnown =
+    assistantInfo.settled && (!mayOfferIntegrations || integrationsState.settled);
+  const mcpKnown = assistantInfo.settled && (!mayOfferMcp || mcpState.settled);
+  useEffect(() => {
+    if (!appsKnown || !mcpKnown) return;
+    const live = [
+      ...integrationsState.integrations
+        .filter((i) => i.connected)
+        .map((i) => i.app),
+      ...mcpState.servers
+        .filter((s) => s.connection?.status === 'active' && s.connection.toggleId)
+        .map((s) => s.connection!.toggleId as string),
+    ];
+    setDisabledIntegrations((prev) => pruneIntegrationChoice(prev, live));
+  }, [appsKnown, mcpKnown, integrationsState.integrations, mcpState.servers]);
 
   // Usage bar (above the input) — only when enabled and a tenant is known.
   // Refetches after each turn via the message count as refresh key.
