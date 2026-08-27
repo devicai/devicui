@@ -20,6 +20,9 @@ import type {
   CoreMemoryList,
   CoreMemoryEntry,
   Integration,
+  TenantMcpAuthInput,
+  TenantMcpConnectResult,
+  TenantMcpListing,
   IntegrationAuthScheme,
   IntegrationSetupRequired,
   ModelInterfaceToolSchema,
@@ -933,6 +936,104 @@ export class DevicApiClient {
     return this.request(
       `/api/v1/tenant-integrations/refresh?${this.integrationsQuery(options)}`,
       { method: "POST" },
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // MCP servers the end user connects for themselves
+  // ---------------------------------------------------------------------------
+  // Backed by `/api/v1/tenant-mcp`, scoped exactly like the integrations above:
+  // the tenant is resolved on the server, never taken from the path. Sending a
+  // `subtenantId` makes the connection that end user's own; omitting it puts it
+  // on the tenant, where every one of its end users shares it.
+
+  /** The MCP servers this assistant offers, and the ones this tenant connected. */
+  async getMcpServers(options: {
+    assistantId: string;
+    tenantId?: string;
+    subtenantId?: string;
+  }): Promise<TenantMcpListing> {
+    return this.request<TenantMcpListing>(
+      `/api/v1/tenant-mcp?${this.integrationsQuery(options)}`,
+    );
+  }
+
+  /**
+   * Connects a server: one the developer offers (`templateId`) or one the end
+   * user brings (`url`).
+   *
+   * `returnTo` is where the callback posts the result back to, and the server
+   * refuses any value that does not match the origin this request came from —
+   * so it cannot be turned into an open redirector.
+   */
+  async connectMcpServer(options: {
+    assistantId: string;
+    tenantId?: string;
+    subtenantId?: string;
+    returnTo?: string;
+    templateId?: string;
+    url?: string;
+    name?: string;
+    auth?: TenantMcpAuthInput;
+  }): Promise<TenantMcpConnectResult> {
+    const { templateId, url, name, auth, returnTo, ...query } = options;
+    return this.request(`/api/v1/tenant-mcp?${this.integrationsQuery(query)}`, {
+      method: "POST",
+      // The scope travels in the body as well as the query string: it is what
+      // decides whether this connection is the end user's own or the tenant's,
+      // and the server reads it from there on writes.
+      body: JSON.stringify({
+        templateId,
+        url,
+        name,
+        auth,
+        returnTo,
+        tenantId: options.tenantId,
+        subtenantId: options.subtenantId,
+      }),
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  /** Authorises again, for a server whose credentials expired or were revoked. */
+  async reconnectMcpServer(
+    id: string,
+    options: {
+      assistantId: string;
+      tenantId?: string;
+      subtenantId?: string;
+      returnTo?: string;
+      auth?: TenantMcpAuthInput;
+    },
+  ): Promise<TenantMcpConnectResult> {
+    const { auth, returnTo, ...query } = options;
+    return this.request(
+      `/api/v1/tenant-mcp/${encodeURIComponent(id)}/reconnect?${this.integrationsQuery(query)}`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          auth,
+          returnTo,
+          tenantId: options.tenantId,
+          subtenantId: options.subtenantId,
+        }),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+
+  /** Disconnects one of the end user's own MCP servers. */
+  async disconnectMcpServer(
+    id: string,
+    options: {
+      assistantId: string;
+      tenantId?: string;
+      subtenantId?: string;
+    },
+  ): Promise<{ disconnected: boolean }> {
+    return this.request(
+      `/api/v1/tenant-mcp/${encodeURIComponent(id)}?${this.integrationsQuery(options)}`,
+      { method: "DELETE" },
     );
   }
 }

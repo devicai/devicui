@@ -795,3 +795,85 @@ export interface Integration {
   /** Event types the developer allows this tenant to switch on. */
   availableTriggers?: string[];
 }
+
+// ── MCP servers the end user connects for themselves ──────────────────────
+
+export type TenantMcpAuthMode = "oauth" | "header" | "none";
+
+/** One of the end user's own MCP connections. */
+export interface TenantMcpConnection {
+  id: string;
+  name?: string;
+  url: string;
+  /** The developer's template this came from, when it came from one. */
+  templateId?: string;
+  authMode?: TenantMcpAuthMode;
+  status: "pending_auth" | "active" | "error";
+  toolCount?: number;
+  tools?: string[];
+  lastProbeStatus?: string;
+  lastProbeError?: string;
+  lastProbeTimestampMs?: number;
+  /** Connected for the whole tenant, so every end user of it shares this. */
+  shared: boolean;
+  /** True when this end user may use it but not change or remove it. */
+  readOnly: boolean;
+}
+
+/**
+ * One row of the MCP panel: either a server the developer offers ready to
+ * connect, or one this end user added.
+ *
+ * A single list rather than two, because that is what the panel draws — keeping
+ * "offered" and "connected" apart would leave them out of step for a moment
+ * after every connect.
+ */
+export interface TenantMcpServer {
+  source: "template" | "custom";
+  templateId?: string;
+  name: string;
+  url: string;
+  description?: string;
+  logoUrl?: string;
+  authMode?: TenantMcpAuthMode;
+  /** Header the credential travels in, for `header` servers. */
+  headerName?: string;
+  /** Whether the end user may supply their own OAuth application. */
+  allowClientCredentials?: boolean;
+  /** Null until this tenant connects it. */
+  connection: TenantMcpConnection | null;
+}
+
+export interface TenantMcpListing {
+  offered: boolean;
+  /** Whether adding a server of one's own is permitted. */
+  allowCustom: boolean;
+  limits: { maxServers: number; maxToolsPerServer: number; used: number };
+  servers: TenantMcpServer[];
+}
+
+/** Credentials the end user supplies when connecting a server. */
+export interface TenantMcpAuthInput {
+  mode?: TenantMcpAuthMode;
+  headerName?: string;
+  headerValue?: string;
+  upstreamOAuth?: { clientId?: string; clientSecret?: string; scopes?: string[] };
+}
+
+/**
+ * What connecting answers with.
+ *
+ * `status: "active"` means it is done. `authorizationUrl` must be opened in a
+ * popup. `requiresClientCredentials` means the server has no dynamic client
+ * registration and the end user has to register an OAuth application with it
+ * themselves, authorising `callbackUrl` as the redirect URI.
+ */
+export interface TenantMcpConnectResult {
+  id: string;
+  status: "pending_auth" | "active" | "error";
+  toolCount?: number;
+  authorizationUrl?: string;
+  requiresClientCredentials?: boolean;
+  callbackUrl?: string;
+  error?: string;
+}
