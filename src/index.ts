@@ -51,6 +51,12 @@ export {
   McpServersSection,
   McpConnectForm,
   useTenantMcp,
+  // Where the per-message switches are remembered. Exported so a host that
+  // logs its user out can drop that user's choice with them.
+  integrationChoiceKey,
+  readIntegrationChoice,
+  writeIntegrationChoice,
+  pruneIntegrationChoice,
 } from './components/IntegrationsModal';
 export type {
   IntegrationsModalProps,
