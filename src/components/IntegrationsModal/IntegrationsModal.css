@@ -525,6 +525,17 @@
   font-size: 11px;
 }
 
+/* A server with no logo, which is the common case for one somebody pasted a
+   url for. Same box as a logo so the stack stays even. */
+.devic-int-launcher-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
 .devic-int-launcher-more {
   font-size: 10px;
   font-weight: 600;
@@ -846,6 +857,36 @@
   text-overflow: ellipsis;
 }
 
+/* Separates the tenant's own servers from the apps, only when both are there. */
+.devic-int-toggle-group {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  padding: 10px 4px 4px;
+  border-top: 1px solid var(--devic-border, rgba(128, 128, 128, 0.22));
+  margin-top: 6px;
+}
+
+.devic-int-toggle-mcp-logo {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* No logo is the common case for a server somebody pasted a url for. */
+.devic-int-toggle-mcp-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--devic-surface-2, rgba(128, 128, 128, 0.18));
+  color: inherit;
+}
+
 /* A switch built from the checkbox itself, so the control stays keyboard
    reachable and announces its state without any of it being reimplemented. */
 .devic-int-toggle-switch {
@@ -1015,4 +1056,21 @@
   font: inherit;
   font-size: inherit;
   color: var(--devic-primary, #1677ff);
+}
+
+/* The plug while the answer to "is there anything here" is still on its way. */
+.devic-int-toggle-btn-loading {
+  opacity: 0.35;
+  cursor: default;
+  animation: devic-int-toggle-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes devic-int-toggle-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }

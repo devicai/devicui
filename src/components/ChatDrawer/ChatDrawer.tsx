@@ -16,6 +16,7 @@ import {
   IntegrationsModal,
   IntegrationsToggle,
   useIntegrations,
+  useTenantMcp,
 } from '../IntegrationsModal';
 import { isDarkTheme } from '../theme';
 import type { DevicTheme } from '../theme';
@@ -323,6 +324,50 @@ function ChatDrawerInner({
       isOpen &&
       mayOfferIntegrations,
   });
+
+  /**
+   * Whether this assistant offers MCP servers of the tenant's own.
+   *
+   * Read exactly like `mayOfferIntegrations`: absence means "cannot tell", so
+   * the listing is asked for anyway. A deployment older than the field keeps
+   * the behaviour it had — one refusal per drawer open — rather than losing the
+   * feature.
+   */
+  const mayOfferMcp =
+    assistantInfo.settled &&
+    assistantInfo.assistant?.tenantMcpServers?.enabled !== false;
+
+  /**
+   * The tenant's own MCP servers, loaded here rather than inside the modal.
+   *
+   * The composer's switch needs them too, and it is not inside the modal — so
+   * the listing has to live above both. The modal takes it as a prop and stops
+   * asking for its own.
+   */
+  const mcpState = useTenantMcp({
+    assistantId,
+    tenantId,
+    subtenantId,
+    apiKey: resolvedApiKey,
+    baseUrl: resolvedBaseUrl,
+    enabled:
+      mergedOptions.showIntegrationsButton !== false && isOpen && mayOfferMcp,
+  });
+
+  /**
+   * Whether the answer to "is there anything to show here" is still on its way.
+   *
+   * Two requests decide it — what the assistant offers, and then what this
+   * tenant has connected — and until both have answered the control cannot
+   * know whether to exist. Without this the header simply had a gap and then a
+   * button, which reads as the page changing its mind.
+   */
+  const integrationsDeciding =
+    mergedOptions.showIntegrationsButton !== false &&
+    isOpen &&
+    (!assistantInfo.settled ||
+      (mayOfferIntegrations && !integrationsState.settled) ||
+      (mayOfferMcp && !mcpState.settled));
 
   /**
    * Placeholder chips to hold while the listing is in flight.
@@ -652,12 +697,14 @@ function ChatDrawerInner({
     mergedOptions.showIntegrationsToggle !== false ? (
       <IntegrationsToggle
         state={integrationsState}
+        mcp={mcpState}
         disabled={disabledIntegrations}
         onChange={setDisabledIntegrations}
         onManage={() => setIntegrationsOpen(true)}
         label={mergedOptions.integrationsToggleLabel}
         dark={isDarkTheme(modalTheme)}
         busy={chat.isLoading}
+        loading={integrationsDeciding}
       />
     ) : null;
 
@@ -783,11 +830,13 @@ function ChatDrawerInner({
             {mergedOptions.showIntegrationsButton !== false && (
               <IntegrationsLauncher
                 state={integrationsState}
+                mcp={mcpState}
                 onClick={() => setIntegrationsOpen(true)}
                 label={mergedOptions.integrationsLabel}
                 maxLogos={mergedOptions.maxIntegrationLogos}
                 dark={isDarkTheme(modalTheme)}
                 placeholders={pendingIntegrations}
+                loading={integrationsDeciding}
               />
             )}
             {mergedOptions.showCoreMemoryButton && (
@@ -976,6 +1025,7 @@ function ChatDrawerInner({
           title={mergedOptions.integrationsLabel}
           theme={modalTheme}
           state={integrationsState}
+          mcpState={mcpState}
         />
       )}
     </>

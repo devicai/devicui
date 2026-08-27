@@ -1,15 +1,27 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from "react";
-import type { Integration } from "../../api/types";
+import type { Integration, TenantMcpServer } from "../../api/types";
 import { IntegrationLogo } from "./IntegrationLogo";
 import type { IntegrationsState } from "./useIntegrations";
+import type { TenantMcpState } from "./useTenantMcp";
 import "./IntegrationsModal.css";
 
 export interface IntegrationsToggleProps {
   /** Shared listing (see `useIntegrations`). */
   state: IntegrationsState;
-  /** Slugs currently switched off. */
+  /**
+   * The tenant's own MCP servers, when the assistant offers them (see
+   * `useTenantMcp`). Their connected servers are listed under the apps and
+   * switch off the same way — a server the end user connected is as much
+   * theirs to leave out of a message as an account is.
+   */
+  mcp?: TenantMcpState;
+  /**
+   * What is switched off right now. App slugs, and the `toggleId` of a
+   * connected MCP server — one list, because that is what the message carries
+   * and what the server keeps for the rest of the turn.
+   */
   disabled: string[];
-  /** Called with the full new list of switched-off slugs. */
+  /** Called with the full new list of switched-off entries. */
   onChange: (disabled: string[]) => void;
   /** Opens the connected-apps modal, to connect one more. */
   onManage?: () => void;
@@ -19,6 +31,13 @@ export interface IntegrationsToggleProps {
   dark?: boolean;
   /** Disables the control while a message is in flight. */
   busy?: boolean;
+  /**
+   * Whether the requests that decide if this control exists are still running.
+   *
+   * Holds an inert plug in the row rather than letting the attach and mic
+   * buttons shift sideways the moment the answer lands.
+   */
+  loading?: boolean;
   className?: string;
 }
 
@@ -44,6 +63,28 @@ function PlugIcon(): JSX.Element {
   );
 }
 
+/** A server's own logo when it has one, its initial when it does not. */
+function McpBadge({ server }: { server: TenantMcpServer }): JSX.Element {
+  if (server.logoUrl) {
+    return (
+      <img
+        className="devic-int-toggle-mcp-logo"
+        src={server.logoUrl}
+        alt=""
+        aria-hidden="true"
+      />
+    );
+  }
+  return (
+    <span
+      className="devic-int-toggle-mcp-logo devic-int-toggle-mcp-fallback"
+      aria-hidden="true"
+    >
+      {server.name.slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
+
 /**
  * Which apps the assistant may reach on the next message.
  *
@@ -59,12 +100,14 @@ function PlugIcon(): JSX.Element {
  */
 export function IntegrationsToggle({
   state,
+  mcp,
   disabled,
   onChange,
   onManage,
   label = "Apps in this chat",
   dark = false,
   busy = false,
+  loading = false,
   className = "",
 }: IntegrationsToggleProps): JSX.Element | null {
   const [open, setOpen] = useState(false);
@@ -73,6 +116,17 @@ export function IntegrationsToggle({
   const connected = useMemo(
     () => state.integrations.filter((i) => i.connected),
     [state.integrations]
+  );
+
+  // Connected and usable: one still waiting for its consent screen, or whose
+  // last probe failed, contributes no tools, so switching it off would be
+  // switching off nothing. It belongs in the panel that can fix it, not here.
+  const mcpServers = useMemo(
+    () =>
+      (mcp?.servers ?? []).filter(
+        (s) => s.connection?.status === "active" && !!s.connection.toggleId
+      ),
+    [mcp?.servers]
   );
 
   // Closing on an outside click and on Escape, the two ways every popover is
@@ -98,20 +152,47 @@ export function IntegrationsToggle({
   }, [open]);
 
   // An end user with nothing connected has nothing to switch: the button would
-  // open an empty box. It appears the moment they connect their first app.
-  if (!state.offered || connected.length === 0) return null;
+  // open an empty box. It appears the moment they connect their first app — or
+  // their first MCP server, which is as switchable as an account is.
+  const hasApps = state.offered && connected.length > 0;
+  const hasMcp = !!mcp?.offered && mcpServers.length > 0;
+
+  if (!hasApps && !hasMcp) {
+    if (!loading) return null;
+    // Still being decided: hold the slot, inert, so the row does not shift.
+    return (
+      <div className={`devic-int-toggle ${className}`.trim()} data-dark={dark}>
+        <button
+          type="button"
+          className="devic-input-btn devic-int-toggle-btn devic-int-toggle-btn-loading"
+          disabled
+          aria-busy="true"
+          aria-label={`${label} (loading)`}
+          title={label}
+        >
+          <PlugIcon />
+        </button>
+      </div>
+    );
+  }
 
   const off = new Set(disabled);
-  const offCount = connected.filter((i) => off.has(i.app)).length;
 
-  const toggle = (integration: Integration) => {
+  /** Everything still on offer, so a stale entry can never survive a rewrite. */
+  const liveIds = [
+    ...connected.map((i) => i.app),
+    ...mcpServers.map((s) => s.connection!.toggleId as string),
+  ];
+  const offCount = liveIds.filter((id) => off.has(id)).length;
+
+  const flip = (id: string) => {
     const next = new Set(off);
-    if (next.has(integration.app)) next.delete(integration.app);
-    else next.add(integration.app);
-    // Only apps still on offer are kept: carrying a slug for an app the user
-    // has since disconnected would silently switch it off again if they ever
-    // reconnected it.
-    onChange(connected.filter((i) => next.has(i.app)).map((i) => i.app));
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    // Only what is still on offer is kept: carrying an entry for an app or a
+    // server the user has since disconnected would silently switch it off again
+    // if they ever connected it back.
+    onChange(liveIds.filter((candidate) => next.has(candidate)));
   };
 
   return (
@@ -148,29 +229,57 @@ export function IntegrationsToggle({
           <div className="devic-int-toggle-head">
             <strong>{label}</strong>
             <span>
-              Switched off here, an app sits out your next message. It stays
-              connected.
+              Switched off here, {hasMcp && !hasApps ? "a server" : "an app"}{" "}
+              sits out your next message. It stays connected.
             </span>
           </div>
 
           <ul className="devic-int-toggle-list">
-            {connected.map((integration) => {
-              const on = !off.has(integration.app);
+            {connected.map((integration) => (
+              <li key={integration.app}>
+                <label className="devic-int-toggle-row">
+                  <span className="devic-int-toggle-app">
+                    <IntegrationLogo integration={integration} />
+                    <span className="devic-int-toggle-name">
+                      {integration.name}
+                    </span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    className="devic-int-toggle-switch"
+                    checked={!off.has(integration.app)}
+                    onChange={() => flip(integration.app)}
+                    aria-label={`Use ${integration.name} in this chat`}
+                  />
+                </label>
+              </li>
+            ))}
+
+            {/* Named apart only when both kinds are present: with servers
+                alone the heading would label the entire list. */}
+            {hasMcp && hasApps && (
+              <li className="devic-int-toggle-group" aria-hidden="true">
+                MCP servers
+              </li>
+            )}
+
+            {mcpServers.map((server) => {
+              const id = server.connection!.toggleId as string;
               return (
-                <li key={integration.app}>
+                <li key={id}>
                   <label className="devic-int-toggle-row">
                     <span className="devic-int-toggle-app">
-                      <IntegrationLogo integration={integration} />
+                      <McpBadge server={server} />
                       <span className="devic-int-toggle-name">
-                        {integration.name}
+                        {server.name}
                       </span>
                     </span>
                     <input
                       type="checkbox"
                       className="devic-int-toggle-switch"
-                      checked={on}
-                      onChange={() => toggle(integration)}
-                      aria-label={`Use ${integration.name} in this chat`}
+                      checked={!off.has(id)}
+                      onChange={() => flip(id)}
+                      aria-label={`Use ${server.name} in this chat`}
                     />
                   </label>
                 </li>
@@ -187,7 +296,9 @@ export function IntegrationsToggle({
                 onManage();
               }}
             >
-              Manage connected apps
+              {hasMcp && !hasApps
+                ? "Manage connected servers"
+                : "Manage connected apps"}
             </button>
           )}
         </div>

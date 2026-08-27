@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from "react";
-import type { Integration } from "../../api/types";
+import type { Integration, TenantMcpServer } from "../../api/types";
 import { IntegrationLogo } from "./IntegrationLogo";
 import type { IntegrationsState } from "./useIntegrations";
+import type { TenantMcpState } from "./useTenantMcp";
 import "./IntegrationsModal.css";
 
 /** How many logos fit before the rest are counted instead. */
@@ -10,6 +11,12 @@ export const DEFAULT_MAX_LOGOS = 6;
 export interface IntegrationsLauncherProps {
   /** Shared listing, so this and the modal load the catalogue once. */
   state: IntegrationsState;
+  /**
+   * The tenant's own MCP servers, when offered. Counted here because an
+   * assistant may offer nothing but those, and a control that only knew about
+   * apps would leave that panel with no way in.
+   */
+  mcp?: TenantMcpState;
   onClick: () => void;
   /** Tooltip and accessible name. @default "Connected apps" */
   label?: string;
@@ -29,6 +36,15 @@ export interface IntegrationsLauncherProps {
    * the gap it filled.
    */
   placeholders?: number;
+  /**
+   * Whether the requests that decide if this control exists are still running.
+   *
+   * Unlike `placeholders`, this makes no claim about what will arrive — only
+   * that the answer is not in yet. It holds a single chip, which is the
+   * smallest promise that can be made, and is the difference between a header
+   * that fills in and one that appears to change its mind.
+   */
+  loading?: boolean;
   className?: string;
 }
 
@@ -66,14 +82,23 @@ function logosThatFit(hostWidth: number, max: number): number {
  */
 export function IntegrationsLauncher({
   state,
+  mcp,
   onClick,
   label = "Connected apps",
   maxLogos = DEFAULT_MAX_LOGOS,
   dark = false,
   placeholders = 0,
+  loading = false,
   className = "",
 }: IntegrationsLauncherProps): JSX.Element | null {
   const sorted = useMemo(() => order(state.integrations), [state.integrations]);
+  // Only the servers this tenant actually connected: an offer they have not
+  // taken up is not a logo, it is an invitation, and the modal is where
+  // invitations belong.
+  const mcpConnected = useMemo(
+    () => (mcp?.offered ? (mcp.servers ?? []).filter((s) => s.connection) : []),
+    [mcp?.offered, mcp?.servers]
+  );
   const ref = useRef<HTMLButtonElement>(null);
   const [fit, setFit] = useState(maxLogos);
 
@@ -90,9 +115,11 @@ export function IntegrationsLauncher({
     return () => observer.disconnect();
   }, [maxLogos, state.offered]);
 
-  // Nothing yet, but the assistant has already said there will be: hold the
-  // shape rather than let the header reflow when the logos land.
-  if (sorted.length === 0 && placeholders > 0) {
+  // Nothing yet, but the assistant has already said there will be — or the
+  // answer is simply not in. Hold the shape rather than let the header reflow
+  // when the logos land.
+  const holding = placeholders > 0 ? placeholders : loading ? 1 : 0;
+  if (sorted.length === 0 && mcpConnected.length === 0 && holding > 0) {
     return (
       <span
         className={`devic-int-launcher devic-int-launcher-loading ${className}`.trim()}
@@ -100,7 +127,7 @@ export function IntegrationsLauncher({
         aria-busy="true"
         aria-label={`${label} (loading)`}
       >
-        {Array.from({ length: Math.min(placeholders, Math.max(1, fit)) }).map(
+        {Array.from({ length: Math.min(holding, Math.max(1, fit)) }).map(
           (_, i) => (
             <span
               key={i}
@@ -112,11 +139,21 @@ export function IntegrationsLauncher({
     );
   }
 
-  if (!state.offered || sorted.length === 0) return null;
+  const offersApps = state.offered && sorted.length > 0;
+  if (!offersApps && mcpConnected.length === 0) return null;
 
-  const shown = sorted.slice(0, Math.max(1, fit));
-  const extra = sorted.length - shown.length;
-  const connected = sorted.filter((i) => i.connected).length;
+  const appsShown = offersApps ? sorted.slice(0, Math.max(1, fit)) : [];
+  // Servers fill whatever room the apps left, so an assistant with both does
+  // not push the header wider than it was.
+  const mcpShown = mcpConnected.slice(
+    0,
+    Math.max(offersApps ? 0 : 1, Math.max(1, fit) - appsShown.length)
+  );
+  const total = sorted.length + mcpConnected.length;
+  const extra = total - appsShown.length - mcpShown.length;
+  const connected =
+    sorted.filter((i) => i.connected).length +
+    mcpConnected.filter((s) => s.connection?.status === "active").length;
 
   return (
     <button
@@ -126,9 +163,9 @@ export function IntegrationsLauncher({
       data-dark={dark}
       onClick={onClick}
       title={label}
-      aria-label={`${label} (${connected}/${sorted.length} connected)`}
+      aria-label={`${label} (${connected}/${total} connected)`}
     >
-      {shown.map((integration) => (
+      {appsShown.map((integration) => (
         <span
           key={integration.app}
           className="devic-int-launcher-item"
@@ -141,6 +178,27 @@ export function IntegrationsLauncher({
             integration={integration}
             className="devic-int-launcher-logo"
           />
+        </span>
+      ))}
+      {mcpShown.map((server) => (
+        <span
+          key={server.connection!.id}
+          className="devic-int-launcher-item"
+          data-connected={server.connection!.status === "active"}
+          title={server.name}
+        >
+          {server.logoUrl ? (
+            <img
+              className="devic-int-launcher-logo"
+              src={server.logoUrl}
+              alt=""
+              aria-hidden="true"
+            />
+          ) : (
+            <span className="devic-int-launcher-logo devic-int-launcher-initial">
+              {server.name.slice(0, 1).toUpperCase()}
+            </span>
+          )}
         </span>
       ))}
       {extra > 0 && (
