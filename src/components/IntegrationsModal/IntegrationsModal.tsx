@@ -18,6 +18,8 @@ import { isDarkTheme, themeVars, type DevicTheme } from "../theme";
 import { ConnectFieldsForm } from "./ConnectFieldsForm";
 import { IntegrationLogo } from "./IntegrationLogo";
 import { useIntegrations, type IntegrationsState } from "./useIntegrations";
+import { McpServersSection } from "./McpServersSection";
+import { useTenantMcp, type TenantMcpState } from "./useTenantMcp";
 import "./IntegrationsModal.css";
 
 /** Message the OAuth callback page posts back to this window when it is done. */
@@ -61,6 +63,12 @@ export interface IntegrationsModalProps {
    * keeps opening the modal from asking for the very same thing again.
    */
   state?: IntegrationsState;
+  /**
+   * MCP listing loaded elsewhere, same reasoning as `state`. When absent this
+   * loads its own — and only while open, so an assistant that offers no MCP
+   * servers costs one refusal per open and nothing more.
+   */
+  mcpState?: TenantMcpState;
 }
 
 function PlugIcon(): JSX.Element {
@@ -185,6 +193,7 @@ export function IntegrationsModal({
   onChange,
   theme,
   state,
+  mcpState,
 }: IntegrationsModalProps): JSX.Element | null {
   // Hooks cannot be skipped, so the fallback is always built and only fetches
   // when nobody handed a listing down.
@@ -198,6 +207,18 @@ export function IntegrationsModal({
   });
   const { integrations, loading, error: loadError, refresh, client, scope } =
     state ?? own;
+
+  // Same shape as above: always built (hooks cannot be skipped), fetching only
+  // when nobody handed a listing down.
+  const ownMcp = useTenantMcp({
+    assistantId,
+    tenantId,
+    subtenantId,
+    apiKey,
+    baseUrl,
+    enabled: isOpen && !mcpState,
+  });
+  const mcp = mcpState ?? ownMcp;
 
   /** Errors from connecting or disconnecting, kept apart from load failures. */
   const [actionError, setActionError] = useState<string | null>(null);
@@ -290,6 +311,7 @@ export function IntegrationsModal({
       // The very first open of an uncontrolled modal is already covered by the
       // hook switching on; asking again here would double every first open.
       if (state || openedBeforeRef.current) void refresh();
+      if (mcpState || openedBeforeRef.current) void mcp.refresh();
       openedBeforeRef.current = true;
     }
     wasOpenRef.current = isOpen;
@@ -566,7 +588,11 @@ export function IntegrationsModal({
           {loading && integrations.length === 0 ? (
             <div className="devic-int-loading">Loading apps…</div>
           ) : integrations.length === 0 ? (
-            <div className="devic-int-empty">No apps available here yet.</div>
+            // Silent when MCP servers are the whole offer: "no apps available"
+            // over a list of servers reads as a broken panel.
+            mcp.offered ? null : (
+              <div className="devic-int-empty">No apps available here yet.</div>
+            )
           ) : visible.length === 0 ? (
             <div className="devic-int-empty">
               No apps match “{query.trim()}”.
@@ -676,13 +702,25 @@ export function IntegrationsModal({
           )}
         </div>
 
+        {/* Below the apps, in the same panel: to the end user these are one
+            question — what can I plug into this chat — and two panels would
+            mean finding out which of them a thing lives in. */}
+        {mcp.offered && (
+          <div className="devic-int-body devic-int-body-secondary">
+            <McpServersSection state={mcp} theme={theme} query={query} />
+          </div>
+        )}
+
         <div className="devic-int-footer">
           <span>Only you can see and use the accounts you connect here.</span>
           <button
             type="button"
             className="devic-int-btn devic-int-btn-small"
-            onClick={() => void refresh(true)}
-            disabled={loading || !!busyApp}
+            onClick={() => {
+              void refresh(true);
+              void mcp.refresh();
+            }}
+            disabled={loading || mcp.loading || !!busyApp}
           >
             Refresh
           </button>

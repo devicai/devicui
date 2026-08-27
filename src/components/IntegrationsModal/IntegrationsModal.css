@@ -914,3 +914,105 @@
 .devic-int-toggle[data-dark="true"] .devic-int-toggle-switch:not(:checked) {
   background: var(--devic-border, #434343);
 }
+
+/* ── MCP servers ──────────────────────────────────────────────────────────
+   The end user's own MCP servers, below the apps in the same panel. It scrolls
+   with them rather than in a box of its own: two independent scrollbars in one
+   dialog is a thing nobody enjoys finding. */
+
+.devic-int-body-secondary {
+  padding-top: 0;
+  /* The apps above already have the panel's scroll; this only ever adds to it. */
+  overflow: visible;
+}
+
+.devic-int-mcp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid var(--devic-border, #e8e8e8);
+  padding-top: 12px;
+}
+
+.devic-int-mcp-heading h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.devic-int-mcp-heading span {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--devic-text-muted, #999);
+}
+
+/* Same footprint as an app logo, so the two lists read as one shelf. */
+.devic-int-mcp-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.devic-int-mcp-logo-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--devic-primary, #1677ff);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.devic-int-mcp-note {
+  font-size: 11px;
+  color: var(--devic-text-muted, #999);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devic-int-mcp-note-warn {
+  color: #faad14;
+}
+
+.devic-int-mcp-add {
+  align-self: flex-start;
+  border-style: dashed;
+}
+
+.devic-int-mcp-remove {
+  color: #ff4d4f;
+  border-color: rgba(255, 77, 79, 0.35);
+}
+
+.devic-int-mcp-advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* A plain control, not a button: it opens fields that most people never need,
+   and dressing it up would invite them to. */
+.devic-int-mcp-disclosure {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  color: var(--devic-primary, #1677ff);
+}
+
+.devic-int-mcp-copy {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: inherit;
+  color: var(--devic-primary, #1677ff);
+}

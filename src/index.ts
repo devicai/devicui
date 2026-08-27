@@ -48,6 +48,9 @@ export {
   IntegrationsHint,
   IntegrationLogo,
   useIntegrations,
+  McpServersSection,
+  McpConnectForm,
+  useTenantMcp,
 } from './components/IntegrationsModal';
 export type {
   IntegrationsModalProps,
@@ -57,6 +60,10 @@ export type {
   IntegrationsState,
   IntegrationsScope,
   UseIntegrationsOptions,
+  McpServersSectionProps,
+  McpConnectFormProps,
+  TenantMcpState,
+  UseTenantMcpOptions,
 } from './components/IntegrationsModal';
 
 // What the API says about an assistant, fetched at most once per assistant.
@@ -199,6 +206,12 @@ export type {
   IntegrationAuthField,
   IntegrationAuthScheme,
   IntegrationSetupRequired,
+  TenantMcpAuthMode,
+  TenantMcpConnection,
+  TenantMcpServer,
+  TenantMcpListing,
+  TenantMcpAuthInput,
+  TenantMcpConnectResult,
 } from './api/types';
 
 // Feedback Components

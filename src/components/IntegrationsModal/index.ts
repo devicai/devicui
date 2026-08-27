@@ -14,3 +14,9 @@ export type {
   IntegrationsScope,
   UseIntegrationsOptions,
 } from "./useIntegrations";
+export { McpServersSection } from "./McpServersSection";
+export type { McpServersSectionProps } from "./McpServersSection";
+export { McpConnectForm } from "./McpConnectForm";
+export type { McpConnectFormProps } from "./McpConnectForm";
+export { useTenantMcp } from "./useTenantMcp";
+export type { TenantMcpState, UseTenantMcpOptions } from "./useTenantMcp";
