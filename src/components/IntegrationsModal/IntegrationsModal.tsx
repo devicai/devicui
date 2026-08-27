@@ -205,8 +205,15 @@ export function IntegrationsModal({
     baseUrl,
     enabled: isOpen && !state,
   });
-  const { integrations, loading, error: loadError, refresh, client, scope } =
-    state ?? own;
+  const {
+    integrations,
+    loading,
+    error: loadError,
+    offered: appsOffered,
+    refresh,
+    client,
+    scope,
+  } = state ?? own;
 
   // Same shape as above: always built (hooks cannot be skipped), fetching only
   // when nobody handed a listing down.
@@ -222,7 +229,13 @@ export function IntegrationsModal({
 
   /** Errors from connecting or disconnecting, kept apart from load failures. */
   const [actionError, setActionError] = useState<string | null>(null);
-  const error = actionError ?? loadError;
+  // An assistant may offer MCP servers and no apps at all, and then the apps
+  // endpoint answers "not for you" — an ordinary answer, not a failure. Showing
+  // it would put a red panel above a section that is working perfectly. The
+  // refusal is still surfaced when there is nothing else on offer, because then
+  // an empty dialog with no explanation is worse.
+  const appsRefusalIsNoise = !appsOffered && mcp.offered;
+  const error = actionError ?? (appsRefusalIsNoise ? null : loadError);
   /** App slug with a connect/disconnect in flight, so only its card is busy. */
   const [busyApp, setBusyApp] = useState<string | null>(null);
   /** Authorization URL surfaced as a link when the popup was blocked. */
@@ -586,7 +599,12 @@ export function IntegrationsModal({
           )}
 
           {loading && integrations.length === 0 ? (
-            <div className="devic-int-loading">Loading apps…</div>
+            // Silent while the MCP section is what this assistant offers: a
+            // spinner labelled "Loading apps" over a list of servers describes
+            // something that is not happening.
+            appsRefusalIsNoise ? null : (
+              <div className="devic-int-loading">Loading apps…</div>
+            )
           ) : integrations.length === 0 ? (
             // Silent when MCP servers are the whole offer: "no apps available"
             // over a list of servers reads as a broken panel.
