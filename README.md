@@ -528,6 +528,55 @@ both dialogs render through a portal, so nothing cascades into them on its own:
 />
 ```
 
+#### IntegrationsPanel — the same thing in a page, not over it
+
+`IntegrationsModal` is a backdrop and a portal around `IntegrationsPanel`.
+Render the panel yourself and the same cards, search and MCP section drop into a
+settings page as an ordinary block — no overlay, no portal, no `isOpen`:
+
+```tsx
+import { IntegrationsPanel } from '@devicai/ui';
+
+<section className="settings-card">
+  <IntegrationsPanel
+    assistantId="my-assistant"
+    tenantId="acme-corp"      // falls back to the provider's
+    subtenantId="user-123"
+    theme={myTheme}
+  />
+</section>
+```
+
+Everything the modal does, it does: connecting, the consent pop-up, the
+credentials form, disconnecting, and the tenant's own MCP servers below the
+apps. Same props too — `state` and `mcpState` to share a listing you already
+loaded, `onChange`, `apiKey`/`baseUrl`.
+
+Its own parts are optional, because a host that already has a heading and a
+toolbar does not need a second one:
+
+```tsx
+<IntegrationsPanel
+  assistantId="my-assistant"
+  state={apps}                // loaded by you, shared with your own controls
+  showHeader={false}          // no plug icon, no title
+  showSearch={false}          // no search field
+  showFooter={false}          // no privacy note, no Refresh — call apps.refresh()
+  className="my-panel"
+/>
+```
+
+It takes the width it is given and grows with its content, so the page decides
+where it ends. Give it a height and the cards scroll inside it instead.
+
+Two things it does not inherit: the surrounding palette, which is what `theme`
+is for — the panel draws in its own variables in both shapes — and the page's
+Escape key, which it leaves alone unless you pass `onClose` (then the header
+gets a close button too, and Escape calls it).
+
+`active={false}` renders nothing while keeping what it has already loaded — that
+is how the modal closes without paying for the whole listing again on reopen.
+
 ### AICommandBar
 
 A floating command bar (similar to Spotlight/Command Palette) for quick AI interactions.

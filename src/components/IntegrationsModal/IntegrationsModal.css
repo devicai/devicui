@@ -1,4 +1,4 @@
-/* Connected apps modal */
+/* Connected apps */
 .devic-int-overlay {
   position: fixed;
   inset: 0;
@@ -9,16 +9,28 @@
   z-index: 10000;
 }
 
-.devic-int-modal {
-  width: min(620px, calc(100vw - 32px));
-  max-height: min(660px, calc(100vh - 64px));
+/* The panel itself, in either shape. Everything the two forms have in common
+   lives here; `.devic-int-modal` adds only what makes it a dialog.
+
+   Embedded it takes the width it is given and grows with its content, so the
+   host decides where it ends — a fixed height on a section of a settings page
+   would leave the apps scrolling inside a box for no reason. Give it one and
+   the body scrolls, as it does in the dialog. */
+.devic-int-panel {
+  width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   background: var(--devic-bg, #fff);
   color: var(--devic-text, #333);
+  font-size: 13px;
+}
+
+.devic-int-modal {
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(660px, calc(100vh - 64px));
   border-radius: 12px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
-  font-size: 13px;
 }
 
 .devic-int-header {
@@ -605,13 +617,11 @@
   border-color: var(--devic-border, #e8e8e8);
 }
 
-.devic-int-overlay[data-dark="true"] .devic-int-card .devic-int-logo {
+.devic-int-panel[data-dark="true"] .devic-int-card .devic-int-logo {
   background: rgba(255, 255, 255, 0.92);
 }
 
-.devic-int-overlay[data-dark="true"]
-  .devic-int-card
-  .devic-int-logo-fallback {
+.devic-int-panel[data-dark="true"] .devic-int-card .devic-int-logo-fallback {
   color: #595959;
 }
 

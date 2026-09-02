@@ -45,6 +45,7 @@ export type { CoreMemoryModalProps } from './components/CoreMemoryModal';
 // IntegrationsModal
 export {
   IntegrationsModal,
+  IntegrationsPanel,
   IntegrationsLauncher,
   IntegrationsHint,
   IntegrationLogo,
@@ -61,6 +62,7 @@ export {
 } from './components/IntegrationsModal';
 export type {
   IntegrationsModalProps,
+  IntegrationsPanelProps,
   IntegrationsLauncherProps,
   IntegrationsHintProps,
   IntegrationLogoProps,
