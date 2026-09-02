@@ -1,5 +1,6 @@
-import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig, WhisperTranscriptionResponse, TenantLimitExceeded, RecalledMemoryRecord } from '../../api/types';
+import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig, WhisperTranscriptionResponse, TenantLimitExceeded, RecalledMemoryRecord, QueueDisposition } from '../../api/types';
 import type { PendingWidgetCall } from '../../hooks/useModelInterface';
+import type { SendMessageResult } from '../../hooks/useDevicChat';
 import type { AIReference } from '../../provider/types';
 import type { UsageBarDisplay, UsageBarData } from './UsageBar';
 import type { RecalledMemoriesRenderer } from './RecalledMemoriesWidget';
@@ -93,6 +94,13 @@ export interface CustomPromptBoxProps {
    * their own notice.
    */
   limitExceeded?: TenantLimitExceeded | null;
+  /**
+   * Whether this assistant accepts messages written while it is working. With
+   * it off, sending during a run is refused and the box should stay closed.
+   */
+  queueEnabled?: boolean;
+  /** How many messages are waiting their turn on this conversation. */
+  queuedCount?: number;
 }
 
 /**
@@ -544,6 +552,35 @@ export interface ChatDrawerOptions {
   limitBannerRenderer?: (limit: TenantLimitExceeded) => React.ReactNode;
 
   /**
+   * Hide the notice shown above the input while a message can be — or already
+   * is — queued. The queue itself keeps working; only the explanation goes.
+   * @default false
+   */
+  hideQueueNotice?: boolean;
+
+  /**
+   * Render your own version of that notice. Receives how many messages are
+   * waiting (0 while the user is only writing) and what the last accepted one
+   * was told about when it will be picked up.
+   */
+  queueNoticeRenderer?: (state: {
+    queuedCount: number;
+    willProcess?: QueueDisposition;
+    /** Set when a message was refused, or discarded by a stop. */
+    alert?: string;
+  }) => React.ReactNode;
+
+  /**
+   * Whether messages may be written while the assistant is working.
+   *
+   * Left unset it follows the assistant's own `messageQueueEnabled` setting,
+   * resolved through the lookup the drawer already makes. Set it to pin the
+   * behaviour regardless — `false` keeps the input closed during a run, which is
+   * how the drawer behaved before queueing existed.
+   */
+  messageQueue?: boolean;
+
+  /**
    * Show the "Recalled memories" strip interleaved with the messages that
    * brought long-term memories into the conversation (including while the
    * assistant is still processing its response). Only appears for assistants
@@ -856,11 +893,16 @@ export interface ChatMessagesProps {
  * Props for ChatInput component
  */
 export interface ChatInputProps {
+  /**
+   * Sends the message. May report back that the conversation turned it down —
+   * the input clears itself on submit, so a rejected send has to hand the text
+   * back or it is gone.
+   */
   onSend: (
     message: string,
     files?: File[],
     meta?: { transcriptId?: string },
-  ) => void;
+  ) => void | Promise<SendMessageResult | void>;
   disabled?: boolean;
   placeholder?: string;
   enableFileUploads?: boolean;
@@ -906,8 +948,19 @@ export interface ChatInputProps {
   disabledMessage?: string;
   /** Whether the assistant is currently processing (shows stop button) */
   isProcessing?: boolean;
-  /** Callback to stop the current processing */
-  onStop?: () => void;
+  /**
+   * Stops the current processing. May return the text of anything the stop
+   * discarded, so it can be put back in the box rather than lost.
+   */
+  onStop?: () => void | Promise<{ restoredText?: string } | void>;
+  /**
+   * Whether a message may be written while the assistant is working. With it
+   * on, stop and send are shown together and the textarea stays live; with it
+   * off the box closes during a run, as it always has.
+   */
+  allowQueueing?: boolean;
+  /** Notice rendered above the textarea while messages can be, or are, queued. */
+  queueNotice?: React.ReactNode;
   /** Custom stop button content */
   stopButtonContent?: React.ReactNode;
   /** Pending widget tool call to render replacing the input (render: 'input') */

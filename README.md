@@ -10,6 +10,7 @@ React component library for integrating Devic AI assistants into your applicatio
 - **Tenant sessions** - Short-lived signed tokens, so the page never carries an API key
 - **useDevicChat** - Hook for building custom chat UIs
 - **Model Interface Protocol** - Support for client-side tool execution
+- **Message queue** - Write while the assistant is still answering, on assistants that allow it
 - **Message Feedback** - Built-in thumbs up/down feedback with comments
 - **CSS Variables** - Easy theming with CSS custom properties
 - **TypeScript** - Full type definitions included
@@ -766,9 +767,12 @@ const {
   isLoading,     // boolean
   status,        // 'idle' | 'processing' | 'completed' | 'error'
   error,         // Error | null
-  sendMessage,   // (message: string, options?: { files?: ChatFile[] }) => Promise<void>
+  queuedCount,   // number — messages accepted but not seen by the model yet
+  queueEnabled,  // boolean — whether this assistant takes messages while busy
+  sendMessage,   // (message, options?) => Promise<SendMessageResult>
   clearChat,     // () => void
   loadChat,      // (chatUid: string) => Promise<void>
+  stopChat,      // () => Promise<StopResult>
 } = useDevicChat({
   assistantId: 'my-assistant',
   chatUid: 'optional-existing-chat',
@@ -779,6 +783,7 @@ const {
   enabledTools: ['tool1', 'tool2'],
   modelInterfaceTools: [...],
   pollingInterval: 1000,        // Overrides the provider's (ms, min 250)
+  messageQueue: undefined,      // Follows the assistant's setting; true/false pins it
   onMessageSent: (message) => {},
   onMessageReceived: (message) => {},
   onToolCall: (toolName, params) => {},
@@ -1006,6 +1011,68 @@ Or use the `color` option in ChatDrawer:
 <ChatDrawer
   options={{ color: '#ff4081' }}
 />
+```
+
+## Message Queue
+
+Assistants can be configured to accept messages sent while they are still
+answering. On those, the drawer keeps the input open during a run: **stop** and
+**send** are shown together, a line above the input says what will happen to
+what you write, and a queued message is drawn as a bubble that has not landed
+yet — dashed, dimmed, and labelled `Queued` — until the assistant picks it up.
+
+Nothing changes for an assistant that does not queue: the input closes while it
+works, exactly as before, and the stop button stays clickable.
+
+```tsx
+<ChatDrawer
+  assistantId="my-assistant"
+  options={{
+    // Follows the assistant's own setting by default. Pass a boolean to pin it
+    // (`false` keeps the input closed during a run, whatever the assistant says).
+    messageQueue: undefined,
+    hideQueueNotice: false,
+    queueNoticeRenderer: ({ queuedCount, willProcess, alert }) => (
+      <MyNotice count={queuedCount} kind={willProcess} error={alert} />
+    ),
+  }}
+/>
+```
+
+`sendMessage` reports what became of the message, which is what lets a custom
+input put the text back when the conversation turns it down:
+
+```tsx
+const result = await sendMessage('are you there?');
+if ('rejected' in result) {
+  // 'chat_busy'   — this assistant does not queue and is working
+  // 'queue_full'  — it does, and the queue is at its ceiling
+  // 'error'       — anything else; also reported through onError
+  restore(result.restoredText);
+} else if (result.queued) {
+  // 'after_delay' — an idle conversation collecting an input-delay window
+  // 'next_turn'   — a run is in flight and will pick it up on its next turn
+  // 'on_resume'   — waiting on a subagent or a tool response
+  console.log(result.queuePosition, result.willProcess);
+}
+```
+
+Stopping discards whatever was queued behind the run — answering it would be the
+opposite of what was asked — and hands the text back:
+
+```tsx
+const { discarded, restoredText } = await stopChat();
+```
+
+Queue bubbles are styled through three variables, so they can be made louder
+than the deliberately quiet default:
+
+```css
+.devic-chat-drawer {
+  --devic-queued-accent: #ad6800;
+  --devic-queued-bubble-bg: #fffbe6;
+  --devic-queued-border: #ffd666;
+}
 ```
 
 ## Model Interface Protocol

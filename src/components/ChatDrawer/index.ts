@@ -10,6 +10,8 @@ export { UsageBar } from './UsageBar';
 export type { UsageBarProps, UsageBarDisplay, UsageBarData } from './UsageBar';
 export { LimitBanner } from './LimitBanner';
 export type { LimitBannerProps } from './LimitBanner';
+export { QueueNotice } from './QueueNotice';
+export type { QueueNoticeProps } from './QueueNotice';
 export { RecalledMemoriesWidget } from './RecalledMemoriesWidget';
 export type {
   RecalledMemoriesWidgetProps,

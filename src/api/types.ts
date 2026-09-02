@@ -95,6 +95,19 @@ export interface ChatMessage {
    * memory recall anchors) match against it.
    */
   serverUid?: string;
+  /**
+   * Client-side only: the conversation was busy when this message was sent, so
+   * it was accepted into the queue and is waiting its turn. Drawn as a message
+   * that has not landed rather than as part of the conversation. Falls away on
+   * its own once the message comes back inside the history.
+   */
+  queued?: boolean;
+  /**
+   * Client-side only: when this message was accepted into the queue. Used to
+   * tell "the server has not reported it yet" from "the server no longer has
+   * it", which the timestamp is the only honest way to decide.
+   */
+  queuedAt?: number;
 }
 
 /**
@@ -254,6 +267,37 @@ export interface AsyncResponse {
   chatUid: string;
   message?: string;
   error?: string;
+  /**
+   * The conversation could not take the message right now, so it was queued
+   * instead of starting a run of its own. Still an acceptance: the answer comes
+   * later, and may cover several messages at once.
+   */
+  queued?: boolean;
+  /** How many messages are queued on this conversation, this one included. */
+  queuePosition?: number;
+  /** When the queued message reaches the model. */
+  willProcess?: QueueDisposition;
+}
+
+/**
+ * When a queued message will reach the model.
+ *
+ * `after_delay` is the one that is not about being busy: an idle conversation
+ * on an assistant with an input delay collects what is written during the
+ * window, so a message can come back queued with nothing in flight at all.
+ */
+export type QueueDisposition = 'after_delay' | 'next_turn' | 'on_resume';
+
+/** Response of the stop endpoint. */
+export interface StopChatResponse {
+  chatUid: string;
+  message: string;
+  /**
+   * Queued messages the stop threw away — answering them would be the opposite
+   * of what was asked. Handed back so their text can be put where the user
+   * wrote it. Absent on an API older than this, and when nothing was queued.
+   */
+  discardedMessages?: ChatMessage[];
 }
 
 /**
@@ -267,7 +311,9 @@ export type RealtimeStatus =
   | 'error'
   | 'waiting_for_tool_response'
   | 'handed_off'
-  | 'limit_exceeded';
+  | 'limit_exceeded'
+  /** Collecting messages during the assistant's input delay, before any run. */
+  | 'buffering';
 
 /**
  * Details of a tenant/subtenant usage limit that blocked a message.
@@ -381,6 +427,19 @@ export interface RealtimeChatHistory {
    * assistant is recalling while the response is still processing.
    */
   recalledMemories?: RecalledMemoryRecord[];
+  /**
+   * Messages accepted into this conversation that the model has not seen yet.
+   * Non-zero means more is coming: a `completed` status with messages still
+   * queued is not the end of the exchange.
+   */
+  queuedMessages?: number;
+  /**
+   * The queued messages themselves. This is the conversation's queue, not the
+   * caller's — it can include messages the same conversation received through
+   * another channel. Absent on an API that does not return them, in which case
+   * the widget falls back to its own optimistic copies.
+   */
+  pendingUserMessages?: ChatMessage[];
 }
 
 /**
@@ -568,6 +627,17 @@ export interface AssistantSpecialization {
      */
     count?: number;
   };
+  /**
+   * Whether this assistant accepts messages sent while the conversation is
+   * busy, queueing them instead of refusing them.
+   *
+   * **Absent means no**, unlike `tenantIntegrations` above. Promising a queue
+   * that does not exist is paid for with a 409 and with the user's text left in
+   * the air, so silence is read as the safe answer rather than as the open one.
+   */
+  messageQueueEnabled?: boolean;
+  /** How many messages may wait at once before further sends are refused. */
+  maxQueuedMessages?: number;
 }
 
 /**

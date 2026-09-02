@@ -1,5 +1,10 @@
 export { useDevicChat } from './useDevicChat';
-export type { UseDevicChatOptions, UseDevicChatResult } from './useDevicChat';
+export type {
+  UseDevicChatOptions,
+  UseDevicChatResult,
+  SendMessageResult,
+  StopResult,
+} from './useDevicChat';
 
 export {
   usePolling,

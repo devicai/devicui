@@ -5,10 +5,12 @@ import { DevicApiClient, DevicApiError } from '../api/client';
 import { usePolling, resolvePollingInterval } from './usePolling';
 import { useModelInterface, type PendingWidgetCall } from './useModelInterface';
 import { createLogger } from '../utils/logger';
+import { useAssistantInfo } from '../api/assistantInfo';
 import type {
   ChatMessage,
   ChatFile,
   ModelInterfaceTool,
+  QueueDisposition,
   RealtimeChatHistory,
   RealtimeStatus,
   RecalledMemoryRecord,
@@ -21,6 +23,19 @@ import type {
  * A configured `pollingInterval` still wins over it.
  */
 const DEFAULT_HANDOFF_POLL_INTERVAL_MS = 5000;
+
+/**
+ * How many polls the conversation may read as finished while it still owes an
+ * answer to something queued, before the wait is given up.
+ *
+ * The window is real: a run liquidates, and the follow-up run that drains the
+ * queue has not marked itself as processing yet. Bounded so a message that
+ * never comes back cannot poll forever.
+ */
+const QUEUE_HANDOVER_GRACE_TICKS = 60;
+
+/** Messages are matched to their optimistic copies by text, so it is normalized. */
+const normalizeText = (text?: string): string => (text ?? '').trim();
 
 export interface UseDevicChatOptions {
   /**
@@ -132,11 +147,55 @@ export interface UseDevicChatOptions {
   onFileUpload?: (files: File[]) => Promise<ChatFile[]>;
 
   /**
+   * Whether this assistant takes messages while the conversation is busy.
+   *
+   * Left unset it is resolved from the assistant itself (`messageQueueEnabled`),
+   * through the shared per-assistant lookup — one request, shared with the
+   * avatar and the connected-apps control, whichever asks first. Pass a boolean
+   * to skip the lookup entirely or to override what it says.
+   *
+   * With it off the input closes while the assistant answers, as it always has.
+   * With it on, a message written mid-answer is accepted and joins the
+   * assistant's next turn.
+   */
+  messageQueue?: boolean;
+
+  /**
    * Enable debug logging to the browser console.
    * Overrides the provider-level debug setting when provided.
    * @default false
    */
   debug?: boolean;
+}
+
+/**
+ * What became of a send.
+ *
+ * `queued` is an acceptance, not a failure: the message is on the conversation
+ * and will be answered later. `rejected` is the opposite — nothing was
+ * accepted, and the caller still holds the only copy of what the user wrote.
+ */
+export type SendMessageResult =
+  | { queued: true; queuePosition: number; willProcess: QueueDisposition }
+  | { queued: false }
+  | {
+      rejected: true;
+      /**
+       * `chat_busy`: this assistant does not queue and is working.
+       * `queue_full`: it does, and the queue is at its configured ceiling.
+       * `error`: anything else, already reported through `error`/`onError`.
+       */
+      reason: 'chat_busy' | 'queue_full' | 'error';
+      message: string;
+      /** What the user wrote, so it can be restored. */
+      restoredText: string;
+    };
+
+export interface StopResult {
+  /** Text of the queued messages the stop threw away, joined by newlines. */
+  restoredText?: string;
+  /** How many were discarded. */
+  discarded: number;
 }
 
 export interface UseDevicChatResult {
@@ -210,7 +269,7 @@ export interface UseDevicChatResult {
        */
       disabledIntegrations?: string[];
     }
-  ) => Promise<void>;
+  ) => Promise<SendMessageResult>;
 
   /**
    * Clear the chat and start a new conversation
@@ -229,10 +288,28 @@ export interface UseDevicChatResult {
   onHandoffCompleted: () => void;
 
   /**
-   * Stop the current conversation processing (client-side only).
-   * Stops polling and resets loading state.
+   * How many messages this conversation has accepted but not yet shown to the
+   * model. Includes anything queued through another channel, so it is the
+   * conversation's queue and not this client's.
    */
-  stopChat: () => void;
+  queuedCount: number;
+
+  /**
+   * Whether this assistant takes messages while it is busy — resolved from the
+   * assistant, or from the `messageQueue` option when given. False until the
+   * lookup settles: an input that opens and then closes is worse than one that
+   * opens a beat late.
+   */
+  queueEnabled: boolean;
+
+  /**
+   * Stop the current conversation processing.
+   *
+   * Returns the text of anything the stop discarded, so the caller can put it
+   * back where the user wrote it — a stop should not be the way someone's
+   * typing disappears.
+   */
+  stopChat: () => Promise<StopResult>;
 
   /**
    * Pending tool calls that require user interaction via a response widget
@@ -295,6 +372,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     onError,
     onChatCreated,
     onFileUpload,
+    messageQueue,
     debug: propsDebug,
   } = options;
 
@@ -370,6 +448,15 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   const chatUidRef = useRef(chatUid);
   chatUidRef.current = chatUid;
 
+  // Read by `sendMessage`, which must not restate the state of a run already in
+  // flight — its own callback identity would otherwise carry a stale value.
+  const isLoadingRef = useRef(isLoading);
+  isLoadingRef.current = isLoading;
+
+  // Two messages sent inside the same millisecond would otherwise share a uid,
+  // which the queue makes easy to do.
+  const optimisticSeqRef = useRef(0);
+
   // Refs for callbacks
   const onMessageReceivedRef = useRef(onMessageReceived);
   const onErrorRef = useRef(onError);
@@ -394,6 +481,63 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     }
   }, [apiKey, baseUrl]);
 
+  // --- Message queue --------------------------------------------------------
+
+  /**
+   * Messages accepted by this conversation that the model has not seen yet.
+   * Taken from the poll, so it counts whatever else queued on the conversation
+   * too — another tab, or the same person writing from another channel.
+   */
+  const [queuedCount, setQueuedCount] = useState(0);
+
+  /**
+   * When something was queued from here that has not been answered yet.
+   *
+   * Deliberately not a list of the texts sent: a drain can merge several queued
+   * messages into a single user turn, so what comes back is not what went out
+   * and matching them by text would wait forever. What is being waited for is an
+   * answer, and an assistant message written after the message was accepted is
+   * that answer.
+   */
+  const awaitingAnswerSinceRef = useRef<number | null>(null);
+  const queueGraceTicksRef = useRef(0);
+
+  const rememberAwaiting = useCallback(() => {
+    awaitingAnswerSinceRef.current = Date.now();
+  }, []);
+
+  const resetQueueState = useCallback(() => {
+    awaitingAnswerSinceRef.current = null;
+    queueGraceTicksRef.current = 0;
+    setQueuedCount(0);
+  }, []);
+
+  /**
+   * Asked for as soon as the hook is alive, rather than when the first run
+   * starts: the answer decides whether the input stays open while the assistant
+   * works, and resolving it late means the box visibly closes and reopens on the
+   * first message of every session. One request, shared with everything else
+   * that asks about this assistant. Passing `messageQueue` skips it entirely.
+   */
+  const queueLookup = useAssistantInfo({
+    assistantId,
+    client: clientRef.current,
+    baseUrl,
+    credential: apiKey || 'session',
+    enabled: messageQueue === undefined,
+  });
+
+  /**
+   * Absent means no. An assistant that has not answered yet, or an API too old
+   * to carry the field, leaves the input closed while it works — the same thing
+   * it did before this existed. Opening it on a maybe would promise a queue the
+   * conversation then refuses.
+   */
+  const queueEnabled =
+    messageQueue ??
+    (queueLookup.settled &&
+      queueLookup.assistant?.messageQueueEnabled === true);
+
   // Resume chat state based on realtime status.
   // Called after loading chat history to detect in-progress conversations.
   const resumeFromRealtimeStatus = useCallback(
@@ -404,11 +548,16 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         logRef.current.log('[useDevicChat] resumeFromRealtimeStatus:', realtime.status);
 
         // Update messages with realtime data (may be fresher than static history)
-        if (realtime.chatHistory?.length) {
-          setMessages(realtime.chatHistory);
+        const queuedOnServer = (realtime.pendingUserMessages ?? []).map((m) => ({
+          ...m,
+          queued: true,
+        }));
+        if (realtime.chatHistory?.length || queuedOnServer.length) {
+          setMessages([...(realtime.chatHistory ?? []), ...queuedOnServer]);
         }
         mergeRecalledMemories(realtime.recalledMemories);
         setStatus(realtime.status);
+        setQueuedCount(realtime.queuedMessages ?? 0);
 
         if (realtime.status === 'processing') {
           // Chat is still processing — resume polling
@@ -427,6 +576,12 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           if (subThreadId) {
             setHandedOffSubThreadId(subThreadId);
           }
+        } else if ((realtime.queuedMessages ?? 0) > 0) {
+          // The run settled, but the conversation still owes an answer to
+          // something queued — reopened on a conversation whose follow-up run
+          // has not started yet. Watch it until the queue is served.
+          setIsLoading(true);
+          setShouldPoll(true);
         } else {
           // completed or error — just stop
           setIsLoading(false);
@@ -517,37 +672,99 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       onUpdate: async (data: RealtimeChatHistory) => {
         logRef.current.log('[useDevicChat] onUpdate called, status:', data.status);
 
+        // An assistant message written after something was queued from here is
+        // the answer that was being waited for.
+        const awaitingSince = awaitingAnswerSinceRef.current;
+        if (
+          awaitingSince !== null &&
+          (data.queuedMessages ?? 0) === 0 &&
+          (data.chatHistory ?? []).some(
+            (m) => m.role === 'assistant' && (m.timestamp ?? 0) > awaitingSince
+          )
+        ) {
+          awaitingAnswerSinceRef.current = null;
+        }
+
         // Merge realtime data with optimistic messages.
         // When a server user message matches an optimistic one by text, adopt the
         // optimistic uid so React's key stays stable (avoids unmount/remount flicker).
         setMessages((prev) => {
-          const normalize = (t?: string) => (t ?? '').trim();
-          const optimisticUserByText = new Map(
-            prev
-              .filter((m) => m.role === 'user' && m.uid.startsWith('temp-'))
-              .map((m) => [normalize(m.content?.message), m.uid])
-          );
+          // A queue of uids per text rather than one: two identical messages are
+          // two messages, and pairing both with the same optimistic copy would
+          // drop one of them from the conversation.
+          const optimisticUserByText = new Map<string, string[]>();
+          prev
+            .filter((m) => m.role === 'user' && m.uid.startsWith('temp-'))
+            .forEach((m) => {
+              const key = normalizeText(m.content?.message);
+              const bucket = optimisticUserByText.get(key);
+              if (bucket) bucket.push(m.uid);
+              else optimisticUserByText.set(key, [m.uid]);
+            });
 
           const adoptedTempUids = new Set<string>();
-          const merged = data.chatHistory.map((m) => {
-            if (m.role === 'user') {
-              const tempUid = optimisticUserByText.get(normalize(m.content?.message));
-              if (tempUid) {
-                adoptedTempUids.add(tempUid);
-                // Keep the server uid around: recall anchors reference it.
-                return { ...m, uid: tempUid, serverUid: m.uid };
-              }
-            }
-            return m;
-          });
+          const adopt = (m: ChatMessage): ChatMessage => {
+            if (m.role !== 'user') return m;
+            const tempUid = optimisticUserByText
+              .get(normalizeText(m.content?.message))
+              ?.shift();
+            if (!tempUid) return m;
+            adoptedTempUids.add(tempUid);
+            // Keep the server uid around: recall anchors reference it.
+            return { ...m, uid: tempUid, serverUid: m.uid };
+          };
 
-          const mergedUIDs = new Set(merged.map((m) => m.uid));
+          const merged = data.chatHistory.map(adopt);
+          // Accepted, but not part of the conversation yet. Drawn between the
+          // history and the optimistic ones, which is where they land once a
+          // turn takes them. The copy is the server's, so it survives a reload —
+          // where the API does not return them, this is empty and the optimistic
+          // ones kept below stand in.
+          const queued = (data.pendingUserMessages ?? []).map((m) => ({
+            ...adopt(m),
+            queued: true,
+          }));
+
+          // Which of this client's own queued bubbles to keep drawing.
+          //
+          // Matching them to the history by text does not work: a drain can
+          // merge several queued messages into one user turn, and an optimistic
+          // copy that never finds its pair would sit there marked as queued for
+          // the rest of the conversation. The server's queue is the authority,
+          // and these are kept only where it cannot speak for them:
+          //   - too recently accepted for this poll to have seen them;
+          //   - counted by `queuedMessages` but not itemised, which is what an
+          //     API without `pendingUserMessages` reports.
+          const optimisticQueued = prev.filter(
+            (m) => m.queued && m.uid.startsWith('temp-')
+          );
+          const tooRecent = Date.now() - pollingInterval;
+          const keptQueued = new Set(
+            optimisticQueued
+              .filter((m) => (m.queuedAt ?? 0) > tooRecent)
+              .map((m) => m.uid)
+          );
+          let unitemised =
+            (data.queuedMessages ?? queued.length) - queued.length - keptQueued.size;
+          for (let i = optimisticQueued.length - 1; i >= 0 && unitemised > 0; i--) {
+            if (keptQueued.has(optimisticQueued[i].uid)) continue;
+            keptQueued.add(optimisticQueued[i].uid);
+            unitemised -= 1;
+          }
+
+          const mergedUIDs = new Set(
+            [...merged, ...queued].map((m) => m.uid)
+          );
           const optimistic = prev.filter(
-            (m) => !mergedUIDs.has(m.uid) && !adoptedTempUids.has(m.uid)
+            (m) =>
+              !mergedUIDs.has(m.uid) &&
+              !adoptedTempUids.has(m.uid) &&
+              (!m.queued || keptQueued.has(m.uid))
           );
 
-          return [...merged, ...optimistic];
+          return [...merged, ...queued, ...optimistic];
         });
+        setQueuedCount(data.queuedMessages ?? 0);
         // Surface recall events while the run is still processing, so the
         // "recalled memories" strip shows before the first response lands.
         mergeRecalledMemories(data.recalledMemories);
@@ -564,9 +781,30 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           await handlePendingToolCalls(data);
         }
       },
+      holdOpen: (data) => {
+        // Only `completed` is worth waiting on. An error, a usage limit or a
+        // gate mean something else is going on, and holding the poll open would
+        // just be watching a conversation that is not coming back.
+        const owed =
+          (data.queuedMessages ?? 0) > 0 ||
+          awaitingAnswerSinceRef.current !== null;
+        if (!owed || data.status !== 'completed') {
+          queueGraceTicksRef.current = 0;
+          return false;
+        }
+        queueGraceTicksRef.current += 1;
+        if (queueGraceTicksRef.current <= QUEUE_HANDOVER_GRACE_TICKS) return true;
+        // Nothing came back in time: stop pretending it will.
+        logRef.current.warn(
+          '[useDevicChat] queue handover window expired, stopping the watch'
+        );
+        awaitingAnswerSinceRef.current = null;
+        return false;
+      },
       onStop: (data) => {
         logRef.current.log('[useDevicChat] onStop called, status:', data?.status);
         setShouldPoll(false);
+        queueGraceTicksRef.current = 0;
 
         if (data?.status === 'limit_exceeded') {
           // The message was blocked by a tenant/subtenant usage limit before
@@ -677,24 +915,33 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         tags?: string[];
         disabledIntegrations?: string[];
       }
-    ) => {
+    ): Promise<SendMessageResult> => {
       if (!clientRef.current) {
         const err = new Error(
           'API client not configured. Please provide an API key.'
         );
         setError(err);
         onErrorRef.current?.(err);
-        return;
+        return { rejected: true, reason: 'error', message: err.message, restoredText: message };
       }
 
-      setIsLoading(true);
+      // Whether something was already running when this was written. If it was,
+      // this send must not restate it: turning the indicator on and off around a
+      // message that merely joined a queue would report on a run it has nothing
+      // to do with — and a refusal would then stop an indicator for a run that
+      // is still perfectly alive.
+      const wasBusy = isLoadingRef.current;
+
+      if (!wasBusy) {
+        setIsLoading(true);
+        setStatus('processing');
+      }
       setError(null);
       setLimitExceeded(null);
-      setStatus('processing');
 
       // Add user message optimistically (show file names before upload)
       const userMessage: ChatMessage = {
-        uid: `temp-${Date.now()}`,
+        uid: `temp-${Date.now()}-${optimisticSeqRef.current++}`,
         role: 'user',
         content: {
           message,
@@ -807,8 +1054,62 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         // Start polling for results
         logRef.current.log('[useDevicChat] Setting shouldPoll to true');
         setShouldPoll(true);
+
+        if (response.queued) {
+          // Accepted, but not on its way to the model yet. Draw it as such, and
+          // remember it: the poll has to keep running until it comes back inside
+          // the conversation, however long the run in flight takes.
+          rememberAwaiting();
+          const queuedAt = Date.now();
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.uid === userMessage.uid ? { ...m, queued: true, queuedAt } : m
+            )
+          );
+          setQueuedCount(response.queuePosition || 1);
+          return {
+            queued: true,
+            queuePosition: response.queuePosition || 1,
+            willProcess: response.willProcess || 'next_turn',
+          };
+        }
+
+        return { queued: false };
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
+
+        // Nothing was accepted either way, so the bubble goes.
+        setMessages((prev) => prev.filter((m) => m.uid !== userMessage.uid));
+
+        // The conversation turning a message down is not the conversation
+        // breaking. Two shapes of the same 409: an assistant that does not queue
+        // says so by name, and a full queue comes back as a plain conflict.
+        const refusal =
+          err instanceof DevicApiError
+            ? err.errorType === 'CHAT_BUSY'
+              ? 'chat_busy'
+              : err.statusCode === 409
+                ? 'queue_full'
+                : null
+            : null;
+
+        if (refusal) {
+          logRef.current.log('[useDevicChat] send refused:', refusal, error.message);
+          // Deliberately leaves `isLoading`, `status` and `error` alone: the run
+          // this message was written into is still going, and reporting the
+          // refusal by stopping its indicator — or by painting the conversation
+          // as failed — would be a lie about the run, not about the send.
+          if (!wasBusy) {
+            setIsLoading(false);
+            setStatus('idle');
+          }
+          return {
+            rejected: true,
+            reason: refusal,
+            message: error.message,
+            restoredText: message,
+          };
+        }
 
         // A synchronous usage-limit block surfaces as HTTP 429 /
         // TENANT_LIMIT_EXCEEDED (sync send path). Async sends surface it via the
@@ -824,12 +1125,21 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         }
 
         setError(error);
-        setIsLoading(false);
-        setStatus('error');
+        // Same reasoning as the refusal above: a send that failed while a run
+        // was already going says nothing about that run, which the poll is still
+        // watching. The error is reported either way.
+        if (!wasBusy) {
+          setIsLoading(false);
+          setStatus('error');
+        }
         onErrorRef.current?.(error);
 
-        // Remove optimistic user message on error
-        setMessages((prev) => prev.filter((m) => m.uid !== userMessage.uid));
+        return {
+          rejected: true,
+          reason: 'error',
+          message: error.message,
+          restoredText: message,
+        };
       }
     },
     [
@@ -848,6 +1158,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       toolSchemas,
       onMessageSent,
       onFileUpload,
+      rememberAwaiting,
     ]
   );
 
@@ -867,9 +1178,10 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     setError(null);
     setLimitExceeded(null);
     setRecalledMemories([]);
+    resetQueueState();
     pendingWidgetCallsRef.current = [];
     setPendingWidgetCalls([]);
-  }, []);
+  }, [resetQueueState]);
 
   // Load existing chat
   const loadChat = useCallback(
@@ -895,6 +1207,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       setIsLoading(true);
       setError(null);
       setRecalledMemories([]);
+      // The queue belongs to the conversation being left behind.
+      resetQueueState();
 
       try {
         const history = await clientRef.current.getChatHistory(
@@ -916,7 +1230,13 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         setIsLoading(false);
       }
     },
-    [assistantId, resolvedTenantId, resumeFromRealtimeStatus, mergeRecalledMemories]
+    [
+      assistantId,
+      resolvedTenantId,
+      resumeFromRealtimeStatus,
+      mergeRecalledMemories,
+      resetQueueState,
+    ]
   );
 
   // Handoff polling: while handedOff is true, poll the realtime endpoint every
@@ -1017,21 +1337,44 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
 
   // Stop current conversation — calls the server-side stop endpoint
   // then stops polling and resets loading state.
-  const stopChat = useCallback(async () => {
+  const stopChat = useCallback(async (): Promise<StopResult> => {
     const uid = chatUidRef.current;
     logRef.current.log('[useDevicChat] stopChat called, chatUid:', uid);
+    let discarded: ChatMessage[] = [];
     if (clientRef.current && uid) {
       try {
-        await clientRef.current.stopChat(assistantId, uid);
+        const result = await clientRef.current.stopChat(assistantId, uid);
+        discarded = result?.discardedMessages ?? [];
         logRef.current.log('[useDevicChat] stopChat API call succeeded');
       } catch (err) {
         logRef.current.warn('[useDevicChat] stopChat API call failed:', err);
       }
     }
+
+    // Stopping throws away whatever was queued behind the run — answering it
+    // would be the opposite of what was just asked for. The bubbles go with it,
+    // and the text is handed back so it can return to the box instead of
+    // disappearing. An API that does not report what it discarded leaves the
+    // bubbles alone, and the next poll has the last word.
+    if (discarded.length) {
+      setMessages((prev) => prev.filter((m) => !m.queued));
+    }
+    resetQueueState();
+
     setShouldPoll(false);
     setIsLoading(false);
     setStatus('idle');
-  }, [assistantId]);
+
+    const restoredText = discarded
+      .map((m) => m.content?.message)
+      .filter(Boolean)
+      .join('\n');
+
+    return {
+      discarded: discarded.length,
+      ...(restoredText ? { restoredText } : {}),
+    };
+  }, [assistantId, resetQueueState]);
 
   return {
     messages,
@@ -1043,6 +1386,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     recalledMemories,
     handedOff,
     handedOffSubThreadId,
+    queuedCount,
+    queueEnabled,
     sendMessage,
     clearChat,
     loadChat,

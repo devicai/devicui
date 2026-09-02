@@ -26,6 +26,7 @@ import type {
   IntegrationAuthScheme,
   IntegrationSetupRequired,
   ModelInterfaceToolSchema,
+  StopChatResponse,
 } from "./types";
 
 /**
@@ -247,6 +248,13 @@ export class DevicApiClient {
           statusCode: response.status,
           message: response.statusText,
         };
+      }
+      // Not every refusal carries its own status in the body. A 409 raised with
+      // an object (`{ error: 'CHAT_BUSY', ... }`) is returned verbatim, so
+      // reading the code off the body alone leaves it undefined and every
+      // `statusCode === 409` branch silently misses it.
+      if (typeof errorData?.statusCode !== "number") {
+        errorData = { ...errorData, statusCode: response.status };
       }
       throw new DevicApiError(errorData);
     }
@@ -555,8 +563,8 @@ export class DevicApiClient {
   async stopChat(
     assistantId: string,
     chatUid: string,
-  ): Promise<{ chatUid: string; message: string }> {
-    return this.request<{ chatUid: string; message: string }>(
+  ): Promise<StopChatResponse> {
+    return this.request<StopChatResponse>(
       `/api/v1/assistants/${assistantId}/chats/${chatUid}/stop`,
       { method: "POST" },
     );
@@ -599,6 +607,10 @@ export class DevicApiClient {
           statusCode: response.status,
           message: response.statusText,
         };
+      }
+      // See `request`: a body-shaped refusal need not carry its own status.
+      if (typeof errorData?.statusCode !== "number") {
+        errorData = { ...errorData, statusCode: response.status };
       }
       throw new DevicApiError(errorData);
     }
@@ -666,6 +678,10 @@ export class DevicApiClient {
           statusCode: response.status,
           message: response.statusText,
         };
+      }
+      // See `request`: a body-shaped refusal need not carry its own status.
+      if (typeof errorData?.statusCode !== "number") {
+        errorData = { ...errorData, statusCode: response.status };
       }
       throw new DevicApiError(errorData);
     }

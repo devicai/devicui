@@ -51,6 +51,19 @@ export interface UsePollingOptions {
   stopStatuses?: RealtimeStatus[];
 
   /**
+   * Consulted when the status says the conversation is done. Returning true
+   * keeps the poll running and skips `onStop`.
+   *
+   * A run can settle while the conversation still owes an answer to something
+   * queued: between one run liquidating and the follow-up run marking itself as
+   * processing, the realtime state reads as finished. Stopping in that window
+   * leaves the answer invisible until a reload. Whoever passes this is
+   * responsible for bounding it — the hook will hold open for as long as it is
+   * told to.
+   */
+  holdOpen?: (data: RealtimeChatHistory) => boolean;
+
+  /**
    * Callback when polling stops
    */
   onStop?: (data: RealtimeChatHistory | null) => void;
@@ -120,6 +133,7 @@ export function usePolling(
     interval = DEFAULT_POLLING_INTERVAL_MS,
     enabled = true,
     stopStatuses = ['completed', 'error'],
+    holdOpen,
     onStop,
     onUpdate,
     onError,
@@ -139,6 +153,7 @@ export function usePolling(
 
   // Refs for callbacks and options to avoid stale closures and unnecessary re-renders
   const onStopRef = useRef(onStop);
+  const holdOpenRef = useRef(holdOpen);
   const onUpdateRef = useRef(onUpdate);
   const onErrorRef = useRef(onError);
   const fetchFnRef = useRef(fetchFn);
@@ -150,6 +165,7 @@ export function usePolling(
 
   useEffect(() => {
     onStopRef.current = onStop;
+    holdOpenRef.current = holdOpen;
     onUpdateRef.current = onUpdate;
     onErrorRef.current = onError;
     fetchFnRef.current = fetchFn;
@@ -182,7 +198,9 @@ export function usePolling(
       onUpdateRef.current?.(result);
 
       // Check if we should stop polling
-      const shouldStop = stopStatusesRef.current.includes(result.status);
+      const shouldStop =
+        stopStatusesRef.current.includes(result.status) &&
+        !holdOpenRef.current?.(result);
       logRef.current.log('[usePolling] Should stop?', shouldStop, 'stopStatuses:', stopStatusesRef.current, 'current status:', result.status);
       if (shouldStop) {
         logRef.current.log('[usePolling] Stopping polling due to status:', result.status);

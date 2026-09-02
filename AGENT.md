@@ -37,6 +37,7 @@ devic-ui/
 │   │   │   ├── ChatMessages.tsx     # Message list display
 │   │   │   ├── ChatInput.tsx        # Input with file upload support
 │   │   │   ├── ToolTimeline.tsx     # Tool execution progress display
+│   │   │   ├── QueueNotice.tsx      # Notice above the input for queued messages
 │   │   │   ├── styles.css           # CSS with CSS Variables for theming
 │   │   │   └── index.ts             # Component exports
 │   │   ├── AICommandBar/
@@ -289,3 +290,25 @@ Key endpoints:
 - `POST /api/v1/assistants/:identifier/messages` - Process message
 - `GET /api/v1/assistants/:identifier/chats/:chatUid/realtime` - Get realtime history
 - `POST /api/v1/assistants/:identifier/chats/:chatUid/tool-response` - Submit tool responses
+- `POST /api/v1/assistants/:identifier/chats/:chatUid/stop` - Stop a run (returns `discardedMessages`)
+
+### Message queue
+
+A send into a busy conversation is answered in one of two ways, and they do not
+look alike on the wire:
+
+- **queued**: `200` with `{ queued: true, queuePosition, willProcess }`. The
+  realtime endpoint then reports `queuedMessages` and `pendingUserMessages`
+  until a drain takes them — a drain may merge several into one user turn, so
+  matching a queued bubble to the history by text does not work. The server's
+  queue is the authority; the widget keeps an optimistic copy only while the
+  server cannot speak for it (too recent to have been polled, or counted but not
+  itemised by an older API).
+- **refused**: `409`, in two different shapes. Queueing switched off gives a body
+  of `{ error: 'CHAT_BUSY', … }` **with no `statusCode` field** — Nest returns
+  the object verbatim — so it has to be recognised by `errorType`. A full queue
+  gives the standard Nest body, with `statusCode: 409` and `error: 'Conflict'`.
+  `DevicApiClient` fills the status in from the response when the body omits it.
+
+A refusal must not touch `isLoading`/`status`: the run the message was written
+into is still going, and stopping its indicator would report on the wrong thing.
