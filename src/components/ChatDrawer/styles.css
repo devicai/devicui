@@ -10,6 +10,14 @@
   --devic-text-muted: #999999;
   --devic-border: #e8e8e8;
   --devic-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  /* Queued messages: a bubble that has not landed. Deliberately drawn with the
+     drawer's own neutrals rather than a warning colour of its own — the user
+     bubble carries the integrator's primary, and an amber laid over it fights
+     every theme. Override these three to make it louder. */
+  --devic-error: #ff4d4f;
+  --devic-queued-accent: var(--devic-text-muted);
+  --devic-queued-bubble-bg: transparent;
+  --devic-queued-border: var(--devic-border);
   --devic-radius: 8px;
   --devic-radius-sm: 4px;
   --devic-radius-lg: 16px;
@@ -214,6 +222,22 @@
 
 .devic-message[data-role="user"] .devic-message-time {
   text-align: right;
+}
+
+/* Queued messages — accepted, not yet seen by the model */
+.devic-message[data-queued="true"] .devic-message-bubble {
+  background: var(--devic-queued-bubble-bg);
+  color: var(--devic-text);
+  border: 1px dashed var(--devic-queued-border);
+  opacity: 0.85;
+}
+
+.devic-message-queued-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--devic-queued-accent);
 }
 
 /* Message Files */
@@ -1830,6 +1854,37 @@
 }
 
 /* Disabled input notice */
+.devic-queue-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--devic-text-secondary);
+  background: var(--devic-bg-secondary);
+  border: 1px dashed var(--devic-queued-border);
+  border-radius: var(--devic-radius);
+  margin-bottom: 4px;
+}
+
+.devic-queue-notice-icon {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--devic-queued-accent);
+}
+
+/* Something happened to the message, rather than the message simply waiting. */
+.devic-queue-notice[data-alert="true"] {
+  border-style: solid;
+  border-color: var(--devic-error, #ff4d4f);
+  color: var(--devic-text);
+}
+
+.devic-queue-notice[data-alert="true"] .devic-queue-notice-icon {
+  color: var(--devic-error, #ff4d4f);
+}
+
 .devic-input-disabled-notice {
   display: flex;
   align-items: center;

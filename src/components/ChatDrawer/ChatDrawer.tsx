@@ -9,6 +9,7 @@ import { ConversationSelector } from './ConversationSelector';
 import { ChatDrawerErrorBoundary } from './ErrorBoundary';
 import { UsageBar } from './UsageBar';
 import { LimitBanner } from './LimitBanner';
+import { QueueNotice } from './QueueNotice';
 import { CoreMemoryModal } from '../CoreMemoryModal';
 import {
   IntegrationsHint,
@@ -25,6 +26,7 @@ import {
 import { isDarkTheme } from '../theme';
 import type { DevicTheme } from '../theme';
 import type { ChatDrawerProps, ChatDrawerOptions, ChatDrawerHandle } from './ChatDrawer.types';
+import type { QueueDisposition } from '../../api/types';
 import './styles.css';
 import { avatarUri } from '../../utils/avatar';
 
@@ -91,6 +93,10 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   customUsageBar: undefined as any,
   hideLimitBanner: false,
   limitBannerRenderer: undefined as any,
+  hideQueueNotice: false,
+  queueNoticeRenderer: undefined as any,
+  // Unset on purpose: the assistant's own setting decides.
+  messageQueue: undefined as any,
   showRecalledMemories: true,
   recalledMemoriesRenderer: undefined as any,
   showCoreMemoryButton: false,
@@ -244,6 +250,7 @@ function ChatDrawerInner({
     onError,
     onChatCreated: handleChatCreated,
     onFileUpload,
+    messageQueue: mergedOptions.messageQueue,
     debug: mergedOptions.debug,
   });
 
@@ -575,8 +582,22 @@ function ChatDrawerInner({
   }, [context]);
 
   // Handle send message — prefix references and clear them after sending
+  /**
+   * What the last accepted message was told about when it gets picked up. Only
+   * the wording of the notice depends on it.
+   */
+  const [queueDisposition, setQueueDisposition] = useState<
+    QueueDisposition | undefined
+  >();
+  /**
+   * What became of a message that did not simply join the queue: it was turned
+   * down, or a stop threw it away. Said out loud, because in both cases the
+   * user's text has just moved back into the box on its own.
+   */
+  const [queueAlert, setQueueAlert] = useState<string | null>(null);
+
   const handleSend = useCallback(
-    (
+    async (
       message: string,
       files?: File[],
       meta?: { transcriptId?: string; tags?: string[] }
@@ -586,15 +607,82 @@ function ChatDrawerInner({
         const labels = references.map((r) => `"${r.label}"`).join(', ');
         finalMessage = `Elemento referenciado: ${labels}\n\n${message}`;
       }
-      chat.sendMessage(finalMessage, {
+      setQueueAlert(null);
+      const result = await chat.sendMessage(finalMessage, {
         files,
         transcriptId: meta?.transcriptId,
         tags: meta?.tags,
       });
+
+      if ('rejected' in result) {
+        // The references belong to the message that was not sent, so they stay.
+        if (result.reason !== 'error') {
+          // An ordinary error already reaches the host through `onError`; these
+          // two do not, and the only sign of them would otherwise be the text
+          // reappearing in the box with no explanation.
+          setQueueAlert(
+            result.reason === 'queue_full'
+              ? `${result.message} Your message is back in the box.`
+              : 'The assistant is not taking messages while it works. Your message is back in the box.'
+          );
+        }
+        return result;
+      }
+
+      setQueueDisposition('queued' in result && result.queued ? result.willProcess : undefined);
       if (references.length > 0) clearReferences();
+      return result;
     },
     [chat, references, clearReferences]
   );
+
+  /**
+   * Whether a message may be written while the assistant is working.
+   *
+   * Being busy is not the only reason the box closes, and the other two are not
+   * about waiting: an inline widget is the assistant waiting on *this* user, and
+   * a usage limit is a refusal the queue cannot soften.
+   */
+  const canQueue =
+    chat.queueEnabled && inlineWidgets.length === 0 && !chat.limitExceeded;
+
+  const handleStopChat = useCallback(async () => {
+    const result = await chat.stopChat();
+    setQueueDisposition(undefined);
+    setQueueAlert(
+      result.discarded
+        ? `${result.discarded === 1 ? 'A queued message was' : `${result.discarded} queued messages were`} not sent — the text is back in the box.`
+        : null
+    );
+    return result;
+  }, [chat]);
+
+  /**
+   * Shown while there is something to explain: the user is writing into a run
+   * that has not finished, or messages are already waiting. With nothing typed
+   * and nothing queued there is nothing to say.
+   */
+  const queueNoticeNode =
+    !mergedOptions.hideQueueNotice &&
+    // `queuedCount` on its own matters: an assistant with an input delay queues
+    // what is written into an *idle* conversation whether or not it takes
+    // messages while busy, so there can be something waiting with the queue
+    // switched off.
+    (queueAlert || chat.queuedCount > 0 || (canQueue && chat.isLoading))
+      ? mergedOptions.queueNoticeRenderer
+        ? mergedOptions.queueNoticeRenderer({
+            queuedCount: chat.queuedCount,
+            willProcess: queueDisposition,
+            alert: queueAlert ?? undefined,
+          })
+        : (
+            <QueueNotice
+              queuedCount={chat.queuedCount}
+              willProcess={queueDisposition}
+              alert={queueAlert ?? undefined}
+            />
+          )
+      : null;
 
   // Handle conversation selection
   const handleConversationSelect = useCallback(
@@ -982,11 +1070,14 @@ function ChatDrawerInner({
             {limitBannerNode}
             {usageBarNode}
             {integrationsHintNode}
+            {queueNoticeNode}
             {mergedOptions.customPromptBox({
               sendMessage: handleSend,
               transcribeAudio,
               stop: chat.stopChat,
               isLoading: chat.isLoading,
+              queueEnabled: canQueue,
+              queuedCount: chat.queuedCount,
               newConversation: chat.clearChat,
               references,
               removeReference,
@@ -998,8 +1089,13 @@ function ChatDrawerInner({
           <ChatInput
             onSend={handleSend}
             disabled={
-              chat.isLoading ||
-              chat.handedOff ||
+              // `handedOff` is one of the states the queue covers — the
+              // conversation is waiting on a subagent, which in an embedded
+              // widget can take minutes — so with queueing on it no longer
+              // closes the box. A pending widget and a usage limit still do:
+              // one is the assistant waiting on this user, the other a refusal.
+              (chat.isLoading && !canQueue) ||
+              (chat.handedOff && !canQueue) ||
               inlineWidgets.length > 0 ||
               !!chat.limitExceeded
             }
@@ -1032,7 +1128,9 @@ function ChatDrawerInner({
                   : undefined
             }
             isProcessing={chat.isLoading && !chat.handedOff}
-            onStop={chat.stopChat}
+            onStop={handleStopChat}
+            allowQueueing={canQueue}
+            queueNotice={queueNoticeNode}
             stopButtonContent={mergedOptions.stopButtonContent}
             pendingInputWidget={inputWidget}
             onSubmitWidget={chat.submitWidgetResponse}

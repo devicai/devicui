@@ -745,6 +745,10 @@ export function ChatMessages({
           <div
             className="devic-message"
             data-role={message.role}
+            // Accepted but not seen by the model yet. Drawn as a message that
+            // has not landed, so it is not mistaken for something the assistant
+            // has already read.
+            data-queued={message.queued ? 'true' : undefined}
           >
             {refLabels.length > 0 && (
               <div className="devic-message-references">
@@ -807,6 +811,12 @@ export function ChatMessages({
               )}
             </div>
             <div className="devic-message-footer">
+              {message.queued && (
+                <span className="devic-message-queued-label">
+                  <QueuedIcon />
+                  Queued
+                </span>
+              )}
               <span className="devic-message-time">
                 {formatTime(message.timestamp)}
               </span>
@@ -946,6 +956,26 @@ function ChevronUpIcon(): JSX.Element {
       strokeLinejoin="round"
     >
       <polyline points="6,15 12,9 18,15" />
+    </svg>
+  );
+}
+
+/** Small clock on a queued bubble's footer. */
+function QueuedIcon(): JSX.Element {
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="12 7 12 12 15 14" />
     </svg>
   );
 }

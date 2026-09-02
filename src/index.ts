@@ -11,7 +11,7 @@ export type {
 } from './provider';
 
 // Components
-export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, ReferenceChip, UsageBar, LimitBanner, RecalledMemoriesWidget } from './components/ChatDrawer';
+export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, ReferenceChip, UsageBar, LimitBanner, QueueNotice, RecalledMemoriesWidget } from './components/ChatDrawer';
 export type {
   ChatDrawerProps,
   ChatDrawerOptions,
@@ -32,6 +32,7 @@ export type {
   UsageBarDisplay,
   UsageBarData,
   LimitBannerProps,
+  QueueNoticeProps,
   RecalledMemoriesWidgetProps,
   RecalledMemoriesRenderer,
   RecalledMemoriesRendererProps,
@@ -145,6 +146,8 @@ export {
 export type {
   UseDevicChatOptions,
   UseDevicChatResult,
+  SendMessageResult,
+  StopResult,
   UsePollingOptions,
   UsePollingResult,
   UseModelInterfaceOptions,
@@ -174,6 +177,8 @@ export type {
   ProcessMessageDto,
   AssistantResponse,
   AsyncResponse,
+  QueueDisposition,
+  StopChatResponse,
   RealtimeChatHistory,
   RealtimeStatus,
   ChatHistory,

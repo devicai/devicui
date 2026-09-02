@@ -467,6 +467,83 @@ mobile client on a metered connection. Any component can override it:
 Values below 250 ms are clamped. A change applies to the conversation already
 running, not only to the next one.
 
+## Writing While the Assistant Answers
+
+An assistant can be configured (`messageQueueEnabled`, in its context settings)
+to accept messages sent while it is still working. The library follows that
+setting on its own — it asks the API which assistant it is talking to, through
+the same cached lookup it already makes — so there is nothing to wire up.
+
+**With it on**, during a run:
+
+- the textarea stays live, and **stop** and **send** are shown together;
+- a line above the input says what will happen: *"The assistant is still
+  answering. Send anyway and your message joins its next turn."*, and once
+  something is waiting, how many;
+- a queued message is drawn as a bubble that has not landed — dashed, dimmed,
+  labelled `Queued`. That copy comes from the API, so it survives a reload;
+- when the run picks the messages up, the bubbles become ordinary ones. Several
+  queued messages may arrive as a single user turn: the drain merges them.
+
+**With it off**, the input closes while the assistant works, exactly as it did
+before this existed, and the stop button stays clickable.
+
+Two other things also queue, and both are covered:
+
+- an assistant with an **input delay** collects what is written into an *idle*
+  conversation during that window, whatever the queue setting says;
+- a conversation waiting on a **subagent** or a tool response takes messages too,
+  and drains them when it resumes.
+
+```tsx
+<ChatDrawer
+  assistantId="support-assistant"
+  options={{
+    messageQueue: undefined,   // default: follow the assistant
+    hideQueueNotice: false,    // drop the line above the input
+    queueNoticeRenderer: ({ queuedCount, willProcess, alert }) => <MyNotice … />,
+  }}
+/>
+```
+
+### Refusals hand the text back
+
+Two sends can be refused: one to an assistant that does not queue
+(`chat_busy`), and one to a queue that is at its ceiling (`queue_full`). The
+input clears itself on submit, so in both cases the library puts the text back
+in the box and says why — and, importantly, leaves the run that is in flight
+alone. A refused send is not a failed conversation.
+
+Building your own input? `sendMessage` reports it:
+
+```tsx
+const result = await sendMessage(text);
+if ('rejected' in result) setDraft(result.restoredText);
+```
+
+### Stopping
+
+Stopping discards whatever was queued behind the run and returns it, so the text
+can go back where it was written rather than disappearing:
+
+```tsx
+const { discarded, restoredText } = await stopChat();
+```
+
+### Styling
+
+Queued bubbles and the notice are drawn with the drawer's own neutrals rather
+than a colour of their own, because the user bubble already carries your primary.
+Three variables change that:
+
+```css
+.devic-chat-drawer {
+  --devic-queued-accent: #ad6800;      /* label and icon */
+  --devic-queued-bubble-bg: #fffbe6;   /* bubble fill */
+  --devic-queued-border: #ffd666;      /* dashed border */
+}
+```
+
 ## Client-Side Tools (Model Interface Protocol)
 
 Enable the assistant to call functions in your application:

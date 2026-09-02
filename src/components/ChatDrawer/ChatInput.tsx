@@ -111,6 +111,8 @@ function ChatInputBox({
   disabledMessage,
   isProcessing = false,
   onStop,
+  allowQueueing = false,
+  queueNotice,
   stopButtonContent,
   references,
   onRemoveReference,
@@ -268,10 +270,23 @@ function ChatInputBox({
     }
   }, []);
 
+  /** Whether there is anything to send. */
+  const hasContent =
+    !!message.trim() || files.length > 0 || pastedTexts.length > 0;
+
+  /**
+   * Busy, and this assistant does not queue: writing is pointless because the
+   * message would be refused. Kept apart from `disabled`, which the stop button
+   * also answers to — it lives in this same box and has to stay clickable.
+   */
+  const busyWithoutQueue = isProcessing && !allowQueueing;
+  const inputDisabled = disabled || busyWithoutQueue;
+
   // Handle send
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const trimmedMessage = message.trim();
     if (!trimmedMessage && files.length === 0 && pastedTexts.length === 0) return;
+    if (inputDisabled) return;
 
     // Pasted text is shown as a card but still reaches the model in full: each
     // block is prepended to the message inside a delimiter the thread can parse
@@ -283,11 +298,14 @@ function ChatInputBox({
             .join('\n\n')
         : trimmedMessage;
 
-    onSend(
-      composedMessage,
-      files.length > 0 ? files : undefined,
-      transcriptId ? { transcriptId } : undefined,
-    );
+    // Cleared straight away so the box is ready for the next message, and put
+    // back if the conversation turned this one down — the text is the user's,
+    // and losing it is not an acceptable way to report a refusal.
+    const sentMessage = message;
+    const sentFiles = files;
+    const sentPastedTexts = pastedTexts;
+    const sentTranscriptId = transcriptId;
+
     setMessage('');
     setFiles([]);
     setPastedTexts([]);
@@ -297,9 +315,40 @@ function ChatInputBox({
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-  }, [message, files, pastedTexts, onSend, transcriptId]);
+
+    const result = await onSend(
+      composedMessage,
+      sentFiles.length > 0 ? sentFiles : undefined,
+      sentTranscriptId ? { transcriptId: sentTranscriptId } : undefined,
+    );
+
+    if (result && 'rejected' in result) {
+      // Only restores what the user has not started replacing already.
+      setMessage((current) => current || sentMessage);
+      setFiles((current) => (current.length ? current : sentFiles));
+      setPastedTexts((current) => (current.length ? current : sentPastedTexts));
+      setTranscriptId((current) => current ?? sentTranscriptId);
+    }
+  }, [message, files, pastedTexts, onSend, transcriptId, inputDisabled]);
   // Keep a fresh send fn for the deferred handoff auto-send.
   handleSendRef.current = handleSend;
+
+  /**
+   * Stopping the run hands back whatever was queued behind it. Put that text
+   * back where it was written — quietly discarding something the user typed is
+   * the one outcome a stop should not have.
+   */
+  const handleStop = useCallback(async () => {
+    if (!onStop) return;
+    const result = await onStop();
+    const restoredText = (result as { restoredText?: string } | void)
+      ?.restoredText;
+    if (!restoredText) return;
+    setMessage((current) =>
+      [current, restoredText].filter(Boolean).join('\n')
+    );
+  }, [onStop]);
+
 
   // --- Speech-to-text handlers ---
 
@@ -642,24 +691,24 @@ function ChatInputBox({
 
   const handleDragEnter = useCallback(
     (e: React.DragEvent) => {
-      if (!enableFileUploads || disabled) return;
+      if (!enableFileUploads || inputDisabled) return;
       if (!e.dataTransfer.types.includes('Files')) return;
       e.preventDefault();
       dragDepthRef.current += 1;
       setIsDraggingOver(true);
     },
-    [enableFileUploads, disabled]
+    [enableFileUploads, inputDisabled]
   );
 
   const handleDragOver = useCallback(
     (e: React.DragEvent) => {
-      if (!enableFileUploads || disabled) return;
+      if (!enableFileUploads || inputDisabled) return;
       if (!e.dataTransfer.types.includes('Files')) return;
       // Without this the browser navigates away to open the dropped file.
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
     },
-    [enableFileUploads, disabled]
+    [enableFileUploads, inputDisabled]
   );
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
@@ -670,13 +719,13 @@ function ChatInputBox({
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
-      if (!enableFileUploads || disabled) return;
+      if (!enableFileUploads || inputDisabled) return;
       e.preventDefault();
       dragDepthRef.current = 0;
       setIsDraggingOver(false);
       addFiles(Array.from(e.dataTransfer.files || []));
     },
-    [enableFileUploads, disabled, addFiles]
+    [enableFileUploads, inputDisabled, addFiles]
   );
 
   return (
@@ -697,6 +746,7 @@ function ChatInputBox({
       {limitBanner}
       {usageBar}
       {integrationsHint}
+      {queueNotice}
       {disabledMessage && disabled && (
         <div className="devic-input-disabled-notice">
           <WaitingIcon />
@@ -876,7 +926,7 @@ function ChatInputBox({
                 <button
                   className="devic-input-btn"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={disabled}
+                  disabled={inputDisabled}
                   type="button"
                   title="Attach file"
                 >
@@ -897,7 +947,12 @@ function ChatInputBox({
                   onPointerDown={speechHandoff ? handleMicPointerDown : undefined}
                   onPointerUp={speechHandoff ? handleMicPointerUp : undefined}
                   onPointerCancel={speechHandoff ? handleMicPointerCancel : undefined}
-                  disabled={disabled || isProcessing}
+                  // Dictating a message for the assistant to pick up next is a
+                  // reasonable thing to do mid-answer, and on a phone it is the
+                  // natural one. The hands-free loop is another matter: it
+                  // auto-sends when the assistant finishes, which with a queue
+                  // would chain sends — see the handoff effect below.
+                  disabled={inputDisabled || (isProcessing && speechHandoff)}
                   type="button"
                   title={
                     speechHandoff
@@ -924,20 +979,34 @@ function ChatInputBox({
               }}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              placeholder={placeholder}
-              disabled={disabled}
+              placeholder={
+                busyWithoutQueue
+                  ? 'The assistant is answering…'
+                  : isProcessing
+                    ? 'Write while the assistant answers — it will be queued'
+                    : placeholder
+              }
+              disabled={inputDisabled}
               rows={1}
             />
 
-            {isProcessing ? (
-              stopButtonContent ? (
+            {/*
+              Stop and send are not alternatives while a run is in flight: the
+              run can be stopped, and a message can also be written for it to
+              pick up. Showing only the stop button made the second impossible —
+              a message typed then had nowhere to go. The send button still
+              disappears with an empty box, so a busy conversation nobody is
+              writing into still reads as "stop only".
+            */}
+            {isProcessing &&
+              (stopButtonContent ? (
                 <div className="devic-send-btn-wrapper">
                   <div className="devic-send-btn-custom" aria-hidden="true">
                     {stopButtonContent}
                   </div>
                   <button
                     className="devic-send-btn-overlay"
-                    onClick={onStop}
+                    onClick={handleStop}
                     type="button"
                     title="Stop"
                   />
@@ -945,37 +1014,46 @@ function ChatInputBox({
               ) : (
                 <button
                   className="devic-input-btn devic-stop-btn"
-                  onClick={onStop}
+                  onClick={handleStop}
                   type="button"
                   title="Stop"
                 >
                   <StopIcon />
                 </button>
-              )
-            ) : sendButtonContent ? (
-              <div className="devic-send-btn-wrapper">
-                <div className="devic-send-btn-custom" aria-hidden="true">
-                  {sendButtonContent}
+              ))}
+            {(!isProcessing || (allowQueueing && hasContent)) &&
+              (sendButtonContent ? (
+                <div className="devic-send-btn-wrapper">
+                  <div className="devic-send-btn-custom" aria-hidden="true">
+                    {sendButtonContent}
+                  </div>
+                  <button
+                    className="devic-send-btn-overlay"
+                    onClick={handleSend}
+                    disabled={inputDisabled || !hasContent}
+                    type="button"
+                    title={
+                      isProcessing
+                        ? "Queue this message for the assistant's next turn"
+                        : 'Send message'
+                    }
+                  />
                 </div>
+              ) : (
                 <button
-                  className="devic-send-btn-overlay"
+                  className="devic-input-btn devic-send-btn"
                   onClick={handleSend}
-                  disabled={disabled || (!message.trim() && files.length === 0 && pastedTexts.length === 0)}
+                  disabled={inputDisabled || !hasContent}
                   type="button"
-                  title="Send message"
-                />
-              </div>
-            ) : (
-              <button
-                className="devic-input-btn devic-send-btn"
-                onClick={handleSend}
-                disabled={disabled || (!message.trim() && files.length === 0 && pastedTexts.length === 0)}
-                type="button"
-                title="Send message"
-              >
-                <SendIcon />
-              </button>
-            )}
+                  title={
+                    isProcessing
+                      ? "Queue this message for the assistant's next turn"
+                      : 'Send message'
+                  }
+                >
+                  <SendIcon />
+                </button>
+              ))}
           </>
         )}
       </div>
