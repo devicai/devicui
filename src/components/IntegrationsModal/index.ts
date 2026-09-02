@@ -1,5 +1,7 @@
 export { IntegrationsModal, default } from "./IntegrationsModal";
 export type { IntegrationsModalProps } from "./IntegrationsModal";
+export { IntegrationsPanel } from "./IntegrationsPanel";
+export type { IntegrationsPanelProps } from "./IntegrationsPanel";
 export { IntegrationsLauncher, DEFAULT_MAX_LOGOS } from "./IntegrationsLauncher";
 export type { IntegrationsLauncherProps } from "./IntegrationsLauncher";
 export { IntegrationsHint } from "./IntegrationsHint";
