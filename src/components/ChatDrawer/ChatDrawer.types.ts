@@ -4,6 +4,7 @@ import type { SendMessageResult } from '../../hooks/useDevicChat';
 import type { AIReference } from '../../provider/types';
 import type { UsageBarDisplay, UsageBarData } from './UsageBar';
 import type { RecalledMemoriesRenderer } from './RecalledMemoriesWidget';
+import type { CoreMemoryLabels } from '../CoreMemoryModal';
 
 /**
  * A suggested message displayed as a quick action button.
@@ -622,6 +623,12 @@ export interface ChatDrawerOptions {
    * @default false
    */
   showCoreMemoryButton?: boolean;
+  /**
+   * Texts of the core memory modal (and the tooltip of its brain button), for
+   * a host that renders the drawer in its own language. Any subset; the rest
+   * keeps the English default.
+   */
+  coreMemoryLabels?: Partial<CoreMemoryLabels>;
 
   /**
    * Allow the connected-apps control in the drawer header — the stack of app

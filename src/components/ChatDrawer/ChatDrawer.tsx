@@ -10,7 +10,7 @@ import { ChatDrawerErrorBoundary } from './ErrorBoundary';
 import { UsageBar } from './UsageBar';
 import { LimitBanner } from './LimitBanner';
 import { QueueNotice } from './QueueNotice';
-import { CoreMemoryModal } from '../CoreMemoryModal';
+import { CoreMemoryModal, DEFAULT_CORE_MEMORY_LABELS } from '../CoreMemoryModal';
 import {
   IntegrationsHint,
   IntegrationsLauncher,
@@ -101,6 +101,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   showRecalledMemories: true,
   recalledMemoriesRenderer: undefined as any,
   showCoreMemoryButton: false,
+  coreMemoryLabels: undefined as any,
   showIntegrationsButton: true,
   integrationsLabel: 'Connected apps',
   maxIntegrationLogos: 6,
@@ -806,6 +807,10 @@ function ChatDrawerInner({
   // The same values, handed to the dialogs this drawer opens. They render
   // through a portal into document.body, so the variables set above — which
   // live on the drawer element — never reach them.
+  // The brain button says what the modal it opens is called.
+  const coreMemoryTitle =
+    mergedOptions.coreMemoryLabels?.title ?? DEFAULT_CORE_MEMORY_LABELS.title;
+
   const modalTheme: DevicTheme = useMemo(
     () => ({
       color:
@@ -998,8 +1003,8 @@ function ChatDrawerInner({
                 className="devic-new-chat-btn"
                 onClick={() => setCoreMemoryOpen(true)}
                 type="button"
-                aria-label="Assistant memory"
-                title="Assistant memory"
+                aria-label={coreMemoryTitle}
+                title={coreMemoryTitle}
               >
                 <BrainIcon />
               </button>
@@ -1172,6 +1177,7 @@ function ChatDrawerInner({
           subtenantId={subtenantId}
           apiKey={resolvedApiKey}
           baseUrl={resolvedBaseUrl}
+          labels={mergedOptions.coreMemoryLabels}
           theme={modalTheme}
         />
       )}

@@ -16,6 +16,65 @@ import "./CoreMemoryModal.css";
 /** Canonical sections of the core tier, in display order. */
 const SECTIONS = ["persona", "instructions", "decisions", "profile"] as const;
 
+/**
+ * Every piece of text the modal shows, so a host can render it in its own
+ * language. Any subset can be given; the rest keeps the English default.
+ */
+export interface CoreMemoryLabels {
+  /** Modal title; the drawer also uses it for its brain button tooltip. */
+  title: string;
+  /** Accessible name of the close button. */
+  close: string;
+  loading: string;
+  /** Shown when the assistant has no core memory tier enabled. */
+  disabled: string;
+  /** Shown when the bucket holds no entries yet. */
+  empty: string;
+  /** Tooltip of the pin mark. */
+  pinned: string;
+  edit: string;
+  remove: string;
+  save: string;
+  cancel: string;
+  /** Confirms the composer. */
+  add: string;
+  /** Opens the composer. */
+  addMemory: string;
+  /** Composer placeholder. */
+  placeholder: string;
+  /** Footer; `{count}`, `{max}` and `{chars}` are replaced. */
+  footer: string;
+  /** Display names of the sections, by section key. */
+  sections: Record<string, string>;
+}
+
+export const DEFAULT_CORE_MEMORY_LABELS: CoreMemoryLabels = {
+  title: "Assistant memory",
+  close: "Close",
+  loading: "Loading memory…",
+  disabled: "Memory is not enabled for this assistant.",
+  empty:
+    "Nothing remembered yet. What the assistant learns and is told to keep will appear here.",
+  pinned: "Pinned: always kept, never changed by the assistant",
+  edit: "Edit",
+  remove: "Remove",
+  save: "Save",
+  cancel: "Cancel",
+  add: "Add",
+  addMemory: "+ Add memory",
+  placeholder: "Something the assistant should always remember…",
+  footer: "{count}/{max} entries · up to {chars} characters each",
+  sections: {
+    persona: "persona",
+    instructions: "instructions",
+    decisions: "decisions",
+    profile: "profile",
+  },
+};
+
+const fillTemplate = (template: string, values: Record<string, string>) =>
+  template.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? "");
+
 export interface CoreMemoryModalProps {
   /** Whether the modal is visible. */
   isOpen: boolean;
@@ -36,8 +95,13 @@ export interface CoreMemoryModalProps {
    * @default true
    */
   editable?: boolean;
-  /** Modal title. @default "Assistant memory" */
+  /**
+   * Modal title. @default "Assistant memory"
+   * @deprecated Prefer `labels.title`; kept so existing hosts keep working.
+   */
   title?: string;
+  /** Texts of the modal, for a host that renders it in its own language. */
+  labels?: Partial<CoreMemoryLabels>;
   /**
    * Colours and font. Same names as the drawer's style options, and the drawer
    * passes its own down — a dialog opening in the default light palette over a
@@ -99,9 +163,22 @@ export function CoreMemoryModal({
   apiKey,
   baseUrl,
   editable = true,
-  title = "Assistant memory",
+  title,
+  labels,
   theme,
 }: CoreMemoryModalProps): JSX.Element | null {
+  const l = useMemo<CoreMemoryLabels>(
+    () => ({
+      ...DEFAULT_CORE_MEMORY_LABELS,
+      ...labels,
+      title: labels?.title ?? title ?? DEFAULT_CORE_MEMORY_LABELS.title,
+      sections: {
+        ...DEFAULT_CORE_MEMORY_LABELS.sections,
+        ...labels?.sections,
+      },
+    }),
+    [labels, title]
+  );
   const context = useOptionalDevicContext();
   const resolvedBaseUrl = baseUrl || context?.baseUrl || "https://api.devic.ai";
   const resolvedTenantId = tenantId || context?.tenantId;
@@ -271,19 +348,19 @@ export function CoreMemoryModal({
         className="devic-cm-modal"
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-label={l.title}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="devic-cm-header">
           <h3 className="devic-cm-title">
             <BrainIcon />
-            {title}
+            {l.title}
           </h3>
           <button
             className="devic-cm-close"
             onClick={onClose}
             type="button"
-            aria-label="Close"
+            aria-label={l.close}
           >
             ×
           </button>
@@ -293,20 +370,17 @@ export function CoreMemoryModal({
           {error && <div className="devic-cm-error">{error}</div>}
 
           {loading ? (
-            <div className="devic-cm-loading">Loading memory…</div>
+            <div className="devic-cm-loading">{l.loading}</div>
           ) : !enabled ? (
-            <div className="devic-cm-empty">
-              Memory is not enabled for this assistant.
-            </div>
+            <div className="devic-cm-empty">{l.disabled}</div>
           ) : entries.length === 0 && !composerOpen ? (
-            <div className="devic-cm-empty">
-              Nothing remembered yet. What the assistant learns and is told to
-              keep will appear here.
-            </div>
+            <div className="devic-cm-empty">{l.empty}</div>
           ) : (
             sections.map((section) => (
               <div key={section.name} className="devic-cm-section">
-                <div className="devic-cm-section-title">{section.name}</div>
+                <div className="devic-cm-section-title">
+                  {l.sections[section.name] ?? section.name}
+                </div>
                 {section.entries.map((entry) => (
                   <div key={entry.id} className="devic-cm-entry">
                     {editingId === entry.id ? (
@@ -326,7 +400,7 @@ export function CoreMemoryModal({
                             onClick={() => handleSaveEdit(entry)}
                             disabled={saving || !editingText.trim()}
                           >
-                            Save
+                            {l.save}
                           </button>
                           <button
                             type="button"
@@ -334,7 +408,7 @@ export function CoreMemoryModal({
                             onClick={() => setEditingId(null)}
                             disabled={saving}
                           >
-                            Cancel
+                            {l.cancel}
                           </button>
                         </div>
                       </div>
@@ -344,7 +418,7 @@ export function CoreMemoryModal({
                           {entry.pinned && (
                             <span
                               className="devic-cm-pin"
-                              title="Pinned: always kept, never changed by the assistant"
+                              title={l.pinned}
                             >
                               <PinIcon />
                             </span>
@@ -362,7 +436,7 @@ export function CoreMemoryModal({
                               }}
                               disabled={saving}
                             >
-                              Edit
+                              {l.edit}
                             </button>
                             <button
                               type="button"
@@ -370,7 +444,7 @@ export function CoreMemoryModal({
                               onClick={() => handleRemove(entry)}
                               disabled={saving}
                             >
-                              Remove
+                              {l.remove}
                             </button>
                           </div>
                         )}
@@ -395,14 +469,14 @@ export function CoreMemoryModal({
                     >
                       {SECTIONS.map((s) => (
                         <option key={s} value={s}>
-                          {s}
+                          {l.sections[s] ?? s}
                         </option>
                       ))}
                     </select>
                   </div>
                   <textarea
                     className="devic-cm-textarea"
-                    placeholder="Something the assistant should always remember…"
+                    placeholder={l.placeholder}
                     value={composerText}
                     maxLength={limits?.maxEntryChars || undefined}
                     onChange={(e) => setComposerText(e.target.value)}
@@ -416,7 +490,7 @@ export function CoreMemoryModal({
                       onClick={handleAdd}
                       disabled={saving || !composerText.trim()}
                     >
-                      Add
+                      {l.add}
                     </button>
                     <button
                       type="button"
@@ -427,7 +501,7 @@ export function CoreMemoryModal({
                       }}
                       disabled={saving}
                     >
-                      Cancel
+                      {l.cancel}
                     </button>
                   </div>
                 </>
@@ -438,7 +512,7 @@ export function CoreMemoryModal({
                   onClick={() => setComposerOpen(true)}
                   disabled={saving}
                 >
-                  + Add memory
+                  {l.addMemory}
                 </button>
               )}
             </div>
@@ -447,8 +521,11 @@ export function CoreMemoryModal({
 
         {limits && enabled && (
           <div className="devic-cm-footer">
-            {entries.length}/{limits.maxEntries} entries · up to{" "}
-            {limits.maxEntryChars} characters each
+            {fillTemplate(l.footer, {
+              count: String(entries.length),
+              max: String(limits.maxEntries),
+              chars: String(limits.maxEntryChars),
+            })}
           </div>
         )}
       </div>

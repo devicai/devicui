@@ -383,6 +383,27 @@ Backed by the public memory API (`GET/POST/PATCH/DELETE
 /api/v1/memory/assistants/:identifier/core`); the API key must allow
 `/api/v1/memory/*` (included in the devic-ui key preset).
 
+Every text of the modal can be given in the host's language with `labels`
+(any subset; the rest keeps the English default), including the names of
+the sections:
+
+```tsx
+<CoreMemoryModal
+  isOpen={open}
+  onClose={() => setOpen(false)}
+  assistantId="my-assistant"
+  labels={{
+    title: "Lo que el asistente recuerda",
+    addMemory: "+ Añadir",
+    footer: "{count}/{max} entradas · hasta {chars} caracteres",
+    sections: { profile: "Perfil", instructions: "Instrucciones" },
+  }}
+/>
+```
+
+The drawer takes the same object as `options.coreMemoryLabels`; its `title`
+is also the tooltip of the brain button.
+
 ### IntegrationsModal
 
 Modal where the **end user** connects their **own** third-party accounts —
