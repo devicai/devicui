@@ -39,8 +39,8 @@ export type {
 } from './components/ChatDrawer';
 
 // CoreMemoryModal
-export { CoreMemoryModal } from './components/CoreMemoryModal';
-export type { CoreMemoryModalProps } from './components/CoreMemoryModal';
+export { CoreMemoryModal, DEFAULT_CORE_MEMORY_LABELS } from './components/CoreMemoryModal';
+export type { CoreMemoryModalProps, CoreMemoryLabels } from './components/CoreMemoryModal';
 
 // IntegrationsModal
 export {
