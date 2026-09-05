@@ -292,6 +292,8 @@ A complete chat drawer component.
     allowedFileTypes: { images: true, documents: true },
     inputPlaceholder: 'Type a message...',
     title: 'Chat Assistant',
+    showAvatar: true,           // Assistant's face next to the title
+    avatarUrl: '/alexandria.png', // ...this one instead of the assistant's own
     showToolTimeline: true,
   }}
   enabledTools={['tool1', 'tool2']}
