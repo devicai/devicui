@@ -56,6 +56,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   inputPlaceholder: 'Type a message...',
   title: 'Chat',
   showAvatar: false,
+  avatarUrl: undefined as any,
   showToolTimeline: true,
   zIndex: 1000,
   borderRadius: 0,
@@ -289,15 +290,18 @@ function ChatDrawerInner({
     baseUrl: resolvedBaseUrl,
     credential: resolvedApiKey || 'session',
     enabled:
-      !!mergedOptions.showAvatar ||
+      (!!mergedOptions.showAvatar && !mergedOptions.avatarUrl) ||
       (mergedOptions.showIntegrationsButton !== false && isOpen),
   });
-  // An assistant with no uploaded image still gets a face, generated from its
+  // The host's own image wins: an assistant carries one image for everybody, so
+  // this is the only place a per-account face can come from. Failing that, an
+  // assistant with no uploaded image still gets a face, generated from its
   // identifier — the same one the console shows for it. Drawn from `assistantId`
   // rather than from the fetched assistant so the header is not empty while the
   // lookup is in flight; the two agree, since that is what was asked for.
   const avatarUrl = mergedOptions.showAvatar
-    ? (assistantInfo.assistant?.imgUrl ??
+    ? (mergedOptions.avatarUrl ??
+      assistantInfo.assistant?.imgUrl ??
       avatarUri(
         assistantInfo.assistant?.identifier || assistantId,
         assistantInfo.assistant?.avatarStyle

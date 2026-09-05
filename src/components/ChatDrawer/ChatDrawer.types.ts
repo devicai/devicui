@@ -294,6 +294,17 @@ export interface ChatDrawerOptions {
   showAvatar?: boolean;
 
   /**
+   * Image to use as that avatar, in place of the assistant's own `imgUrl`.
+   *
+   * An assistant has a single image, the same one for every tenant talking to
+   * it. Hosts that dress the assistant up per account — its own face, its own
+   * name — have nowhere to put that image; this is where it goes. Requires
+   * `showAvatar`, and saves the lookup of the assistant when nothing else on
+   * the header needs it.
+   */
+  avatarUrl?: string;
+
+  /**
    * Show tool execution timeline
    * @default true
    */
