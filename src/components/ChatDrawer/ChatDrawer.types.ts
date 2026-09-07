@@ -626,6 +626,23 @@ export interface ChatDrawerOptions {
   showCompaction?: boolean;
 
   /**
+   * Let the reader open a compaction marker and read the checkpoint behind it.
+   *
+   * Off by default. What opens is not metadata about the conversation, it is
+   * an account OF it: the goal the model inferred, the decisions it recorded
+   * and why, what it believes is still pending, and the identifiers it lifted
+   * out verbatim. Worth showing an operator debugging an assistant; not
+   * something to put in front of the customer the conversation is with unless
+   * you have decided it is. Closed is therefore the default.
+   *
+   * The marker itself still appears either way, with how many messages were
+   * folded and the token counts — a conversation that was compacted should
+   * say so.
+   * @default false
+   */
+  expandableCompaction?: boolean;
+
+  /**
    * Render your own compaction node instead of the built-in marker. Called
    * once per checkpoint, and once more while a compaction is in flight (with
    * `checkpoint: null` and the `activity` describing what it is folding).
@@ -939,6 +956,8 @@ export interface ChatMessagesProps {
   compaction?: CompactionActivity | null;
   /** Custom renderer replacing the built-in compaction marker */
   compactionRenderer?: CompactionRenderer;
+  /** Let the reader open a checkpoint and read it (see ChatDrawerOptions) */
+  expandableCompaction?: boolean;
 }
 
 /**

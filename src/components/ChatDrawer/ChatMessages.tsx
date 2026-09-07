@@ -591,6 +591,7 @@ export function ChatMessages({
   compactions,
   compaction,
   compactionRenderer,
+  expandableCompaction,
 }: ChatMessagesProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLengthRef = useRef(messages.length);
@@ -680,6 +681,7 @@ export function ChatMessages({
         checkpoint={checkpoint}
         isActive={checkpoint.uid === activeCompactionUid}
         renderer={compactionRenderer}
+        expandable={expandableCompaction}
       />
     ));
 
