@@ -5,8 +5,9 @@ import { MessageActions } from "../Feedback";
 import { HandoffSubagentWidget } from "./HandoffSubagentWidget";
 import { ReferenceChip } from "./ReferenceChip";
 import { RecalledMemoriesWidget } from "./RecalledMemoriesWidget";
+import { CompactionWidget } from "./CompactionWidget";
 import type { ChatMessagesProps, SuggestedMessage } from "./ChatDrawer.types";
-import type { ChatMessage, RecalledMemoryRecord, ToolGroupConfig, ToolGroupCall } from "../../api/types";
+import type { ChatMessage, CompactionCheckpoint, RecalledMemoryRecord, ToolGroupConfig, ToolGroupCall } from "../../api/types";
 import { normalizeMessageFile } from "../../api/types";
 import type { FeedbackState } from "../Feedback";
 import { segmentToolCalls } from "../../utils/toolGroups";
@@ -587,6 +588,9 @@ export function ChatMessages({
   onCancelWidget,
   recalledMemories,
   recalledMemoriesRenderer,
+  compactions,
+  compaction,
+  compactionRenderer,
 }: ChatMessagesProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLengthRef = useRef(messages.length);
@@ -627,6 +631,57 @@ export function ChatMessages({
   // The strip renders after the message (or tool group) that anchors it.
   const recallsFor = (uids: string[]): RecalledMemoryRecord[] =>
     uids.flatMap((uid) => recallsByAnchor.get(uid) ?? []);
+
+  // Compaction checkpoints, keyed by the LAST message each one folded: the
+  // point where the assistant's view of the conversation stops. A checkpoint
+  // whose anchor is not on screen (it folded messages this client never
+  // loaded) is drawn at the top instead, so the cut is never invisible.
+  const { compactionsByAnchor, orphanCompactions, activeCompactionUid } =
+    useMemo(() => {
+      const byAnchor = new Map<string, CompactionCheckpoint[]>();
+      const orphans: CompactionCheckpoint[] = [];
+      for (const checkpoint of compactions ?? []) {
+        const anchor = checkpoint.anchorMessageUid
+          ? messages.find(
+              (m) =>
+                m.uid === checkpoint.anchorMessageUid ||
+                m.serverUid === checkpoint.anchorMessageUid
+            )?.uid
+          : undefined;
+        if (anchor) {
+          const list = byAnchor.get(anchor);
+          if (list) list.push(checkpoint);
+          else byAnchor.set(anchor, [checkpoint]);
+        } else {
+          orphans.push(checkpoint);
+        }
+      }
+      // Only the newest checkpoint governs the context: each compaction
+      // merges the previous summary into itself.
+      const active = (compactions ?? []).reduce<CompactionCheckpoint | null>(
+        (latest, candidate) =>
+          !latest || candidate.index > latest.index ? candidate : latest,
+        null
+      );
+      return {
+        compactionsByAnchor: byAnchor,
+        orphanCompactions: orphans,
+        activeCompactionUid: active?.uid,
+      };
+    }, [compactions, messages]);
+
+  const compactionsFor = (uids: string[]): CompactionCheckpoint[] =>
+    uids.flatMap((uid) => compactionsByAnchor.get(uid) ?? []);
+
+  const renderCompactions = (checkpoints: CompactionCheckpoint[]) =>
+    checkpoints.map((checkpoint) => (
+      <CompactionWidget
+        key={checkpoint.uid}
+        checkpoint={checkpoint}
+        isActive={checkpoint.uid === activeCompactionUid}
+        renderer={compactionRenderer}
+      />
+    ));
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -678,6 +733,9 @@ export function ChatMessages({
           const groupRecalls = recallsFor(
             item.toolMessages.map((m) => m.uid)
           );
+          const groupCompactions = compactionsFor(
+            item.toolMessages.map((m) => m.uid)
+          );
           return (
             <React.Fragment key={`tg-${item.toolMessages[0].uid}`}>
               <ToolGroup
@@ -701,6 +759,7 @@ export function ChatMessages({
                   renderer={recalledMemoriesRenderer}
                 />
               )}
+              {renderCompactions(groupCompactions)}
             </React.Fragment>
           );
         }
@@ -739,6 +798,7 @@ export function ChatMessages({
           : userMessageRenderer;
 
         const messageRecalls = recallsFor([message.uid]);
+        const messageCompactions = compactionsFor([message.uid]);
 
         return (
           <React.Fragment key={message.uid}>
@@ -839,6 +899,7 @@ export function ChatMessages({
               renderer={recalledMemoriesRenderer}
             />
           )}
+          {renderCompactions(messageCompactions)}
           </React.Fragment>
         );
       })}
@@ -851,6 +912,23 @@ export function ChatMessages({
           records={pendingRecalls}
           isLoading={isLoading}
           renderer={recalledMemoriesRenderer}
+        />
+      )}
+
+      {/* Checkpoints whose anchor message is not on screen — this client only
+          loaded the messages that still travel, so the cut has nowhere to sit
+          in the thread. Shown here rather than dropped: the conversation is
+          shorter than it looks, and that is worth saying. */}
+      {renderCompactions(orphanCompactions)}
+
+      {/* A compaction being written right now. It is a model call of its own,
+          taken between two assistant messages, so without this the
+          conversation simply appears to have gone quiet. */}
+      {compaction?.state === "running" && (
+        <CompactionWidget
+          checkpoint={null}
+          activity={compaction}
+          renderer={compactionRenderer}
         />
       )}
 

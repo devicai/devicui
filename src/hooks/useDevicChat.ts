@@ -9,6 +9,8 @@ import { useAssistantInfo } from '../api/assistantInfo';
 import type {
   ChatMessage,
   ChatFile,
+  CompactionActivity,
+  CompactionCheckpoint,
   ModelInterfaceTool,
   QueueDisposition,
   RealtimeChatHistory,
@@ -241,6 +243,20 @@ export interface UseDevicChatResult {
   recalledMemories: RecalledMemoryRecord[];
 
   /**
+   * Compaction checkpoints of the conversation, oldest first. Each one folds
+   * the messages before its boundary into a summary the model reads instead
+   * of them; the messages themselves stay in `messages`.
+   */
+  compactions: CompactionCheckpoint[];
+
+  /**
+   * The compaction being written right now, or null. A compaction is a model
+   * call of its own between two assistant messages, so this is what tells a
+   * UI why the conversation has gone quiet.
+   */
+  compaction: CompactionActivity | null;
+
+  /**
    * Whether the assistant has handed off to a subagent
    */
   handedOff: boolean;
@@ -436,6 +452,22 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     []
   );
 
+  // Compaction checkpoints of the conversation, and the one being written
+  // right now. Same merge rule as the recalls: the realtime blob only carries
+  // the in-flight run's checkpoints, so incoming batches merge by uid.
+  const [compactions, setCompactions] = useState<CompactionCheckpoint[]>([]);
+  const mergeCompactions = useCallback((incoming?: CompactionCheckpoint[]) => {
+    if (!incoming?.length) return;
+    setCompactions((prev) => {
+      const known = new Set(prev.map((c) => c.uid));
+      const fresh = incoming.filter((c) => !known.has(c.uid));
+      return fresh.length ? [...prev, ...fresh] : prev;
+    });
+  }, []);
+  // Absent on every ordinary realtime write, which is how a finished
+  // compaction stops being reported.
+  const [compaction, setCompaction] = useState<CompactionActivity | null>(null);
+
   // Handoff state
   const [handedOff, setHandedOff] = useState(false);
   const [handedOffSubThreadId, setHandedOffSubThreadId] = useState<string | null>(null);
@@ -556,6 +588,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           setMessages([...(realtime.chatHistory ?? []), ...queuedOnServer]);
         }
         mergeRecalledMemories(realtime.recalledMemories);
+        mergeCompactions(realtime.compactions);
+        setCompaction(realtime.compaction ?? null);
         setStatus(realtime.status);
         setQueuedCount(realtime.queuedMessages ?? 0);
 
@@ -592,7 +626,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         setIsLoading(false);
       }
     },
-    [assistantId, mergeRecalledMemories]
+    [assistantId, mergeRecalledMemories, mergeCompactions]
   );
 
   // Load initial chat history if chatUid prop is provided
@@ -613,6 +647,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           );
           setMessages(history.chatContent);
           mergeRecalledMemories(history.recalledMemories);
+          mergeCompactions(history.compactions);
           setChatUid(initialChatUid);
 
           // Check realtime status to resume in-progress conversations
@@ -768,6 +803,10 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         // Surface recall events while the run is still processing, so the
         // "recalled memories" strip shows before the first response lands.
         mergeRecalledMemories(data.recalledMemories);
+        // A compaction runs between two assistant messages: without this the
+        // conversation looks stalled while it is being written.
+        mergeCompactions(data.compactions);
+        setCompaction(data.compaction ?? null);
         setStatus(data.status);
 
         // Notify about new messages
@@ -1178,6 +1217,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     setError(null);
     setLimitExceeded(null);
     setRecalledMemories([]);
+    setCompactions([]);
+    setCompaction(null);
     resetQueueState();
     pendingWidgetCallsRef.current = [];
     setPendingWidgetCalls([]);
@@ -1207,6 +1248,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       setIsLoading(true);
       setError(null);
       setRecalledMemories([]);
+      setCompactions([]);
+      setCompaction(null);
       // The queue belongs to the conversation being left behind.
       resetQueueState();
 
@@ -1219,6 +1262,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
 
         setMessages(history.chatContent);
         mergeRecalledMemories(history.recalledMemories);
+        mergeCompactions(history.compactions);
         setChatUid(loadChatUid);
 
         // Check realtime status to resume in-progress conversations
@@ -1235,6 +1279,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       resolvedTenantId,
       resumeFromRealtimeStatus,
       mergeRecalledMemories,
+      mergeCompactions,
       resetQueueState,
     ]
   );
@@ -1384,6 +1429,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     error,
     limitExceeded,
     recalledMemories,
+    compactions,
+    compaction,
     handedOff,
     handedOffSubThreadId,
     queuedCount,

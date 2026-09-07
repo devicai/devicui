@@ -358,6 +358,43 @@ processing its first response (streamed in through the realtime poll).
 The recall records are also available from the hook:
 `useDevicChat().recalledMemories`.
 
+#### Context compaction
+
+An assistant with compaction enabled folds the older part of a long
+conversation into a **checkpoint** — a written summary plus the identifiers,
+paths and urls preserved verbatim — and reads that instead of the messages it
+replaces. The messages themselves stay in the conversation and keep being
+shown; only what the assistant receives changes.
+
+The drawer draws a cut line at the exact point where that happens, expandable
+to show what the assistant now reads. While a compaction is being written it
+says so: it is a model call of its own, taken between two assistant messages,
+so without it the conversation just appears to have gone quiet.
+
+```tsx
+<ChatDrawer
+  assistantId="my-assistant"
+  options={{
+    showCompaction: true,                // default
+    // Replace the built-in marker with your own node. Called once per
+    // checkpoint, and once more while one is in flight (checkpoint: null):
+    compactionRenderer: ({ checkpoint, activity, isActive }) =>
+      activity?.state === "running" ? (
+        <MySpinner label="Summarizing the conversation…" />
+      ) : (
+        <MyDivider
+          text={`${checkpoint!.compactedMessageCount} messages folded`}
+          muted={!isActive}
+        />
+      ),
+  }}
+/>
+```
+
+Both are also available from the hook: `useDevicChat().compactions` (the
+checkpoints, oldest first) and `useDevicChat().compaction` (the one being
+written right now, or `null`).
+
 ### CoreMemoryModal
 
 Modal showing — and letting the end user edit — the **core memory** of an
