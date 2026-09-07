@@ -366,16 +366,25 @@ paths and urls preserved verbatim — and reads that instead of the messages it
 replaces. The messages themselves stay in the conversation and keep being
 shown; only what the assistant receives changes.
 
-The drawer draws a cut line at the exact point where that happens, expandable
-to show what the assistant now reads. While a compaction is being written it
-says so: it is a model call of its own, taken between two assistant messages,
-so without it the conversation just appears to have gone quiet.
+The drawer draws a cut line at the exact point where that happens, with how
+many messages were folded and the token counts. While a compaction is being
+written it says so: it is a model call of its own, taken between two assistant
+messages, so without it the conversation just appears to have gone quiet.
+
+**The checkpoint's contents are not shown unless you ask for them.** What is
+behind the marker is not metadata about the conversation but an account *of*
+it — the goal the model inferred, the decisions it recorded and why, what it
+believes is still pending, and the identifiers it lifted out verbatim. That is
+useful to an operator debugging an assistant and rarely something to put in
+front of the customer the conversation is with, so `expandableCompaction` is
+off by default and opening it is your decision.
 
 ```tsx
 <ChatDrawer
   assistantId="my-assistant"
   options={{
-    showCompaction: true,                // default
+    showCompaction: true,                // default — draw the marker
+    expandableCompaction: false,         // default — but do not let it be opened
     // Replace the built-in marker with your own node. Called once per
     // checkpoint, and once more while one is in flight (checkpoint: null):
     compactionRenderer: ({ checkpoint, activity, isActive }) =>
@@ -390,6 +399,10 @@ so without it the conversation just appears to have gone quiet.
   }}
 />
 ```
+
+`showCompaction: false` hides the marker altogether — but a conversation that
+was compacted reads oddly without it, since the assistant will not recall
+messages that are still on screen. Prefer the closed marker to no marker.
 
 Both are also available from the hook: `useDevicChat().compactions` (the
 checkpoints, oldest first) and `useDevicChat().compaction` (the one being

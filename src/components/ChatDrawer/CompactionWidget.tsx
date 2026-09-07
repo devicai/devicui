@@ -121,6 +121,21 @@ export interface CompactionWidgetProps {
   isActive?: boolean;
   activity?: CompactionActivity | null;
   renderer?: CompactionRenderer;
+  /**
+   * Lets the reader open the checkpoint and read what it says.
+   *
+   * Off by default, because what opens is not metadata: it is a model-written
+   * account of the conversation — its goal, the decisions taken and why, what
+   * is still pending, and the identifiers lifted out of it verbatim. That is
+   * the right thing to put in front of an operator and the wrong thing to put
+   * in front of the customer the conversation is with, so the closed form is
+   * the default and opening it is a decision the host makes.
+   *
+   * Collapsed it still says a compaction happened and how much it folded:
+   * hiding that would misrepresent the conversation, which is the opposite of
+   * the point.
+   */
+  expandable?: boolean;
 }
 
 /**
@@ -128,9 +143,10 @@ export interface CompactionWidgetProps {
  *
  * Anchored to the last message a checkpoint folded, it marks the exact point
  * where the assistant's view of the conversation stops: everything above it
- * is still here, still readable, and no longer sent. Collapsed it is a rule
- * across the thread with the headline numbers; expanded it shows what the
- * assistant reads in place of those messages.
+ * is still here, still readable, and no longer sent. It is a rule across the
+ * thread with the headline numbers, and — where the host opts in with
+ * `expandable` — it opens to show what the assistant reads in place of those
+ * messages.
  *
  * With no checkpoint yet and a compaction in flight it says so instead — that
  * is a model call of its own, and without it the conversation just appears to
@@ -144,6 +160,7 @@ export function CompactionWidget({
   isActive = true,
   activity = null,
   renderer,
+  expandable = false,
 }: CompactionWidgetProps): JSX.Element | null {
   const [expanded, setExpanded] = useState(false);
 
@@ -180,43 +197,64 @@ export function CompactionWidget({
   const summary = checkpoint.summary || {};
   const structured = hasStructure(summary);
 
+  const tooltip = `${checkpoint.compactedMessageCount} message${
+    checkpoint.compactedMessageCount === 1 ? "" : "s"
+  } are still in this conversation but no longer sent to the assistant`;
+
+  //The headline, identical either way: whether the checkpoint can be opened
+  //changes what the reader may inspect, never what the marker claims.
+  const headline = (
+    <>
+      <CompressIcon />
+      <span className="devic-compaction-title">
+        Context compacted
+        {checkpoint.index > 1 ? ` (#${checkpoint.index})` : ""}
+      </span>
+      <span className="devic-compaction-meta">
+        {checkpoint.compactedMessageCount} messages ·{" "}
+        {formatTokens(checkpoint.tokensBefore)} →{" "}
+        {formatTokens(checkpoint.tokensAfter)} tokens
+      </span>
+      {!isActive && (
+        <span
+          className="devic-compaction-tag"
+          title="Superseded by a later compaction, which merged this summary into itself. Kept for the record."
+        >
+          superseded
+        </span>
+      )}
+    </>
+  );
+
   return (
     <div className="devic-compaction">
       <div className="devic-compaction-head">
         <span className="devic-compaction-rule" />
-        <button
-          type="button"
-          className="devic-compaction-pill"
-          onClick={() => setExpanded((v) => !v)}
-          aria-expanded={expanded}
-          title={`${checkpoint.compactedMessageCount} message${
-            checkpoint.compactedMessageCount === 1 ? "" : "s"
-          } are still in this conversation but no longer sent to the assistant`}
-        >
-          <CompressIcon />
-          <span className="devic-compaction-title">
-            Context compacted
-            {checkpoint.index > 1 ? ` (#${checkpoint.index})` : ""}
+        {expandable ? (
+          <button
+            type="button"
+            className="devic-compaction-pill"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            title={tooltip}
+          >
+            {headline}
+            <ChevronIcon up={expanded} />
+          </button>
+        ) : (
+          //A span, not a disabled button: there is nothing here to operate, so
+          //it should not reach the keyboard or announce itself as a control.
+          <span
+            className="devic-compaction-pill devic-compaction-pill-static"
+            title={tooltip}
+          >
+            {headline}
           </span>
-          <span className="devic-compaction-meta">
-            {checkpoint.compactedMessageCount} messages ·{" "}
-            {formatTokens(checkpoint.tokensBefore)} →{" "}
-            {formatTokens(checkpoint.tokensAfter)} tokens
-          </span>
-          {!isActive && (
-            <span
-              className="devic-compaction-tag"
-              title="Superseded by a later compaction, which merged this summary into itself. Kept for the record."
-            >
-              superseded
-            </span>
-          )}
-          <ChevronIcon up={expanded} />
-        </button>
+        )}
         <span className="devic-compaction-rule" />
       </div>
 
-      {expanded && (
+      {expandable && expanded && (
         <div className="devic-compaction-body">
           <div className="devic-compaction-note">
             This is what the assistant reads in place of the messages above.
