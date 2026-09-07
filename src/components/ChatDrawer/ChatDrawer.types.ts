@@ -1,9 +1,10 @@
-import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig, WhisperTranscriptionResponse, TenantLimitExceeded, RecalledMemoryRecord, QueueDisposition } from '../../api/types';
+import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig, WhisperTranscriptionResponse, TenantLimitExceeded, RecalledMemoryRecord, QueueDisposition, CompactionCheckpoint, CompactionActivity } from '../../api/types';
 import type { PendingWidgetCall } from '../../hooks/useModelInterface';
 import type { SendMessageResult } from '../../hooks/useDevicChat';
 import type { AIReference } from '../../provider/types';
 import type { UsageBarDisplay, UsageBarData } from './UsageBar';
 import type { RecalledMemoriesRenderer } from './RecalledMemoriesWidget';
+import type { CompactionRenderer } from './CompactionWidget';
 import type { CoreMemoryLabels } from '../CoreMemoryModal';
 
 /**
@@ -616,6 +617,33 @@ export interface ChatDrawerOptions {
   recalledMemoriesRenderer?: RecalledMemoriesRenderer;
 
   /**
+   * Show the compaction marker: the cut line across the conversation at the
+   * point where the assistant stopped receiving the messages above it, and
+   * the "Compacting context" indicator while one is being written. Only
+   * appears for assistants with compaction enabled.
+   * @default true
+   */
+  showCompaction?: boolean;
+
+  /**
+   * Render your own compaction node instead of the built-in marker. Called
+   * once per checkpoint, and once more while a compaction is in flight (with
+   * `checkpoint: null` and the `activity` describing what it is folding).
+   * Return null to hide that instance.
+   *
+   * @example
+   * ```tsx
+   * compactionRenderer: ({ checkpoint, activity }) =>
+   *   activity?.state === "running" ? (
+   *     <MySpinner label="Summarizing the conversation…" />
+   *   ) : (
+   *     <MyDivider text={`${checkpoint!.compactedMessageCount} messages folded`} />
+   *   )
+   * ```
+   */
+  compactionRenderer?: CompactionRenderer;
+
+  /**
    * Show a brain button in the drawer header that opens the CoreMemoryModal:
    * the standing entries the assistant permanently remembers for the drawer's
    * tenant/subtenant, viewable and editable by the end user. Requires the API
@@ -905,6 +933,12 @@ export interface ChatMessagesProps {
   recalledMemories?: RecalledMemoryRecord[];
   /** Custom renderer replacing the built-in recalled-memories strip */
   recalledMemoriesRenderer?: RecalledMemoriesRenderer;
+  /** Compaction checkpoints, drawn as a cut line at the message each folded */
+  compactions?: CompactionCheckpoint[];
+  /** The compaction being written right now, if any */
+  compaction?: CompactionActivity | null;
+  /** Custom renderer replacing the built-in compaction marker */
+  compactionRenderer?: CompactionRenderer;
 }
 
 /**

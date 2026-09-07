@@ -440,6 +440,14 @@ export interface RealtimeChatHistory {
    * the widget falls back to its own optimistic copies.
    */
   pendingUserMessages?: ChatMessage[];
+  /**
+   * Compaction checkpoints of the in-flight run. A conversation that compacts
+   * mid-run stops sending the messages above the cut immediately, so these
+   * arrive here before they are persisted on the conversation.
+   */
+  compactions?: CompactionCheckpoint[];
+  /** The compaction running right now, if any. */
+  compaction?: CompactionActivity;
 }
 
 /**
@@ -522,6 +530,80 @@ export interface TenantUsageHistoryQuery {
 /**
  * Chat history structure
  */
+/** A concrete value carried verbatim through a compaction. */
+export interface CompactionFact {
+  kind: string;
+  value: string;
+  label?: string;
+}
+
+/** The structured body a compaction produced. */
+export interface CompactionSummary {
+  goal?: string;
+  constraints?: string[];
+  inProgress?: string;
+  pending?: string[];
+  decisions?: string[];
+  data?: Array<{ label: string; value: string }>;
+  done?: string[];
+  openQuestions?: string[];
+  /** Fallback when the model answered without structure. */
+  raw?: string;
+}
+
+/**
+ * One compaction of a conversation: the messages before its boundary folded
+ * into a written summary plus the identifiers, paths and urls lifted out of
+ * them verbatim. From then on the model receives the checkpoint instead of
+ * those messages — which are still in the conversation, and still shown.
+ *
+ * Only the newest checkpoint is in force: each compaction merges the previous
+ * summary into itself.
+ */
+export interface CompactionCheckpoint {
+  uid: string;
+  /** 1 for the first compaction of the conversation, 2 for the next… */
+  index: number;
+  timestampMs: number;
+  trigger: 'auto' | 'manual';
+  /** First message that still travels verbatim. */
+  firstKeptMessageUid?: string;
+  /** Last folded message: where the widget belongs in the conversation. */
+  anchorMessageUid?: string;
+  compactedMessageCount: number;
+  summary: CompactionSummary;
+  facts: CompactionFact[];
+  tokensBefore: number;
+  tokensAfter: number;
+  provider?: string;
+  model?: string;
+  cost?: number;
+}
+
+/**
+ * A compaction happening right now, from the realtime endpoint.
+ *
+ * A compaction is a model call of its own, taken between two assistant
+ * messages, so a client that only knows `processing` shows a conversation
+ * that appears to have stalled for a few seconds. Present while it runs and
+ * on the single update that reports it finished.
+ */
+export interface CompactionActivity {
+  state: 'running' | 'completed';
+  startedAt: number;
+  /**
+   * What this pass is folding: the messages new since the last checkpoint.
+   * Not the conversation's totals — a checkpoint's own
+   * `compactedMessageCount` and `tokensBefore` are cumulative across every
+   * compaction, so the two are on different scales and must not be paired.
+   */
+  messageCount: number;
+  tokensBefore: number;
+  /** Which checkpoint the pass produced, once it is done. */
+  index?: number;
+  finishedAt?: number;
+}
+
 export interface ChatHistory {
   chatUID: string;
   clientUID: string;
@@ -543,6 +625,8 @@ export interface ChatHistory {
   recalledMemories?: RecalledMemoryRecord[];
   /** Audit trail of the core-memory blocks the conversation saw. */
   coreMemories?: CoreMemorySnapshot[];
+  /** Compaction checkpoints of the conversation, oldest first. */
+  compactions?: CompactionCheckpoint[];
 }
 
 /** One core memory entry (the always-injected tier), as returned by the memory API. */

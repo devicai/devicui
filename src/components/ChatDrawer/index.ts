@@ -14,6 +14,12 @@ export { QueueNotice } from './QueueNotice';
 export type { QueueNoticeProps } from './QueueNotice';
 export { RecalledMemoriesWidget } from './RecalledMemoriesWidget';
 export type {
+  CompactionWidgetProps,
+  CompactionRenderer,
+  CompactionRendererProps,
+} from './CompactionWidget';
+export { CompactionWidget } from './CompactionWidget';
+export type {
   RecalledMemoriesWidgetProps,
   RecalledMemoriesRenderer,
   RecalledMemoriesRendererProps,

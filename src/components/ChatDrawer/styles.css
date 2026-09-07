@@ -2071,3 +2071,180 @@
     width: 100%;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Compaction: the cut line where the assistant's view of the conversation
+   stops. Full width and centred, unlike the recall strip: a checkpoint is not
+   something anyone said, it is a boundary across the whole thread.
+   --------------------------------------------------------------------------- */
+.devic-compaction {
+  /* Same reason as .devic-recall: in a scrolling flex column an automatic
+     min-height of 0 lets this absorb all the shrink and collapse to a line. */
+  flex-shrink: 0;
+  width: 100%;
+  margin: 10px 0;
+  font-size: 12px;
+  color: var(--devic-text-secondary);
+}
+
+.devic-compaction-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.devic-compaction-running {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.devic-compaction-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--devic-compaction-border, rgba(114, 46, 209, 0.3));
+}
+
+.devic-compaction-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  max-width: 100%;
+  padding: 4px 12px;
+  border: 1px solid var(--devic-compaction-border, rgba(114, 46, 209, 0.3));
+  border-radius: 999px;
+  background: var(--devic-compaction-bg, rgba(114, 46, 209, 0.06));
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.devic-compaction-running .devic-compaction-pill {
+  cursor: default;
+}
+
+.devic-compaction-icon {
+  color: var(--devic-compaction-accent, #722ed1);
+  flex-shrink: 0;
+}
+
+.devic-compaction-title {
+  font-weight: 600;
+  color: var(--devic-text);
+}
+
+.devic-compaction-meta {
+  opacity: 0.75;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.devic-compaction-tag {
+  border: 1px solid var(--devic-compaction-border, rgba(114, 46, 209, 0.3));
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 10px;
+  line-height: 16px;
+  opacity: 0.8;
+}
+
+.devic-compaction-chevron {
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: transform 0.15s ease;
+}
+
+.devic-compaction-dots {
+  display: inline-flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.devic-compaction-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--devic-compaction-accent, #722ed1);
+  animation: devic-compaction-blink 1.2s infinite ease-in-out;
+}
+
+.devic-compaction-dots i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.devic-compaction-dots i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes devic-compaction-blink {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+.devic-compaction-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--devic-compaction-border, rgba(114, 46, 209, 0.3));
+  border-radius: var(--devic-radius-sm, 8px);
+  background: var(--devic-compaction-bg, rgba(114, 46, 209, 0.06));
+}
+
+.devic-compaction-note {
+  font-size: 11px;
+  color: var(--devic-text-muted);
+}
+
+.devic-compaction-section {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--devic-text);
+}
+
+.devic-compaction-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.devic-compaction-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.devic-compaction-raw {
+  white-space: pre-wrap;
+}
+
+.devic-compaction-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.devic-compaction-fact {
+  border: 1px solid var(--devic-compaction-border, rgba(114, 46, 209, 0.3));
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 18px;
+  font-family: var(--devic-font-mono, ui-monospace, SFMono-Regular, monospace);
+}
+
+.devic-compaction-fact-label {
+  opacity: 0.65;
+}

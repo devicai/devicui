@@ -100,6 +100,8 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   messageQueue: undefined as any,
   showRecalledMemories: true,
   recalledMemoriesRenderer: undefined as any,
+  showCompaction: true,
+  compactionRenderer: undefined as any,
   showCoreMemoryButton: false,
   coreMemoryLabels: undefined as any,
   showIntegrationsButton: true,
@@ -1071,6 +1073,13 @@ function ChatDrawerInner({
               : undefined
           }
           recalledMemoriesRenderer={mergedOptions.recalledMemoriesRenderer}
+          compactions={
+            mergedOptions.showCompaction ? chat.compactions : undefined
+          }
+          compaction={
+            mergedOptions.showCompaction ? chat.compaction : undefined
+          }
+          compactionRenderer={mergedOptions.compactionRenderer}
         />
 
         {/* Input */}

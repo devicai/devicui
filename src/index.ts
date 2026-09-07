@@ -11,7 +11,7 @@ export type {
 } from './provider';
 
 // Components
-export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, ReferenceChip, UsageBar, LimitBanner, QueueNotice, RecalledMemoriesWidget } from './components/ChatDrawer';
+export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, ReferenceChip, UsageBar, LimitBanner, QueueNotice, RecalledMemoriesWidget, CompactionWidget } from './components/ChatDrawer';
 export type {
   ChatDrawerProps,
   ChatDrawerOptions,
@@ -36,6 +36,9 @@ export type {
   RecalledMemoriesWidgetProps,
   RecalledMemoriesRenderer,
   RecalledMemoriesRendererProps,
+  CompactionWidgetProps,
+  CompactionRenderer,
+  CompactionRendererProps,
 } from './components/ChatDrawer';
 
 // CoreMemoryModal
@@ -210,6 +213,10 @@ export type {
   RecalledMemoryFact,
   RecalledMemoryEntity,
   RecalledMemoryTurn,
+  CompactionCheckpoint,
+  CompactionSummary,
+  CompactionFact,
+  CompactionActivity,
   CoreMemorySnapshot,
   CoreMemoryEntry,
   CoreMemoryLimits,
