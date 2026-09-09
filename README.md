@@ -416,6 +416,48 @@ Both are also available from the hook: `useDevicChat().compactions` (the
 checkpoints, oldest first) and `useDevicChat().compaction` (the one being
 written right now, or `null`).
 
+#### Turns stopped by a guardrail
+
+An assistant with guardrails configured can have a turn stopped before it ever
+reaches the model. The backend records that as a `guard_rail` message, and the
+drawer draws it as a notice naming the guardrail that fired — not as a bubble,
+because nobody said it.
+
+To say it in another language, translate its texts like any other
+([Translations](#translations)):
+
+```ts
+translations: {
+  'Your message was stopped by the “{name}” guardrail.':
+    'Tu mensaje ha sido bloqueado por el guardrail «{name}».',
+  'This message was stopped by a guardrail.':
+    'Este mensaje ha sido bloqueado por un guardrail.',
+}
+```
+
+Supply a renderer instead when the notice needs a different shape — to drop the
+guardrail's name, for example, if end users should not see it:
+
+```tsx
+<ChatDrawer
+  assistantId="my-assistant"
+  options={{
+    guardrailRenderer: ({ payload }) => (
+      <MyNotice tone="warning">
+        {`No puedo ayudarte con eso (${payload?.info?.guardrail_name ?? 'guardrail'}).`}
+      </MyNotice>
+    ),
+  }}
+/>
+```
+
+`payload` is the provider result the backend recorded — `info.guardrail_name`,
+`info.confidence`, `info.threshold` and `info.stage_name` (`"input"` when the
+person's message was stopped, otherwise the answer was). `text` carries the
+message instead when the backend sent a plain sentence. Return `null` to hide
+the notice entirely, though a conversation that simply stops with no answer and
+no explanation reads as a bug to the person in it.
+
 ### CoreMemoryModal
 
 Modal showing — and letting the end user edit — the **core memory** of an

@@ -19,6 +19,12 @@ export type {
   CompactionRendererProps,
 } from './CompactionWidget';
 export { CompactionWidget } from './CompactionWidget';
+export { GuardrailNotice } from './GuardrailNotice';
+export type {
+  GuardrailNoticeProps,
+  GuardrailRenderer,
+  GuardrailPayload,
+} from './GuardrailNotice';
 export type {
   RecalledMemoriesWidgetProps,
   RecalledMemoriesRenderer,

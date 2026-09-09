@@ -2249,3 +2249,32 @@
 .devic-compaction-fact-label {
   opacity: 0.65;
 }
+
+/* The turn a guardrail stopped. Centred and rule-flanked like the compaction
+   marker, because it is the same kind of thing: something the conversation did,
+   not something either side said. */
+.devic-guardrail-notice {
+  /* Same reason as .devic-compaction: in a scrolling flex column an automatic
+     min-height of 0 lets this absorb all the shrink and collapse to a line. */
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin: 10px 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--devic-text-secondary);
+  background: var(--devic-guardrail-bg, rgba(255, 77, 79, 0.06));
+  border: 1px solid var(--devic-guardrail-border, rgba(255, 77, 79, 0.25));
+  border-radius: var(--devic-radius);
+}
+
+.devic-guardrail-notice-icon {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--devic-error, #ff4d4f);
+}

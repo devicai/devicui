@@ -109,15 +109,19 @@ here:
 - `Preserved exactly`
 - `Previous session context`
 - `Processing...`
+- `Queued`
 - `Recalled memories`
 - `since {date}`
 - `Subagent`
 - `Summary`
 - `superseded`
 - `Superseded by a later compaction, which merged this summary into itself. Kept for the record.`
+- `The answer was stopped by the “{name}” guardrail.`
 - `This is what the assistant reads in place of the messages above. The messages themselves are still here.`
+- `This message was stopped by a guardrail.`
 - `Unavailable`
 - `Voice message`
+- `Your message was stopped by the “{name}” guardrail.`
 - `{before} → {after} tokens`
 - `{count} entities`
 - `{count} facts`

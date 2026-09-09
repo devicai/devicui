@@ -104,6 +104,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   showCompaction: true,
   expandableCompaction: false,
   compactionRenderer: undefined as any,
+  guardrailRenderer: undefined as any,
   showCoreMemoryButton: false,
   coreMemoryLabels: undefined as any,
   showIntegrationsButton: true,
@@ -1104,6 +1105,7 @@ function ChatDrawerInner({
             mergedOptions.showCompaction ? chat.compaction : undefined
           }
           compactionRenderer={mergedOptions.compactionRenderer}
+          guardrailRenderer={mergedOptions.guardrailRenderer}
           expandableCompaction={mergedOptions.expandableCompaction}
         />
 

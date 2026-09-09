@@ -31,6 +31,15 @@ export interface MessageFile {
  * Message content structure
  */
 export interface MessageContent {
+  /**
+   * The message text.
+   *
+   * Declared as a string because that is what it is for every role a reader
+   * cares about, but do not trust it blindly on a `guard_rail` message:
+   * conversations stopped by a guardrail before the backend fix carry the raw
+   * provider result object here instead. Guard a `typeof x === 'string'` check
+   * around anything that treats it as text.
+   */
   message?: string;
   data?: any;
   files?: MessageFile[];
@@ -66,7 +75,7 @@ export interface ToolCall {
  */
 export interface ChatMessage {
   uid: string;
-  role: 'user' | 'assistant' | 'developer' | 'system' | 'tool';
+  role: 'user' | 'assistant' | 'developer' | 'system' | 'tool' | 'guard_rail';
   content: MessageContent;
   timestamp: number;
   chatUid?: string;

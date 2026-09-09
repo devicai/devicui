@@ -5,6 +5,7 @@ import type { AIReference } from '../../provider/types';
 import type { UsageBarDisplay, UsageBarData } from './UsageBar';
 import type { RecalledMemoriesRenderer } from './RecalledMemoriesWidget';
 import type { CompactionRenderer } from './CompactionWidget';
+import type { GuardrailRenderer } from './GuardrailNotice';
 import type { CoreMemoryLabels } from '../CoreMemoryModal';
 import type { DevicTranslations } from '../../i18n';
 
@@ -662,6 +663,26 @@ export interface ChatDrawerOptions {
   compactionRenderer?: CompactionRenderer;
 
   /**
+   * Render your own node for a turn a guardrail stopped, instead of the
+   * built-in notice. Called once per `guard_rail` message, with the provider
+   * payload when the backend sent a structured one and with the text when it
+   * sent a sentence. Return null to hide the notice entirely.
+   *
+   * The default wording is English, like the rest of the library; supply a
+   * renderer to say it in the language of the conversation.
+   *
+   * @example
+   * ```tsx
+   * guardrailRenderer: ({ payload }) => (
+   *   <MyNotice>
+   *     {`Bloqueado por «${payload?.info?.guardrail_name ?? 'guardrail'}»`}
+   *   </MyNotice>
+   * )
+   * ```
+   */
+  guardrailRenderer?: GuardrailRenderer;
+
+  /**
    * Show a brain button in the drawer header that opens the CoreMemoryModal:
    * the standing entries the assistant permanently remembers for the drawer's
    * tenant/subtenant, viewable and editable by the end user. Requires the API
@@ -968,6 +989,8 @@ export interface ChatMessagesProps {
   compaction?: CompactionActivity | null;
   /** Custom renderer replacing the built-in compaction marker */
   compactionRenderer?: CompactionRenderer;
+  /** Custom renderer replacing the built-in stopped-by-guardrail notice */
+  guardrailRenderer?: GuardrailRenderer;
   /** Let the reader open a checkpoint and read it (see ChatDrawerOptions) */
   expandableCompaction?: boolean;
 }
