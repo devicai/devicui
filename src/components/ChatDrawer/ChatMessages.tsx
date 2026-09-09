@@ -6,6 +6,7 @@ import { HandoffSubagentWidget } from "./HandoffSubagentWidget";
 import { ReferenceChip } from "./ReferenceChip";
 import { RecalledMemoriesWidget } from "./RecalledMemoriesWidget";
 import { CompactionWidget } from "./CompactionWidget";
+import { GuardrailNotice, type GuardrailPayload } from "./GuardrailNotice";
 import type { ChatMessagesProps, SuggestedMessage } from "./ChatDrawer.types";
 import type { ChatMessage, CompactionCheckpoint, RecalledMemoryRecord, ToolGroupConfig, ToolGroupCall } from "../../api/types";
 import { normalizeMessageFile } from "../../api/types";
@@ -26,6 +27,28 @@ import "../Feedback/Feedback.css";
 // instead of a tool activity line. Agents have a same-named tool with a
 // different shape, but their timeline does not go through this component.
 const FINISH_EXECUTION_TOOL = "finish_execution";
+
+// Role of the message the backend appends when a guardrail stops a turn. It is
+// not something anyone said, so it renders as a notice rather than a bubble.
+const GUARDRAIL_ROLE = "guard_rail";
+
+/**
+ * `content.message` is typed as a string, but it does not always arrive as
+ * one: a tripped guardrail puts the whole provider result object there. Every
+ * text path downstream — the reference prefix, the pasted blocks, markdown —
+ * assumes a string and throws on anything else, taking the drawer with it.
+ * Read the field through here so a bad shape renders as nothing instead.
+ */
+function readMessageText(message: ChatMessage): string | undefined {
+  const raw = message.content?.message;
+  return typeof raw === "string" ? raw : undefined;
+}
+
+/** The structured guardrail result, when one was sent instead of a sentence. */
+function guardrailPayload(message: ChatMessage): GuardrailPayload | undefined {
+  const raw = message.content?.message as unknown;
+  return raw && typeof raw === "object" ? (raw as GuardrailPayload) : undefined;
+}
 
 /**
  * Format timestamp to readable time
@@ -242,8 +265,12 @@ function groupMessages(
       (toolCall) => toolCall.function?.name !== FINISH_EXECUTION_TOOL,
     );
     const hasToolCalls = visibleToolCalls.length > 0;
-    const hasText = !!msg.content?.message;
+    const hasText = !!readMessageText(msg);
     const hasFiles = msg.content?.files && msg.content.files.length > 0;
+    // A guardrail message is worth showing whatever its content turned out to
+    // be: a turn that was stopped should say so, and the payload is often an
+    // object rather than the text `hasText` looks for.
+    const isGuardrail = msg.role === GUARDRAIL_ROLE;
 
     if (hasToolCalls) {
       // If message has both text and tool_calls, show text first
@@ -275,7 +302,7 @@ function groupMessages(
         );
       flushToolGroup(isLoading && !remainingMeaningful);
 
-      if (hasText || hasFiles) {
+      if (hasText || hasFiles || isGuardrail) {
         result.push({ type: "message", message: msg });
       }
     }
@@ -592,6 +619,7 @@ export function ChatMessages({
   compaction,
   compactionRenderer,
   expandableCompaction,
+  guardrailRenderer,
 }: ChatMessagesProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLengthRef = useRef(messages.length);
@@ -767,7 +795,27 @@ export function ChatMessages({
         }
 
         const message = item.message;
-        const rawText = message.content?.message;
+
+        // A stopped turn is not a bubble from either side: rendering it as one
+        // sent it down the user-message path, which parses its text and threw
+        // on the object a guardrail actually sends.
+        if (message.role === GUARDRAIL_ROLE) {
+          const noticeProps = {
+            payload: guardrailPayload(message),
+            text: readMessageText(message),
+          };
+          return (
+            <React.Fragment key={message.uid}>
+              {guardrailRenderer ? (
+                guardrailRenderer(noticeProps)
+              ) : (
+                <GuardrailNotice {...noticeProps} />
+              )}
+            </React.Fragment>
+          );
+        }
+
+        const rawText = readMessageText(message);
         const hasFiles =
           message.content?.files && message.content.files.length > 0;
         const isAssistant = message.role === "assistant";

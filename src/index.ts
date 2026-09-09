@@ -11,7 +11,7 @@ export type {
 } from './provider';
 
 // Components
-export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, ReferenceChip, UsageBar, LimitBanner, QueueNotice, RecalledMemoriesWidget, CompactionWidget } from './components/ChatDrawer';
+export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, ReferenceChip, UsageBar, LimitBanner, QueueNotice, RecalledMemoriesWidget, CompactionWidget, GuardrailNotice } from './components/ChatDrawer';
 export type {
   ChatDrawerProps,
   ChatDrawerOptions,
@@ -39,6 +39,9 @@ export type {
   CompactionWidgetProps,
   CompactionRenderer,
   CompactionRendererProps,
+  GuardrailNoticeProps,
+  GuardrailRenderer,
+  GuardrailPayload,
 } from './components/ChatDrawer';
 
 // CoreMemoryModal
