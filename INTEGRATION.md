@@ -771,6 +771,91 @@ Quick color customization:
 />
 ```
 
+## Translations
+
+The widgets ship in English. To show them in your language, hand the provider a
+dictionary keyed by the English text:
+
+```tsx
+<DevicProvider
+  apiKey="devic-xxx"
+  translations={{
+    'New chat': 'Nueva conversación',
+    'Type a message...': 'Escribe un mensaje...',
+    'Close chat': 'Cerrar el chat',
+    'Send message': 'Enviar mensaje',
+    'Connected apps': 'Aplicaciones conectadas',
+  }}
+>
+  <ChatDrawer assistantId="my-assistant" />
+</DevicProvider>
+```
+
+There is no i18n runtime here and no key catalogue to learn: the key is the
+text you see on screen, and the values come from wherever your own translations
+already live. Anything you leave out stays in English.
+
+### Driving it from your own i18n
+
+Build the dictionary from your existing catalogue and re-create it when the
+language changes — that is what re-renders the widgets:
+
+```tsx
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+
+function DevicRoot({ children }: { children: React.ReactNode }) {
+  const { t, i18n } = useTranslation('devic');
+
+  const translations = useMemo(
+    () => ({
+      'New chat': t('newChat'),
+      'Type a message...': t('inputPlaceholder'),
+      'Close chat': t('closeChat'),
+      // …as many as you need
+    }),
+    [t, i18n.language]
+  );
+
+  return (
+    <DevicProvider apiKey={process.env.DEVIC_KEY} translations={translations}>
+      {children}
+    </DevicProvider>
+  );
+}
+```
+
+### Values inside a text
+
+Texts that carry a number or a name use `{name}` placeholders. Keep them —
+they are filled after the lookup, so you may put them wherever the sentence
+needs:
+
+```tsx
+translations={{
+  '{count} messages': '{count} mensajes',
+  'Resets in {count} minutes.': 'Quedan {count} minutos para el reinicio.',
+}}
+```
+
+### One widget at a time
+
+`ChatDrawer`, `AICommandBar`, `AIGenerationButton` and `AIElementWrapper` each
+take their own `translations` in `options`, merged on top of the provider's:
+
+```tsx
+<ChatDrawer
+  assistantId="support"
+  options={{ translations: { 'New chat': 'Nueva consulta' } }}
+/>
+```
+
+Options that already set a text (`welcomeMessage`, `inputPlaceholder`,
+`title`, …) still win over the dictionary.
+
+The complete list of texts is in
+[TRANSLATIONS.md](https://github.com/devicai/devicui/blob/main/TRANSLATIONS.md).
+
 ## Controlled Mode
 
 Control the drawer state externally:

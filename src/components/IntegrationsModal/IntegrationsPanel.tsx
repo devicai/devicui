@@ -20,6 +20,7 @@ import { IntegrationLogo } from "./IntegrationLogo";
 import { useIntegrations, type IntegrationsState } from "./useIntegrations";
 import { McpServersSection } from "./McpServersSection";
 import { useTenantMcp, type TenantMcpState } from "./useTenantMcp";
+import { useTranslations, type Translator } from "../../i18n";
 import "./IntegrationsModal.css";
 
 /** Message the OAuth callback page posts back to this window when it is done. */
@@ -159,22 +160,29 @@ function newNonce(): string {
 }
 
 /** How the card describes an app at a glance. */
-function stateOf(integration: Integration): {
+function stateOf(
+  t: Translator,
+  integration: Integration
+): {
   key: "connected" | "reconnect" | "disconnected";
   label: string;
 } {
-  if (integration.connected) return { key: "connected", label: "Connected" };
-  if (integration.accounts.some((a) => a.needsReconnect)) {
-    return { key: "reconnect", label: "Needs reconnection" };
+  if (integration.connected) {
+    return { key: "connected", label: t("Connected") };
   }
-  return { key: "disconnected", label: "Not connected" };
+  if (integration.accounts.some((a) => a.needsReconnect)) {
+    return { key: "reconnect", label: t("Needs reconnection") };
+  }
+  return { key: "disconnected", label: t("Not connected") };
 }
 
-function accountLabel(account: IntegrationAccount): string {
-  if (!account.connectedAt) return account.status.toLowerCase();
+function accountLabel(t: Translator, account: IntegrationAccount): string {
+  // The status comes from the provider, so it is passed through the dictionary
+  // as-is rather than assumed to be one of a known set.
+  if (!account.connectedAt) return t(account.status.toLowerCase());
   const when = new Date(account.connectedAt);
-  if (Number.isNaN(when.getTime())) return account.status.toLowerCase();
-  return `connected ${when.toLocaleDateString()}`;
+  if (Number.isNaN(when.getTime())) return t(account.status.toLowerCase());
+  return t("connected {date}", { date: when.toLocaleDateString() });
 }
 
 /**
@@ -232,8 +240,8 @@ export function IntegrationsPanel({
   subtenantId,
   apiKey,
   baseUrl,
-  title = "Connected apps",
-  searchPlaceholder = "Search connected apps",
+  title: titleProp,
+  searchPlaceholder: searchPlaceholderProp,
   onChange,
   theme,
   state,
@@ -246,6 +254,12 @@ export function IntegrationsPanel({
   className,
   dialog = false,
 }: IntegrationsPanelProps): JSX.Element | null {
+  const t = useTranslations();
+  // The host's own wording wins; with none, the defaults go through the
+  // dictionary like every other text in the panel.
+  const title = titleProp ?? t("Connected apps");
+  const searchPlaceholder = searchPlaceholderProp ?? t("Search connected apps");
+
   // Hooks cannot be skipped, so the fallback is always built and only fetches
   // when nobody handed a listing down.
   const own = useIntegrations({
@@ -554,8 +568,10 @@ export function IntegrationsPanel({
   ) => {
     if (setup.stage === "app") {
       setActionError(
-        `${integration.name} is not available yet — it still needs to be set up ` +
-          `by the app's provider.`
+        t(
+          "{app} is not available yet — it still needs to be set up by the app's provider.",
+          { app: integration.name }
+        )
       );
       return;
     }
@@ -622,7 +638,7 @@ export function IntegrationsPanel({
               className="devic-int-close"
               onClick={onClose}
               type="button"
-              aria-label="Close"
+              aria-label={t("Close")}
             >
               ×
             </button>
@@ -649,7 +665,7 @@ export function IntegrationsPanel({
 
         {blockedUrl && (
           <div className="devic-int-notice">
-            Your browser blocked the pop-up.{" "}
+            {t("Your browser blocked the pop-up.")}{" "}
             <a
               href={blockedUrl.url}
               target="_blank"
@@ -659,9 +675,9 @@ export function IntegrationsPanel({
                 setBlockedUrl(null);
               }}
             >
-              Open the authorisation page
+              {t("Open the authorisation page")}
             </a>{" "}
-            and come back — then use Refresh.
+            {t("and come back — then use Refresh.")}
           </div>
         )}
 
@@ -670,22 +686,24 @@ export function IntegrationsPanel({
           // spinner labelled "Loading apps" over a list of servers describes
           // something that is not happening.
           appsRefusalIsNoise ? null : (
-            <div className="devic-int-loading">Loading apps…</div>
+            <div className="devic-int-loading">{t("Loading apps…")}</div>
           )
         ) : integrations.length === 0 ? (
           // Silent when MCP servers are the whole offer: "no apps available"
           // over a list of servers reads as a broken panel.
           mcp.offered ? null : (
-            <div className="devic-int-empty">No apps available here yet.</div>
+            <div className="devic-int-empty">
+              {t("No apps available here yet.")}
+            </div>
           )
         ) : visible.length === 0 ? (
           <div className="devic-int-empty">
-            No apps match “{query.trim()}”.
+            {t("No apps match “{query}”.", { query: query.trim() })}
           </div>
         ) : (
           <div className="devic-int-grid">
             {visible.map((integration) => {
-              const cardState = stateOf(integration);
+              const cardState = stateOf(t, integration);
               const busy = busyApp === integration.app;
               return (
                 <div
@@ -730,20 +748,22 @@ export function IntegrationsPanel({
                     disabled={busy || !!busyApp}
                     title={
                       cardState.key === "connected"
-                        ? "Sign in with a different account. The one connected now is replaced."
+                        ? t(
+                            "Sign in with a different account. The one connected now is replaced."
+                          )
                         : undefined
                     }
                   >
                     {busy
-                      ? "Waiting…"
+                      ? t("Waiting…")
                       : cardState.key === "disconnected"
-                        ? "Connect"
+                        ? t("Connect")
                         : cardState.key === "reconnect"
-                          ? "Reconnect"
+                          ? t("Reconnect")
                           : // Not "Add account": one account per app is all
                             // the assistant can use, and connecting again
                             // retires the previous one.
-                            "Switch account"}
+                            t("Switch account")}
                   </button>
 
                   {integration.accounts.length > 0 && (
@@ -756,11 +776,11 @@ export function IntegrationsPanel({
                             aria-hidden="true"
                           />
                           <span className="devic-int-account-label">
-                            {accountLabel(account)}
+                            {accountLabel(t, account)}
                             {account.needsReconnect && (
                               <span className="devic-int-account-warn">
                                 {" "}
-                                · reconnect required
+                                · {t("reconnect required")}
                               </span>
                             )}
                           </span>
@@ -771,8 +791,10 @@ export function IntegrationsPanel({
                               handleDisconnect(integration.app, account)
                             }
                             disabled={!!busyApp}
-                            title="Disconnect this account"
-                            aria-label={`Disconnect ${integration.name}`}
+                            title={t("Disconnect this account")}
+                            aria-label={t("Disconnect {app}", {
+                              app: integration.name,
+                            })}
                           >
                             ×
                           </button>
@@ -798,7 +820,9 @@ export function IntegrationsPanel({
 
       {showFooter && (
         <div className="devic-int-footer">
-          <span>Only you can see and use the accounts you connect here.</span>
+          <span>
+            {t("Only you can see and use the accounts you connect here.")}
+          </span>
           <button
             type="button"
             className="devic-int-btn devic-int-btn-small"
@@ -808,7 +832,7 @@ export function IntegrationsPanel({
             }}
             disabled={loading || mcp.loading || !!busyApp}
           >
-            Refresh
+            {t("Refresh")}
           </button>
         </div>
       )}

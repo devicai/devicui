@@ -60,6 +60,11 @@ devic-ui/
 │   │   │   └── index.ts             # Component exports
 │   │   └── AutocompleteInput/       # WIP - not ready for public use
 │   │       └── ...
+│   ├── i18n/
+│   │   ├── translate.ts             # Dictionary lookup + {placeholder} filling
+│   │   ├── useTranslations.tsx      # useTranslations() and the scope provider
+│   │   ├── types.ts                 # DevicTranslations, Translator
+│   │   └── index.ts                 # i18n exports
 │   └── utils/
 │       └── index.ts                 # Utility functions
 ├── dist/                            # Build output (git-ignored)
@@ -166,7 +171,34 @@ component prop → `DevicProvider.pollingInterval` → the component's own defau
 `MIN_POLLING_INTERVAL_MS`. `usePolling` re-arms its timer when the value
 changes mid-run.
 
-### 7. Model Interface Protocol
+### 7. Translations
+Every text the library renders itself goes through `useTranslations()`, which
+returns `t(text, vars?)`. The dictionary is a plain `English text -> host text`
+map: the key is the literal English string in the source, so `t('New chat')`
+renders `New chat` unless the dictionary has an entry for it.
+
+Layers merge, later winning: `DevicProvider.translations` → any enclosing
+`DevicTranslationsProvider` (which `ChatDrawer`, `AICommandBar`,
+`AIGenerationButton` and `AIElementWrapper` render around their own subtree
+from their `options.translations`) → the argument to `useTranslations(local)`.
+
+**When you add a user-facing string:**
+
+1. Wrap it: `t('Something the user reads')`, never a bare literal in JSX.
+2. Use `{name}` placeholders for values — `t('{count} messages', { count })` —
+   rather than interpolating around `t()`, so a translator can reorder them.
+3. Give singular and plural their own entries; do not build a plural by
+   appending an `"s"` to a translated noun.
+4. Add it to `TRANSLATIONS.md`, in the section for where it appears.
+5. In a module-level helper, take `t: Translator` as the first parameter — the
+   hook can only be called from a component or another hook.
+
+Option defaults that are English text (`title`, `inputPlaceholder`, …) are
+translated at the point of use, `t(mergedOptions.title)`, so a host that sets
+its own value keeps it. `AIElementWrapper`'s defaults are Spanish and its keys
+are therefore Spanish; do not "fix" that without a major version.
+
+### 8. Model Interface Protocol
 Allows the AI assistant to call client-side functions. Tools are defined with OpenAI function-calling schema format.
 
 ```tsx
@@ -184,7 +216,7 @@ const tools: ModelInterfaceTool[] = [{
 }];
 ```
 
-### 8. API Client
+### 9. API Client
 Uses native `fetch` - no external HTTP libraries. Communicates with:
 - `POST /api/v1/assistants/:id/messages?async=true` - Send message
 - `GET /api/v1/assistants/:id/chats/:chatUid/realtime` - Poll for response
@@ -210,6 +242,11 @@ npm run yalc:publish # Build and publish to yalc for local testing
 3. Create `index.ts` that exports the component
 4. Export from `src/index.ts`
 5. Add CSS to component's `styles.css` using CSS Variables
+
+### Adding a User-Facing String
+
+Never render a bare literal. Wrap it in `t()` from `useTranslations()` and list
+it in `TRANSLATIONS.md` — see **Key Concepts → Translations**.
 
 ### Adding a New Hook
 

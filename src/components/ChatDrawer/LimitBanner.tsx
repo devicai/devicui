@@ -1,20 +1,32 @@
 import React from 'react';
 import type { TenantLimitExceeded } from '../../api/types';
+import { useTranslations } from '../../i18n';
+import type { Translator } from '../../i18n';
 
 export interface LimitBannerProps {
   limit: TenantLimitExceeded;
 }
 
-function resetText(resetsAt?: number): string | null {
+function resetText(t: Translator, resetsAt?: number): string | null {
   if (!resetsAt) return null;
   const ms = resetsAt - Date.now();
-  if (ms <= 0) return 'You can try again now.';
+  if (ms <= 0) return t('You can try again now.');
   const mins = Math.round(ms / 60000);
-  if (mins < 60) return `Resets in ${mins} minute${mins === 1 ? '' : 's'}.`;
+  if (mins < 60) {
+    return mins === 1
+      ? t('Resets in 1 minute.')
+      : t('Resets in {count} minutes.', { count: mins });
+  }
   const hours = Math.round(mins / 60);
-  if (hours < 48) return `Resets in ${hours} hour${hours === 1 ? '' : 's'}.`;
+  if (hours < 48) {
+    return hours === 1
+      ? t('Resets in 1 hour.')
+      : t('Resets in {count} hours.', { count: hours });
+  }
   const days = Math.round(hours / 24);
-  return `Resets in ${days} day${days === 1 ? '' : 's'}.`;
+  return days === 1
+    ? t('Resets in 1 day.')
+    : t('Resets in {count} days.', { count: days });
 }
 
 /**
@@ -24,8 +36,9 @@ function resetText(resetsAt?: number): string | null {
  * `options.limitBannerRenderer`.
  */
 export function LimitBanner({ limit }: LimitBannerProps): JSX.Element {
-  const message = limit.message || 'Usage limit reached.';
-  const reset = resetText(limit.resetsAt);
+  const t = useTranslations();
+  const message = limit.message || t('Usage limit reached.');
+  const reset = resetText(t, limit.resetsAt);
   return (
     <div className="devic-limit-banner" role="alert">
       <span className="devic-limit-banner-icon" aria-hidden="true">

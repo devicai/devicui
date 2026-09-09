@@ -3,6 +3,7 @@ import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from '../../api/client';
 import { usePolling, resolvePollingInterval } from '../../hooks/usePolling';
 import { useModelInterface } from '../../hooks/useModelInterface';
+import { useTranslations } from '../../i18n';
 import type {
   ChatMessage,
   ModelInterfaceTool,
@@ -52,6 +53,7 @@ export function useAIElementWrapper(
     onError,
   } = options;
 
+  const t = useTranslations();
   const context = useOptionalDevicContext();
   const apiKey = propsApiKey || context?.apiKey;
   const getTenantSession = context?.getTenantSession;
@@ -123,7 +125,7 @@ export function useAIElementWrapper(
     shouldPoll ? chatUid : null,
     async () => {
       if (!clientRef.current || !chatUid || !assistantId) {
-        throw new Error('Cannot poll without client, chatUid or assistantId');
+        throw new Error(t('Cannot poll without client, chatUid or assistantId'));
       }
       return clientRef.current.getRealtimeHistory(assistantId, chatUid);
     },
@@ -140,7 +142,7 @@ export function useAIElementWrapper(
         setShouldPoll(false);
         if (data?.status === 'error') {
           setIsProcessing(false);
-          const err = new Error('Processing failed');
+          const err = new Error(t('Processing failed'));
           setError(err);
           onErrorRef.current?.(err);
           return;
@@ -169,20 +171,22 @@ export function useAIElementWrapper(
   const sendInlinePrompt = useCallback(
     async (prompt: string) => {
       if (!assistantId) {
-        const err = new Error('assistantId is required for inline behavior');
+        const err = new Error(t('assistantId is required for inline behavior'));
         setError(err);
         onErrorRef.current?.(err);
         return;
       }
       if (!clientRef.current) {
-        const err = new Error('API client not configured. Please provide an API key.');
+        const err = new Error(
+          t('API client not configured. Please provide an API key.')
+        );
         setError(err);
         onErrorRef.current?.(err);
         return;
       }
       const trimmed = prompt.trim();
       if (!trimmed) {
-        const err = new Error('Prompt is empty');
+        const err = new Error(t('Prompt is empty'));
         setError(err);
         onErrorRef.current?.(err);
         return;

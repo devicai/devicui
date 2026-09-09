@@ -12,6 +12,7 @@ import type { ChatMessage, CompactionCheckpoint, RecalledMemoryRecord, ToolGroup
 import { normalizeMessageFile } from "../../api/types";
 import type { FeedbackState } from "../Feedback";
 import { segmentToolCalls } from "../../utils/toolGroups";
+import { useTranslations } from "../../i18n";
 import { DevicApiClient } from "../../api/client";
 import {
   parsePastedBlocks,
@@ -112,6 +113,7 @@ function TranscriptPlayback({
   apiKey?: string;
   baseUrl?: string;
 }): JSX.Element {
+  const t = useTranslations();
   const devicContext = useOptionalDevicContext();
   const getTenantSession = devicContext?.getTenantSession;
   const onSessionExpired = devicContext?.onSessionExpired;
@@ -135,7 +137,7 @@ function TranscriptPlayback({
     let url = audioUrlRef.current;
     if (!url) {
       if (!apiKey && !getTenantSession) {
-        setError("Unavailable");
+        setError(t("Unavailable"));
         return null;
       }
       setIsLoading(true);
@@ -151,14 +153,14 @@ function TranscriptPlayback({
         url = transcript.audioUrl || null;
         audioUrlRef.current = url;
       } catch {
-        setError("Audio unavailable");
+        setError(t("Audio unavailable"));
         return null;
       } finally {
         setIsLoading(false);
       }
     }
     if (!url) {
-      setError("Audio unavailable");
+      setError(t("Audio unavailable"));
       return null;
     }
     const audio = new Audio(url);
@@ -166,7 +168,7 @@ function TranscriptPlayback({
     audio.onpause = () => setIsPlaying(false);
     audio.onended = () => setIsPlaying(false);
     audio.onerror = () => {
-      setError("Playback failed");
+      setError(t("Playback failed"));
       setIsPlaying(false);
     };
     audioRef.current = audio;
@@ -183,7 +185,7 @@ function TranscriptPlayback({
       try {
         await audio.play();
       } catch {
-        setError("Playback failed");
+        setError(t("Playback failed"));
       }
     }
   };
@@ -192,14 +194,14 @@ function TranscriptPlayback({
     <div
       className="devic-transcript-playback"
       data-playing={isPlaying ? "true" : "false"}
-      title="Dictated by voice"
+      title={t("Dictated by voice")}
     >
       <button
         type="button"
         className="devic-transcript-btn"
         onClick={toggle}
         disabled={isLoading}
-        aria-label={isPlaying ? "Pause recording" : "Play recording"}
+        aria-label={isPlaying ? t("Pause recording") : t("Play recording")}
       >
         {isLoading ? (
           <span className="devic-transcript-spinner" aria-hidden="true" />
@@ -213,7 +215,7 @@ function TranscriptPlayback({
         <MicGlyph />
       </span>
       <span className="devic-transcript-label">
-        {error || "Voice message"}
+        {error || t("Voice message")}
       </span>
     </div>
   );
@@ -344,6 +346,7 @@ function ToolGroup({
   baseUrl?: string;
   pollingInterval?: number;
 }): JSX.Element {
+  const t = useTranslations();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const shouldCollapse = toolMessages.length > 3 && !isActive;
 
@@ -365,7 +368,9 @@ function ToolGroup({
     const toolCall = msg.tool_calls?.[0];
     const toolName = toolCall?.function?.name;
     const summaryText =
-      msg.summary || toolName || (opts.active ? "Processing..." : "Completed");
+      msg.summary ||
+      toolName ||
+      (opts.active ? t("Processing...") : t("Completed"));
 
     // Render HandoffSubagentWidget for hand_off_subagent tool calls
     if (toolName === "hand_off_subagent" && toolCall && allMessages) {
@@ -621,6 +626,7 @@ export function ChatMessages({
   expandableCompaction,
   guardrailRenderer,
 }: ChatMessagesProps): JSX.Element {
+  const t = useTranslations();
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLengthRef = useRef(messages.length);
 
@@ -924,7 +930,7 @@ export function ChatMessages({
               {message.queued && (
                 <span className="devic-message-queued-label">
                   <QueuedIcon />
-                  Queued
+                  {t("Queued")}
                 </span>
               )}
               <span className="devic-message-time">
@@ -1151,6 +1157,7 @@ function parseReferencedPrefix(
  * expandable to read the whole thing without leaving the thread.
  */
 function PastedBlockCard({ block }: { block: PastedText }): JSX.Element {
+  const t = useTranslations();
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -1167,9 +1174,10 @@ function PastedBlockCard({ block }: { block: PastedText }): JSX.Element {
           <p className="devic-pasted-card-preview">{pastedPreview(block.text)}</p>
         )}
         <span className="devic-pasted-card-footer">
-          <span className="devic-pasted-card-badge">PASTED</span>
+          <span className="devic-pasted-card-badge">{t("PASTED")}</span>
           <span className="devic-pasted-card-meta">
-            {pastedLineCount(block.text)} lines · {expanded ? "collapse" : "expand"}
+            {t("{count} lines", { count: pastedLineCount(block.text) })} ·{" "}
+            {expanded ? t("collapse") : t("expand")}
           </span>
         </span>
       </button>

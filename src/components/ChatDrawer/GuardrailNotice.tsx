@@ -1,5 +1,7 @@
 import React from "react";
 import type { ReactNode } from "react";
+import { useTranslations } from "../../i18n";
+import type { Translator } from "../../i18n";
 
 /**
  * What the backend records when a guardrail stops a turn. Sent as the content
@@ -42,12 +44,13 @@ export function GuardrailNotice({
   payload,
   text,
 }: GuardrailNoticeProps): JSX.Element {
+  const t = useTranslations();
   return (
     <div className="devic-guardrail-notice" role="status">
       <span className="devic-guardrail-notice-icon" aria-hidden="true">
         <ShieldIcon />
       </span>
-      <span>{text || noticeText(payload)}</span>
+      <span>{text || noticeText(t, payload)}</span>
     </div>
   );
 }
@@ -55,18 +58,21 @@ export function GuardrailNotice({
 /**
  * Names the guardrail when the payload carries a name, and stays vague when it
  * does not — an invented name is worse than no name.
+ *
+ * The name is a `{name}` placeholder rather than interpolated here, so a
+ * translation can put it wherever that language needs it.
  */
-function noticeText(payload?: GuardrailPayload): string {
+function noticeText(t: Translator, payload?: GuardrailPayload): string {
   const name = payload?.info?.guardrail_name;
   const stage = payload?.info?.stage_name;
 
   if (!name) {
-    return "This message was stopped by a guardrail.";
+    return t("This message was stopped by a guardrail.");
   }
   if (stage === "input") {
-    return `Your message was stopped by the “${name}” guardrail.`;
+    return t("Your message was stopped by the “{name}” guardrail.", { name });
   }
-  return `The answer was stopped by the “${name}” guardrail.`;
+  return t("The answer was stopped by the “{name}” guardrail.", { name });
 }
 
 function ShieldIcon(): JSX.Element {

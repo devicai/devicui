@@ -1,4 +1,5 @@
 import { useState, type JSX, type ReactNode } from "react";
+import { useTranslations } from "../../i18n";
 import type {
   RecalledMemoryEntity,
   RecalledMemoryFact,
@@ -113,6 +114,7 @@ export function RecalledMemoriesWidget({
   isLoading = false,
   renderer,
 }: RecalledMemoriesWidgetProps): JSX.Element | null {
+  const t = useTranslations();
   const [expanded, setExpanded] = useState(false);
 
   if (renderer) {
@@ -124,17 +126,25 @@ export function RecalledMemoriesWidget({
   const turns = records
     .filter((r) => r.source === "conversation_start")
     .flatMap((r) => r.turns ?? []);
-  const sources = [...new Set(records.map((r) => SOURCE_LABELS[r.source]))];
+  const sources = [
+    ...new Set(records.map((r) => t(SOURCE_LABELS[r.source]))),
+  ];
 
   if (!facts.length && !entities.length && !turns.length) return null;
 
   const summaryParts: string[] = [];
   if (facts.length) {
-    summaryParts.push(`${facts.length} fact${facts.length > 1 ? "s" : ""}`);
+    summaryParts.push(
+      facts.length === 1
+        ? t("1 fact")
+        : t("{count} facts", { count: facts.length })
+    );
   }
   if (entities.length) {
     summaryParts.push(
-      `${entities.length} entit${entities.length > 1 ? "ies" : "y"}`
+      entities.length === 1
+        ? t("1 entity")
+        : t("{count} entities", { count: entities.length })
     );
   }
 
@@ -147,7 +157,7 @@ export function RecalledMemoriesWidget({
         aria-expanded={expanded}
       >
         <BrainIcon />
-        <span className="devic-recall-title">Recalled memories</span>
+        <span className="devic-recall-title">{t("Recalled memories")}</span>
         {summaryParts.length > 0 && (
           <span className="devic-recall-summary">
             {summaryParts.join(" · ")}
@@ -173,7 +183,11 @@ export function RecalledMemoriesWidget({
                     {fact.source && fact.target
                       ? `${fact.source} → ${fact.relation} → ${fact.target}`
                       : fact.relation}
-                    {fact.validAt ? ` · since ${fact.validAt.slice(0, 10)}` : ""}
+                    {fact.validAt
+                      ? ` · ${t("since {date}", {
+                          date: fact.validAt.slice(0, 10),
+                        })}`
+                      : ""}
                   </span>
                 </div>
               ))}
@@ -201,7 +215,7 @@ export function RecalledMemoriesWidget({
           {turns.length > 0 && (
             <div className="devic-recall-turns">
               <span className="devic-recall-turns-title">
-                Previous session context
+                {t("Previous session context")}
               </span>
               {turns.map((turn, i) => (
                 <span key={i} className="devic-recall-turn">

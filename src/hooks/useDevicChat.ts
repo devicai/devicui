@@ -6,6 +6,7 @@ import { usePolling, resolvePollingInterval } from './usePolling';
 import { useModelInterface, type PendingWidgetCall } from './useModelInterface';
 import { createLogger } from '../utils/logger';
 import { useAssistantInfo } from '../api/assistantInfo';
+import { useTranslations } from '../i18n';
 import type {
   ChatMessage,
   ChatFile,
@@ -393,6 +394,11 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   } = options;
 
   // Get context (may be null if not wrapped in provider)
+  const t = useTranslations();
+  // Read through a ref inside the polling callbacks: they are built once and
+  // must not be rebuilt (restarting the poll) just because a dictionary changed.
+  const tRef = useRef(t);
+  tRef.current = t;
   const context = useOptionalDevicContext();
 
   // Resolve configuration
@@ -688,7 +694,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     async () => {
       logRef.current.log('[useDevicChat] fetchFn called, chatUid:', chatUid);
       if (!clientRef.current || !chatUid) {
-        throw new Error('Cannot poll without client or chatUid');
+        throw new Error(t('Cannot poll without client or chatUid'));
       }
       const result = await clientRef.current.getRealtimeHistory(assistantId, chatUid);
       logRef.current.log('[useDevicChat] getRealtimeHistory result:', result);
@@ -850,11 +856,11 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           // reaching the LLM. Surface the details so the UI can show a banner.
           setIsLoading(false);
           const details: TenantLimitExceeded = data.limitExceeded || {
-            message: 'Usage limit reached.',
+            message: tRef.current('Usage limit reached.'),
           };
           setLimitExceeded(details);
           const err = new Error(
-            details.message || 'Usage limit reached.'
+            details.message || tRef.current('Usage limit reached.')
           ) as Error & { errorType?: string; details?: TenantLimitExceeded };
           err.errorType = 'TENANT_LIMIT_EXCEEDED';
           err.details = details;
@@ -862,7 +868,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           onErrorRef.current?.(err);
         } else if (data?.status === 'error') {
           setIsLoading(false);
-          const err = new Error('Chat processing failed');
+          const err = new Error(t('Chat processing failed'));
           setError(err);
           onErrorRef.current?.(err);
         } else if (data?.status === 'completed') {
@@ -1228,7 +1234,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   const loadChat = useCallback(
     async (loadChatUid: string) => {
       if (!clientRef.current) {
-        const err = new Error('API client not configured');
+        const err = new Error(t('API client not configured'));
         setError(err);
         onErrorRef.current?.(err);
         return;

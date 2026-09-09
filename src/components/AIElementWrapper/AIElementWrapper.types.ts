@@ -1,3 +1,4 @@
+import type { DevicTranslations } from '../../i18n';
 import type { ChatMessage, ModelInterfaceTool } from '../../api/types';
 
 /**
@@ -89,6 +90,16 @@ export interface AIElementWrapperOptions {
    * Default prompt used when behavior='inline' and no getPrompt is provided.
    */
   defaultInlinePrompt?: string;
+
+  /**
+   * Translations for the texts this component renders itself, keyed by the
+   * exact text it shows — which here is Spanish, since that is what the
+   * defaults have always been: `{ 'Preguntar a IA': 'Ask AI' }`.
+   *
+   * Merged on top of the `DevicProvider`'s `translations` and passed down to
+   * everything mounted below. Anything absent stays as the provider left it.
+   */
+  translations?: DevicTranslations;
 }
 
 /**

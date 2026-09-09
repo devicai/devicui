@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { Integration } from "../../api/types";
 import { IntegrationLogo } from "./IntegrationLogo";
+import { useTranslations } from "../../i18n";
 import type { IntegrationsState } from "./useIntegrations";
 import "./IntegrationsModal.css";
 
@@ -143,6 +144,7 @@ export function IntegrationsHint({
   dark = false,
   className = "",
 }: IntegrationsHintProps): JSX.Element | null {
+  const t = useTranslations();
   const sorted = useMemo(() => order(state.integrations), [state.integrations]);
   const ref = useRef<HTMLDivElement>(null);
   const [boxes, setBoxes] = useState(maxLogos + 1);
@@ -273,8 +275,8 @@ export function IntegrationsHint({
   const text =
     label ??
     (sorted.some((i) => i.connected)
-      ? "Explore connected apps"
-      : "Connect your apps");
+      ? t("Explore connected apps")
+      : t("Connect your apps"));
 
   // When some apps will not fit, the `+N` box takes one of the slots itself.
   const capacity = Math.max(1, boxes);
@@ -321,8 +323,8 @@ export function IntegrationsHint({
         type="button"
         className="devic-int-hint-close"
         onClick={dismiss}
-        aria-label="Hide this"
-        title="Hide this. Your apps stay in the header."
+        aria-label={t("Hide this")}
+        title={t("Hide this. Your apps stay in the header.")}
       >
         ×
       </button>

@@ -24,6 +24,7 @@ import {
   pruneIntegrationChoice,
 } from '../IntegrationsModal';
 import { isDarkTheme } from '../theme';
+import { DevicTranslationsProvider, useTranslations } from '../../i18n';
 import type { DevicTheme } from '../theme';
 import type { ChatDrawerProps, ChatDrawerOptions, ChatDrawerHandle } from './ChatDrawer.types';
 import type { QueueDisposition } from '../../api/types';
@@ -115,6 +116,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   integrationsHintLabel: undefined as any,
   showIntegrationsToggle: true,
   integrationsToggleLabel: 'Apps in this chat',
+  translations: undefined as any,
 };
 
 /**
@@ -189,6 +191,13 @@ function ChatDrawerInner({
     () => ({ ...DEFAULT_OPTIONS, ...options }),
     [options]
   );
+
+  // Texts the drawer renders itself, translated through the dictionary of the
+  // provider plus this drawer's own. Applied to the option defaults too, so a
+  // host that leaves `title` or `inputPlaceholder` alone still gets them in
+  // its language; a host that sets its own text keeps it, unless it also put
+  // that text in the dictionary.
+  const t = useTranslations(mergedOptions.translations);
 
   // localStorage key for persisting selected conversation
   const storageKey = mergedOptions.persistConversation
@@ -510,7 +519,7 @@ function ChatDrawerInner({
     ) => {
       if (!resolvedApiKey && !resolvedTenantSession) {
         return Promise.reject(
-          new Error('No credentials configured. Cannot transcribe audio.'),
+          new Error(t('No credentials configured. Cannot transcribe audio.')),
         );
       }
       const client = new DevicApiClient({ apiKey: resolvedApiKey, baseUrl: resolvedBaseUrl, getTenantSession: resolvedTenantSession, onSessionExpired });
@@ -631,8 +640,10 @@ function ChatDrawerInner({
           // reappearing in the box with no explanation.
           setQueueAlert(
             result.reason === 'queue_full'
-              ? `${result.message} Your message is back in the box.`
-              : 'The assistant is not taking messages while it works. Your message is back in the box.'
+              ? `${result.message} ${t('Your message is back in the box.')}`
+              : t(
+                  'The assistant is not taking messages while it works. Your message is back in the box.'
+                )
           );
         }
         return result;
@@ -660,7 +671,12 @@ function ChatDrawerInner({
     setQueueDisposition(undefined);
     setQueueAlert(
       result.discarded
-        ? `${result.discarded === 1 ? 'A queued message was' : `${result.discarded} queued messages were`} not sent — the text is back in the box.`
+        ? result.discarded === 1
+          ? t('A queued message was not sent — the text is back in the box.')
+          : t(
+              '{count} queued messages were not sent — the text is back in the box.',
+              { count: result.discarded }
+            )
         : null
     );
     return result;
@@ -813,7 +829,8 @@ function ChatDrawerInner({
   // live on the drawer element — never reach them.
   // The brain button says what the modal it opens is called.
   const coreMemoryTitle =
-    mergedOptions.coreMemoryLabels?.title ?? DEFAULT_CORE_MEMORY_LABELS.title;
+    mergedOptions.coreMemoryLabels?.title ??
+    t(DEFAULT_CORE_MEMORY_LABELS.title);
 
   const modalTheme: DevicTheme = useMemo(
     () => ({
@@ -864,7 +881,7 @@ function ChatDrawerInner({
         disabled={disabledIntegrations}
         onChange={setDisabledIntegrations}
         onManage={() => setIntegrationsOpen(true)}
-        label={mergedOptions.integrationsToggleLabel}
+        label={t(mergedOptions.integrationsToggleLabel)}
         dark={isDarkTheme(modalTheme)}
         busy={chat.isLoading}
         loading={integrationsDeciding}
@@ -938,7 +955,7 @@ function ChatDrawerInner({
   );
 
   return (
-    <>
+    <DevicTranslationsProvider translations={mergedOptions.translations}>
       {/* Overlay (drawer mode only) */}
       {!isInline && (
         <div
@@ -977,7 +994,13 @@ function ChatDrawerInner({
               aria-hidden="true"
             />
           )}
-          <h2 className="devic-drawer-title">{mergedOptions.title}</h2>
+          {/* Only a plain string can go through the dictionary; a host that
+              passes a node has already decided what it renders. */}
+          <h2 className="devic-drawer-title">
+            {typeof mergedOptions.title === 'string'
+              ? t(mergedOptions.title)
+              : mergedOptions.title}
+          </h2>
           <ConversationSelector
             assistantId={assistantId}
             currentChatUid={chat.chatUid}
@@ -995,7 +1018,7 @@ function ChatDrawerInner({
                 state={integrationsState}
                 mcp={mcpState}
                 onClick={() => setIntegrationsOpen(true)}
-                label={mergedOptions.integrationsLabel}
+                label={t(mergedOptions.integrationsLabel)}
                 maxLogos={mergedOptions.maxIntegrationLogos}
                 dark={isDarkTheme(modalTheme)}
                 placeholders={pendingIntegrations}
@@ -1017,8 +1040,8 @@ function ChatDrawerInner({
               className="devic-new-chat-btn"
               onClick={handleNewChat}
               type="button"
-              aria-label="New chat"
-              title="New chat"
+              aria-label={t('New chat')}
+              title={t('New chat')}
             >
               <PlusIcon />
             </button>
@@ -1027,7 +1050,7 @@ function ChatDrawerInner({
                 className="devic-drawer-close"
                 onClick={handleClose}
                 type="button"
-                aria-label="Close chat"
+                aria-label={t('Close chat')}
               >
                 <CloseIcon />
               </button>
@@ -1121,7 +1144,7 @@ function ChatDrawerInner({
               inlineWidgets.length > 0 ||
               !!chat.limitExceeded
             }
-            placeholder={mergedOptions.inputPlaceholder}
+            placeholder={t(mergedOptions.inputPlaceholder)}
             enableFileUploads={mergedOptions.enableFileUploads}
             allowedFileTypes={mergedOptions.allowedFileTypes}
             maxFileSize={mergedOptions.maxFileSize}
@@ -1144,9 +1167,9 @@ function ChatDrawerInner({
             sendButtonContent={mergedOptions.sendButtonContent}
             disabledMessage={
               chat.handedOff
-                ? 'Waiting for subagent to complete'
+                ? t('Waiting for subagent to complete')
                 : inlineWidgets.length > 0
-                  ? 'Waiting for tool response'
+                  ? t('Waiting for tool response')
                   : undefined
             }
             isProcessing={chat.isLoading && !chat.handedOff}
@@ -1174,7 +1197,7 @@ function ChatDrawerInner({
           onClick={handleOpen}
           style={triggerStyle}
           type="button"
-          aria-label="Open chat"
+          aria-label={t('Open chat')}
         >
           <ChatIcon />
         </button>
@@ -1205,13 +1228,13 @@ function ChatDrawerInner({
           subtenantId={subtenantId}
           apiKey={resolvedApiKey}
           baseUrl={resolvedBaseUrl}
-          title={mergedOptions.integrationsLabel}
+          title={t(mergedOptions.integrationsLabel)}
           theme={modalTheme}
           state={integrationsState}
           mcpState={mcpState}
         />
       )}
-    </>
+    </DevicTranslationsProvider>
   );
 }
 

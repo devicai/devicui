@@ -23,14 +23,19 @@ import type {
   AIElementWrapperPlacement,
   AIElementWrapperProps,
 } from './AIElementWrapper.types';
+import { DevicTranslationsProvider, useTranslations } from '../../i18n';
 import './AIElementWrapper.css';
 
 const DEFAULT_OPTIONS: Required<
-  Omit<AIElementWrapperOptions, 'color' | 'drawerPromptPrefix' | 'defaultInlinePrompt'>
+  Omit<
+    AIElementWrapperOptions,
+    'color' | 'drawerPromptPrefix' | 'defaultInlinePrompt' | 'translations'
+  >
 > & {
   color?: string;
   drawerPromptPrefix?: AIElementWrapperOptions['drawerPromptPrefix'];
   defaultInlinePrompt?: string;
+  translations?: AIElementWrapperOptions['translations'];
 } = {
   showOn: 'hover',
   triggerPlacement: 'bottom',
@@ -43,6 +48,7 @@ const DEFAULT_OPTIONS: Required<
   color: undefined,
   drawerPromptPrefix: undefined,
   defaultInlinePrompt: undefined,
+  translations: undefined,
 };
 
 interface AnchorRect {
@@ -112,6 +118,8 @@ export const AIElementWrapper = forwardRef<AIElementWrapperHandle, AIElementWrap
     } = props;
 
     const merged = useMemo(() => ({ ...DEFAULT_OPTIONS, ...options }), [options]);
+
+    const t = useTranslations(merged.translations);
 
     // Stable instance ID used by the active-wrapper registry (singleton)
     const wrapperIdRef = useRef<string>('');
@@ -261,10 +269,10 @@ export const AIElementWrapper = forwardRef<AIElementWrapperHandle, AIElementWrap
       if (merged.showOn === 'select') {
         const sel = window.getSelection();
         const txt = sel?.toString().trim();
-        if (txt) return `Cuéntame más sobre: "${txt}"`;
+        if (txt) return t('Cuéntame más sobre: "{text}"', { text: txt });
       }
-      return `Cuéntame más sobre: ${label}`;
-    }, [getPrompt, data, label, merged.defaultInlinePrompt, merged.showOn]);
+      return t('Cuéntame más sobre: {label}', { label });
+    }, [getPrompt, data, label, merged.defaultInlinePrompt, merged.showOn, t]);
 
     const handleActivate = useCallback(() => {
       onActivate?.();
@@ -379,7 +387,7 @@ export const AIElementWrapper = forwardRef<AIElementWrapperHandle, AIElementWrap
         return (
           <div className="devic-aiwrap-processing">
             <span className="devic-aiwrap-spinner" aria-hidden="true" />
-            <span>Pensando…</span>
+            <span>{t('Pensando…')}</span>
           </div>
         );
       }
@@ -409,13 +417,16 @@ export const AIElementWrapper = forwardRef<AIElementWrapperHandle, AIElementWrap
         <span className="devic-aiwrap-trigger-icon" aria-hidden="true">
           <SparklesIcon />
         </span>
-        <span className="devic-aiwrap-trigger-label">{merged.triggerLabel}</span>
+        <span className="devic-aiwrap-trigger-label">
+          {t(merged.triggerLabel)}
+        </span>
       </button>
     );
 
     const portalTarget = typeof document !== 'undefined' ? document.body : null;
 
     return (
+      <DevicTranslationsProvider translations={merged.translations}>
       <span
         ref={containerRef}
         className={`devic-aiwrap-container ${className || ''}`}
@@ -462,7 +473,7 @@ export const AIElementWrapper = forwardRef<AIElementWrapperHandle, AIElementWrap
                   type="button"
                   className="devic-aiwrap-tooltip-close"
                   onClick={closeInline}
-                  aria-label="Cerrar"
+                  aria-label={t('Cerrar')}
                 >
                   <CloseIcon />
                 </button>
@@ -472,6 +483,7 @@ export const AIElementWrapper = forwardRef<AIElementWrapperHandle, AIElementWrap
             portalTarget
           )}
       </span>
+      </DevicTranslationsProvider>
     );
   }
 );

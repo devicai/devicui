@@ -3,6 +3,7 @@ import type { DevicApiError } from "../../api/client";
 import { DevicApiClient } from "../../api/client";
 import type { Integration } from "../../api/types";
 import { useOptionalDevicContext } from "../../provider";
+import { useTranslations } from "../../i18n";
 
 /** What identifies the end user in front of the widget. */
 export interface IntegrationsScope {
@@ -71,6 +72,7 @@ export function useIntegrations(
     enabled = true,
   } = options;
 
+  const t = useTranslations();
   const context = useOptionalDevicContext();
   const resolvedBaseUrl = baseUrl || context?.baseUrl || "https://api.devic.ai";
   const resolvedTenantId = tenantId || context?.tenantId;
@@ -111,7 +113,7 @@ export function useIntegrations(
   const refresh = useCallback(
     async (dropCache = false) => {
       if (!client) {
-        setError("No credentials configured");
+        setError(t("No credentials configured"));
         setSettled(true);
         return;
       }
