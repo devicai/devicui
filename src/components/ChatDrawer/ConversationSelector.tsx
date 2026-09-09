@@ -3,6 +3,7 @@ import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from '../../api/client';
 import type { ConversationSummary } from '../../api/types';
 import type { ConversationSelectorProps } from './ChatDrawer.types';
+import { useTranslations } from '../../i18n';
 
 const PAGE_SIZE = 10;
 
@@ -17,6 +18,7 @@ export function ConversationSelector({
   subtenantId: propsSubtenantId,
   conversationPreview,
 }: ConversationSelectorProps): JSX.Element {
+  const t = useTranslations();
   const context = useOptionalDevicContext();
   const apiKey = propsApiKey || context?.apiKey;
   const baseUrl = propsBaseUrl || context?.baseUrl || 'https://api.devic.ai';
@@ -143,7 +145,7 @@ export function ConversationSelector({
   const currentConv = conversations.find((c) => c.chatUID === currentChatUid);
   const currentName = currentConv
     ? getConversationLabel(currentConv)
-    : 'New chat';
+    : t('New chat');
 
   const filtered = conversations.filter((c) => {
     if (!search) return true;
@@ -173,7 +175,7 @@ export function ConversationSelector({
             <input
               className="devic-conversation-search"
               type="text"
-              placeholder="Search conversations..."
+              placeholder={t('Search conversations...')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               autoFocus
@@ -185,10 +187,12 @@ export function ConversationSelector({
             ref={listRef}
           >
             {loading && (
-              <div className="devic-conversation-loading">Loading...</div>
+              <div className="devic-conversation-loading">{t('Loading...')}</div>
             )}
             {!loading && filtered.length === 0 && (
-              <div className="devic-conversation-empty">No conversations</div>
+              <div className="devic-conversation-empty">
+                {t('No conversations')}
+              </div>
             )}
             {!loading &&
               filtered.map((conv) => (
@@ -216,7 +220,9 @@ export function ConversationSelector({
                 </button>
               ))}
             {loadingMore && (
-              <div className="devic-conversation-loading">Loading more...</div>
+              <div className="devic-conversation-loading">
+                {t('Loading more...')}
+              </div>
             )}
             {!loadingMore && hasMore && !loading && (
               <button
@@ -224,7 +230,7 @@ export function ConversationSelector({
                 type="button"
                 onClick={handleLoadMore}
               >
-                Load more
+                {t('Load more')}
               </button>
             )}
           </div>
@@ -237,7 +243,7 @@ export function ConversationSelector({
               setIsOpen(false);
             }}
           >
-            + Start a new chat
+            {t('+ Start a new chat')}
           </button>
         </div>
       )}

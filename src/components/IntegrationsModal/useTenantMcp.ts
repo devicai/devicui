@@ -4,6 +4,7 @@ import { DevicApiClient } from "../../api/client";
 import type { TenantMcpListing, TenantMcpServer } from "../../api/types";
 import { useOptionalDevicContext } from "../../provider";
 import type { IntegrationsScope } from "./useIntegrations";
+import { useTranslations } from "../../i18n";
 
 export interface UseTenantMcpOptions extends IntegrationsScope {
   apiKey?: string;
@@ -51,6 +52,7 @@ export function useTenantMcp(options: UseTenantMcpOptions): TenantMcpState {
   const { assistantId, tenantId, subtenantId, apiKey, baseUrl, enabled = true } =
     options;
 
+  const t = useTranslations();
   const context = useOptionalDevicContext();
   const resolvedBaseUrl = baseUrl || context?.baseUrl || "https://api.devic.ai";
   const resolvedTenantId = tenantId || context?.tenantId;
@@ -88,7 +90,7 @@ export function useTenantMcp(options: UseTenantMcpOptions): TenantMcpState {
 
   const refresh = useCallback(async () => {
     if (!client) {
-      setError("No credentials configured");
+      setError(t("No credentials configured"));
       setSettled(true);
       return;
     }

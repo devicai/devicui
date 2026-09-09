@@ -4,6 +4,7 @@ import type { ChatInputProps } from './ChatDrawer.types';
 import { useSpeechRecording } from '../../hooks/useSpeechRecording';
 import { DevicApiClient } from '../../api/client';
 import { ReferenceChip } from './ReferenceChip';
+import { useTranslations } from '../../i18n';
 import {
   toPastedBlock,
   pastedPreview,
@@ -121,6 +122,7 @@ function ChatInputBox({
   integrationsHint,
   integrationsToggle,
 }: ChatInputProps): JSX.Element {
+  const t = useTranslations();
   const [message, setMessage] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   // Long blocks of pasted text, kept out of the textarea and shown as cards.
@@ -490,13 +492,15 @@ function ChatInputBox({
       return text;
     } catch (e) {
       setSpeechError(
-        `Could not transcribe the audio: ${(e as Error)?.message || 'unknown error'}`,
+        t('Could not transcribe the audio: {error}', {
+          error: (e as Error)?.message || t('unknown error'),
+        }),
       );
       return null;
     } finally {
       setIsTranscribing(false);
     }
-  }, [transcribeClient, recording, speechLanguage, speechTenantId]);
+  }, [transcribeClient, recording, speechLanguage, speechTenantId, t]);
 
   // Cancellable countdown, then auto-send. Handoff stays active across the send
   // so the loop can continue after the assistant replies.
@@ -740,7 +744,7 @@ function ChatInputBox({
       {isDraggingOver && (
         <div className="devic-drop-overlay">
           <AttachIcon />
-          <span>Drop files to attach</span>
+          <span>{t('Drop files to attach')}</span>
         </div>
       )}
       {limitBanner}
@@ -762,14 +766,16 @@ function ChatInputBox({
         <div className="devic-handoff-bar" data-waiting={isProcessing ? 'true' : 'false'}>
           <span className="devic-handoff-dot" aria-hidden="true" />
           <span className="devic-handoff-label">
-            {isProcessing ? 'Hands-free · waiting for reply' : 'Hands-free on'}
+            {isProcessing
+              ? t('Hands-free · waiting for reply')
+              : t('Hands-free on')}
           </span>
           <button
             type="button"
             className="devic-handoff-stop"
             onClick={cancelHandoff}
-            title="Stop hands-free"
-            aria-label="Stop hands-free"
+            title={t('Stop hands-free')}
+            aria-label={t('Stop hands-free')}
           >
             <CloseIcon />
           </button>
@@ -795,17 +801,17 @@ function ChatInputBox({
                 {pastedPreview(pasted.text)}
               </p>
               <div className="devic-pasted-card-footer">
-                <span className="devic-pasted-card-badge">PASTED</span>
+                <span className="devic-pasted-card-badge">{t('PASTED')}</span>
                 <span className="devic-pasted-card-meta">
-                  {pastedLineCount(pasted.text)} lines
+                  {t('{count} lines', { count: pastedLineCount(pasted.text) })}
                 </span>
               </div>
               <button
                 className="devic-file-remove devic-pasted-card-remove"
                 onClick={() => removePastedText(pasted.id)}
                 type="button"
-                title="Remove pasted text"
-                aria-label="Remove pasted text"
+                title={t('Remove pasted text')}
+                aria-label={t('Remove pasted text')}
               >
                 &times;
               </button>
@@ -860,7 +866,7 @@ function ChatInputBox({
         ) : isTranscribing ? (
           <div className="devic-speech-panel" data-state="processing">
             <span className="devic-speech-spinner" aria-hidden="true" />
-            <span className="devic-speech-status">Transcribing…</span>
+            <span className="devic-speech-status">{t('Transcribing…')}</span>
           </div>
         ) : isRecordingActive ? (
           <div className="devic-speech-panel" data-state="recording">
@@ -868,7 +874,7 @@ function ChatInputBox({
               className="devic-input-btn devic-speech-cancel"
               onClick={cancelRecording}
               type="button"
-              title="Cancel recording"
+              title={t('Cancel recording')}
             >
               <CloseIcon />
             </button>
@@ -882,7 +888,7 @@ function ChatInputBox({
               className="devic-input-btn"
               onClick={recording.isPaused ? recording.resume : recording.pause}
               type="button"
-              title={recording.isPaused ? 'Resume' : 'Pause'}
+              title={recording.isPaused ? t('Resume') : t('Pause')}
             >
               {recording.isPaused ? <PlayIcon /> : <PauseIcon />}
             </button>
@@ -899,8 +905,8 @@ function ChatInputBox({
                 type="button"
                 title={
                   recording.isAutoStopping
-                    ? 'Auto-sending… keep talking to cancel'
-                    : 'Confirm'
+                    ? t('Auto-sending… keep talking to cancel')
+                    : t('Confirm')
                 }
               >
                 <CheckIcon />
@@ -928,7 +934,7 @@ function ChatInputBox({
                   onClick={() => fileInputRef.current?.click()}
                   disabled={inputDisabled}
                   type="button"
-                  title="Attach file"
+                  title={t('Attach file')}
                 >
                   <AttachIcon />
                 </button>
@@ -956,8 +962,8 @@ function ChatInputBox({
                   type="button"
                   title={
                     speechHandoff
-                      ? 'Tap to dictate · hold to start hands-free'
-                      : 'Record voice message'
+                      ? t('Tap to dictate · hold to start hands-free')
+                      : t('Record voice message')
                   }
                 >
                   <MicIcon />
@@ -981,10 +987,10 @@ function ChatInputBox({
               onPaste={handlePaste}
               placeholder={
                 busyWithoutQueue
-                  ? 'The assistant is answering…'
+                  ? t('The assistant is answering…')
                   : isProcessing
-                    ? 'Write while the assistant answers — it will be queued'
-                    : placeholder
+                    ? t('Write while the assistant answers — it will be queued')
+                    : t(placeholder)
               }
               disabled={inputDisabled}
               rows={1}
@@ -1008,7 +1014,7 @@ function ChatInputBox({
                     className="devic-send-btn-overlay"
                     onClick={handleStop}
                     type="button"
-                    title="Stop"
+                    title={t('Stop')}
                   />
                 </div>
               ) : (
@@ -1016,7 +1022,7 @@ function ChatInputBox({
                   className="devic-input-btn devic-stop-btn"
                   onClick={handleStop}
                   type="button"
-                  title="Stop"
+                  title={t('Stop')}
                 >
                   <StopIcon />
                 </button>
@@ -1034,8 +1040,8 @@ function ChatInputBox({
                     type="button"
                     title={
                       isProcessing
-                        ? "Queue this message for the assistant's next turn"
-                        : 'Send message'
+                        ? t("Queue this message for the assistant's next turn")
+                        : t('Send message')
                     }
                   />
                 </div>
@@ -1047,8 +1053,8 @@ function ChatInputBox({
                   type="button"
                   title={
                     isProcessing
-                      ? "Queue this message for the assistant's next turn"
-                      : 'Send message'
+                      ? t("Queue this message for the assistant's next turn")
+                      : t('Send message')
                   }
                 >
                   <SendIcon />

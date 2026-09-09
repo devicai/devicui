@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslations } from '../i18n';
 
 /**
  * Recording lifecycle state.
@@ -120,6 +121,8 @@ export function useSpeechRecording(
     autoStopSpeechLevel = 0.12,
     onAutoStop,
   } = options;
+
+  const t = useTranslations();
 
   const isSupported =
     typeof navigator !== 'undefined' &&
@@ -301,7 +304,7 @@ export function useSpeechRecording(
 
   const start = useCallback(async () => {
     if (!isSupported) {
-      setError('Audio recording is not supported in this browser');
+      setError(t('Audio recording is not supported in this browser'));
       return;
     }
     if (mediaRecorderRef.current) return;
@@ -364,12 +367,14 @@ export function useSpeechRecording(
       mediaRecorderRef.current = null;
       const message =
         (e as Error)?.name === 'NotAllowedError'
-          ? 'Microphone permission denied'
-          : `Could not start recording: ${(e as Error)?.message || 'unknown error'}`;
+          ? t('Microphone permission denied')
+          : t('Could not start recording: {error}', {
+              error: (e as Error)?.message || t('unknown error'),
+            });
       setError(message);
       setStatus('idle');
     }
-  }, [isSupported, mimeType, bars, tick, cleanupAudioGraph, resetAutoStop]);
+  }, [isSupported, mimeType, bars, tick, cleanupAudioGraph, resetAutoStop, t]);
 
   const pause = useCallback(() => {
     const recorder = mediaRecorderRef.current;

@@ -3,6 +3,7 @@ import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from '../../api/client';
 import { usePolling, resolvePollingInterval } from '../../hooks/usePolling';
 import { useModelInterface } from '../../hooks/useModelInterface';
+import { useTranslations } from '../../i18n';
 import type {
   ChatMessage,
   ModelInterfaceTool,
@@ -160,6 +161,8 @@ export function useAICommandBar(options: UseAICommandBarOptions): UseAICommandBa
 
   const { shortcut } = barOptions;
 
+  const t = useTranslations(barOptions.translations);
+
   // Get context
   const context = useOptionalDevicContext();
   const apiKey = propsApiKey || context?.apiKey;
@@ -223,9 +226,9 @@ export function useAICommandBar(options: UseAICommandBarOptions): UseAICommandBa
   // Built-in history command
   const historyCommand: AICommandBarCommand = useMemo(() => ({
     keyword: 'history',
-    description: 'Show command history',
+    description: t('Show command history'),
     message: '', // Special handling
-  }), []);
+  }), [t]);
 
   // All available commands (user commands + built-in)
   const allCommands = useMemo(() => {
@@ -508,7 +511,7 @@ export function useAICommandBar(options: UseAICommandBarOptions): UseAICommandBa
     shouldPoll ? chatUid : null,
     async () => {
       if (!clientRef.current || !chatUid) {
-        throw new Error('Cannot poll without client or chatUid');
+        throw new Error(t('Cannot poll without client or chatUid'));
       }
       return clientRef.current.getRealtimeHistory(assistantId, chatUid);
     },
@@ -539,7 +542,7 @@ export function useAICommandBar(options: UseAICommandBarOptions): UseAICommandBa
 
         if (data?.status === 'error') {
           setIsProcessing(false);
-          const err = new Error('Processing failed');
+          const err = new Error(t('Processing failed'));
           setError(err);
           onErrorRef.current?.(err);
           return;
@@ -594,7 +597,9 @@ export function useAICommandBar(options: UseAICommandBarOptions): UseAICommandBa
       if (!msg.trim()) return;
 
       if (!clientRef.current) {
-        const err = new Error('API client not configured. Please provide an API key.');
+        const err = new Error(
+          t('API client not configured. Please provide an API key.')
+        );
         setError(err);
         onErrorRef.current?.(err);
         return;

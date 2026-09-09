@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from "react";
 import type { Integration, TenantMcpServer } from "../../api/types";
 import { IntegrationLogo } from "./IntegrationLogo";
+import { useTranslations } from "../../i18n";
 import type { IntegrationsState } from "./useIntegrations";
 import type { TenantMcpState } from "./useTenantMcp";
 import "./IntegrationsModal.css";
@@ -84,13 +85,17 @@ export function IntegrationsLauncher({
   state,
   mcp,
   onClick,
-  label = "Connected apps",
+  label,
   maxLogos = DEFAULT_MAX_LOGOS,
   dark = false,
   placeholders = 0,
   loading = false,
   className = "",
 }: IntegrationsLauncherProps): JSX.Element | null {
+  const t = useTranslations();
+  // The host's own label wins; with none, the default goes through the
+  // dictionary like every other text the launcher renders.
+  const text = label ?? t("Connected apps");
   const sorted = useMemo(() => order(state.integrations), [state.integrations]);
   // Only the servers this tenant actually connected: an offer they have not
   // taken up is not a logo, it is an invitation, and the modal is where
@@ -125,7 +130,7 @@ export function IntegrationsLauncher({
         className={`devic-int-launcher devic-int-launcher-loading ${className}`.trim()}
         data-dark={dark}
         aria-busy="true"
-        aria-label={`${label} (loading)`}
+        aria-label={t("{label} (loading)", { label: text })}
       >
         {Array.from({ length: Math.min(holding, Math.max(1, fit)) }).map(
           (_, i) => (
@@ -162,8 +167,12 @@ export function IntegrationsLauncher({
       className={`devic-int-launcher ${className}`.trim()}
       data-dark={dark}
       onClick={onClick}
-      title={label}
-      aria-label={`${label} (${connected}/${total} connected)`}
+      title={text}
+      aria-label={t("{label} ({connected}/{total} connected)", {
+        label: text,
+        connected,
+        total,
+      })}
     >
       {appsShown.map((integration) => (
         <span

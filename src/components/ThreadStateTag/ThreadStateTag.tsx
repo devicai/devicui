@@ -4,64 +4,80 @@ import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from '../../api/client';
 import { AgentThreadState } from '../../api/types';
 import type { ThreadStateTagProps, StateConfig } from './ThreadStateTag.types';
+import { useTranslations, type Translator } from '../../i18n';
 import './ThreadStateTag.css';
 
 /* ── State configuration map ── */
 
-function getStateConfig(state: string, subthreadCount?: number): StateConfig {
+function getStateConfig(
+  t: Translator,
+  state: string,
+  subthreadCount?: number
+): StateConfig {
   const configs: Record<string, StateConfig> = {
     [AgentThreadState.QUEUED]: {
       color: 'gold', bgColor: '#fffbe6', borderColor: '#ffe58f',
-      text: 'Queued', iconType: null,
+      text: t('Queued'), iconType: null,
     },
     [AgentThreadState.PROCESSING]: {
       color: 'processing', bgColor: '#e6f4ff', borderColor: '#91caff',
-      text: 'Processing', iconType: 'spinner',
+      text: t('Processing'), iconType: 'spinner',
     },
     [AgentThreadState.COMPLETED]: {
       color: 'success', bgColor: '#f6ffed', borderColor: '#b7eb8f',
-      text: 'Completed', iconType: null,
+      text: t('Completed'), iconType: null,
     },
     [AgentThreadState.FAILED]: {
       color: 'error', bgColor: '#fff2f0', borderColor: '#ffa39e',
-      text: 'Failed', iconType: null,
+      text: t('Failed'), iconType: null,
     },
     [AgentThreadState.TERMINATED]: {
       color: 'default', bgColor: '#fafafa', borderColor: '#d9d9d9',
-      text: 'Terminated', iconType: null,
+      text: t('Terminated'), iconType: null,
     },
     [AgentThreadState.GUARDRAIL_TRIGGER]: {
       color: 'error', bgColor: '#fff2f0', borderColor: '#ffa39e',
-      text: 'Guardrail Triggered', iconType: 'shield',
+      text: t('Guardrail Triggered'), iconType: 'shield',
     },
     [AgentThreadState.PAUSED]: {
       color: 'purple', bgColor: '#f9f0ff', borderColor: '#d3adf7',
-      text: 'Paused', iconType: 'pause',
+      text: t('Paused'), iconType: 'pause',
     },
     [AgentThreadState.PAUSED_FOR_APPROVAL]: {
       color: 'gold', bgColor: '#fffbe6', borderColor: '#ffe58f',
-      text: 'Waiting for approval', iconType: 'warning',
+      text: t('Waiting for approval'), iconType: 'warning',
     },
     [AgentThreadState.APPROVAL_REJECTED]: {
       color: 'error', bgColor: '#fff2f0', borderColor: '#ffa39e',
-      text: 'Approval rejected', iconType: null,
+      text: t('Approval rejected'), iconType: null,
     },
     [AgentThreadState.WAITING_FOR_RESPONSE]: {
       color: 'gold', bgColor: '#fffbe6', borderColor: '#ffe58f',
-      text: 'Waiting for response', iconType: 'envelope',
+      text: t('Waiting for response'), iconType: 'envelope',
     },
     [AgentThreadState.PAUSED_FOR_RESUME]: {
       color: 'blue', bgColor: '#e6f4ff', borderColor: '#91caff',
-      text: 'Resume scheduled', iconType: 'clock',
+      text: t('Resume scheduled'), iconType: 'clock',
     },
     [AgentThreadState.HANDED_OFF]: {
       color: 'blue', bgColor: '#e6f4ff', borderColor: '#91caff',
-      text: subthreadCount && subthreadCount > 1 ? `Handed off (${subthreadCount})` : 'Handed off',
+      text:
+        subthreadCount && subthreadCount > 1
+          ? t('Handed off ({count})', { count: subthreadCount })
+          : t('Handed off'),
       iconType: 'handoff',
     },
   };
 
-  return configs[state] || { color: 'default', bgColor: '#fafafa', borderColor: '#d9d9d9', text: 'Unknown', iconType: null };
+  return (
+    configs[state] || {
+      color: 'default',
+      bgColor: '#fafafa',
+      borderColor: '#d9d9d9',
+      text: t('Unknown'),
+      iconType: null,
+    }
+  );
 }
 
 /* ── SVG Icons ── */
@@ -290,6 +306,7 @@ function ExplainModal({
   isLoading: boolean;
   agentName: string;
 }): JSX.Element | null {
+  const t = useTranslations();
   const [displayedText, setDisplayedText] = useState('');
   const [fullTextDisplayed, setFullTextDisplayed] = useState(false);
   const charIndexRef = useRef(0);
@@ -325,7 +342,9 @@ function ExplainModal({
     <Modal
       open={open}
       onClose={handleClose}
-      title={`Thread execution description of "${agentName}"`}
+      title={t('Thread execution description of "{agent}"', {
+        agent: agentName,
+      })}
       titleIcon={<LightbulbIcon />}
     >
       {isLoading ? (
@@ -357,6 +376,7 @@ function ApprovalModal({
   isLoading: boolean;
   pausedReason?: string;
 }): JSX.Element | null {
+  const t = useTranslations();
   const [feedback, setFeedback] = useState('');
 
   const handleClose = () => {
@@ -368,21 +388,28 @@ function ApprovalModal({
     <Modal
       open={open}
       onClose={handleClose}
-      title="Review Agent Request"
+      title={t('Review Agent Request')}
       titleIcon={<EyeIcon />}
     >
       <div className="devic-approval-layout">
         <div className="devic-approval-request">
-          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>Agent's request:</div>
-          <div style={{ whiteSpace: 'pre-wrap' }}>{pausedReason || 'Agent is waiting for approval to resume execution.'}</div>
+          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>
+            {t("Agent's request:")}
+          </div>
+          <div style={{ whiteSpace: 'pre-wrap' }}>
+            {pausedReason ||
+              t('Agent is waiting for approval to resume execution.')}
+          </div>
         </div>
         <div className="devic-approval-actions">
-          <div style={{ fontWeight: 600, fontSize: 13 }}>Your feedback:</div>
+          <div style={{ fontWeight: 600, fontSize: 13 }}>
+            {t('Your feedback:')}
+          </div>
           <textarea
             className="devic-approval-textarea"
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
-            placeholder="Optional feedback for the agent..."
+            placeholder={t('Optional feedback for the agent...')}
           />
           <div className="devic-approval-buttons">
             <button
@@ -391,7 +418,7 @@ function ApprovalModal({
               disabled={isLoading}
               type="button"
             >
-              Reject and finish
+              {t('Reject and finish')}
             </button>
             <button
               className="devic-state-btn devic-state-btn-primary"
@@ -399,7 +426,7 @@ function ApprovalModal({
               disabled={isLoading || !feedback.trim()}
               type="button"
             >
-              Continue with feedback
+              {t('Continue with feedback')}
             </button>
             <button
               className="devic-state-btn devic-state-btn-success"
@@ -407,7 +434,7 @@ function ApprovalModal({
               disabled={isLoading}
               type="button"
             >
-              Approve
+              {t('Approve')}
             </button>
           </div>
         </div>
@@ -431,6 +458,7 @@ function SendMessageModal({
   isLoading: boolean;
   state: AgentThreadState | string;
 }): JSX.Element | null {
+  const t = useTranslations();
   const [message, setMessage] = useState('');
 
   const handleClose = () => {
@@ -445,18 +473,20 @@ function SendMessageModal({
     <Modal
       open={open}
       onClose={handleClose}
-      title="Send message to thread"
+      title={t('Send message to thread')}
       titleIcon={<SendIcon />}
       footer={
         <>
-          <button className="devic-state-btn" onClick={handleClose} type="button">Cancel</button>
+          <button className="devic-state-btn" onClick={handleClose} type="button">
+            {t('Cancel')}
+          </button>
           <button
             className="devic-state-btn devic-state-btn-primary"
             onClick={() => onSend(message)}
             disabled={isLoading || !message.trim()}
             type="button"
           >
-            Send
+            {t('Send')}
           </button>
         </>
       }
@@ -464,14 +494,18 @@ function SendMessageModal({
       <div style={{ marginBottom: 12 }}>
         <p style={{ margin: '4px 0 12px', color: '#666', fontSize: 13 }}>
           {isRunning
-            ? 'The agent is still running. Your message will be considered on its next turn, right after the current tool response.'
-            : 'This will add your message and re-queue the thread so the agent runs again with it.'}
+            ? t(
+                'The agent is still running. Your message will be considered on its next turn, right after the current tool response.'
+              )
+            : t(
+                'This will add your message and re-queue the thread so the agent runs again with it.'
+              )}
         </p>
         <textarea
           className="devic-approval-textarea"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="Type a message to continue the thread..."
+          placeholder={t('Type a message to continue the thread...')}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && message.trim()) {
               e.preventDefault();
@@ -495,43 +529,60 @@ function CompleteModal({
   onClose: () => void;
   onComplete: (state: string) => void;
 }): JSX.Element | null {
+  const t = useTranslations();
   const [completionState, setCompletionState] = useState('terminated');
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="Complete Execution Manually"
+      title={t('Complete Execution Manually')}
       titleIcon={<WrenchIcon />}
       footer={
         <>
-          <button className="devic-state-btn" onClick={onClose} type="button">Cancel</button>
+          <button className="devic-state-btn" onClick={onClose} type="button">
+            {t('Cancel')}
+          </button>
           <button className="devic-state-btn devic-state-btn-danger" onClick={() => onComplete(completionState)} type="button">
-            Complete
+            {t('Complete')}
           </button>
         </>
       }
     >
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontWeight: 600, marginBottom: 4 }}>Confirm Manual Completion</div>
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>
+          {t('Confirm Manual Completion')}
+        </div>
         <p style={{ margin: '4px 0 12px', color: '#666', fontSize: 13 }}>
-          You are about to manually complete this agent's execution.
+          {t("You are about to manually complete this agent's execution.")}
         </p>
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontWeight: 500, marginBottom: 6, fontSize: 13 }}>Complete as:</div>
+          <div style={{ fontWeight: 500, marginBottom: 6, fontSize: 13 }}>
+            {t('Complete as:')}
+          </div>
           <select
             className="devic-completion-select"
             value={completionState}
             onChange={(e) => setCompletionState(e.target.value)}
           >
-            <option value="terminated">Terminated - Finish thread as manually terminated</option>
-            <option value="completed">Completed - Finish thread as successfully completed</option>
-            <option value="failed">Failed - Finish thread as failed or with errors</option>
+            <option value="terminated">
+              {t('Terminated - Finish thread as manually terminated')}
+            </option>
+            <option value="completed">
+              {t('Completed - Finish thread as successfully completed')}
+            </option>
+            <option value="failed">
+              {t('Failed - Finish thread as failed or with errors')}
+            </option>
           </select>
         </div>
         <div className="devic-state-warning">
           <InfoIcon />
-          <span>This action will immediately terminate all ongoing processes. The execution cannot be resumed after completion.</span>
+          <span>
+            {t(
+              'This action will immediately terminate all ongoing processes. The execution cannot be resumed after completion.'
+            )}
+          </span>
         </div>
       </div>
     </Modal>
@@ -557,6 +608,7 @@ function ConfirmModal({
   message: string;
   confirmText: string;
 }): JSX.Element | null {
+  const t = useTranslations();
   return (
     <Modal
       open={open}
@@ -565,7 +617,9 @@ function ConfirmModal({
       titleIcon={icon}
       footer={
         <>
-          <button className="devic-state-btn" onClick={onClose} type="button">Cancel</button>
+          <button className="devic-state-btn" onClick={onClose} type="button">
+            {t('Cancel')}
+          </button>
           <button className="devic-state-btn devic-state-btn-primary" onClick={onConfirm} type="button">
             {confirmText}
           </button>
@@ -596,6 +650,7 @@ export function ThreadStateTag({
   baseUrl,
   interactive = true,
 }: ThreadStateTagProps): JSX.Element {
+  const t = useTranslations();
   const context = useOptionalDevicContext();
   const resolvedApiKey = apiKey || context?.apiKey;
   const resolvedTenantSession = context?.getTenantSession;
@@ -649,10 +704,14 @@ export function ThreadStateTag({
   }, [resolvedApiKey, resolvedTenantSession, resolvedBaseUrl]);
 
   // Config
-  const config = getStateConfig(state, subthreadCount);
+  const config = getStateConfig(t, state, subthreadCount);
 
   if (!state) {
-    return <span className="devic-state-tag" data-color="default">Unknown</span>;
+    return (
+      <span className="devic-state-tag" data-color="default">
+        {t('Unknown')}
+      </span>
+    );
   }
 
   // Icon
@@ -667,26 +726,32 @@ export function ThreadStateTag({
   const getTooltipContent = (): string | null => {
     switch (state) {
       case AgentThreadState.PAUSED_FOR_APPROVAL:
-        return 'Agent is waiting for approval to resume execution';
+        return t('Agent is waiting for approval to resume execution');
       case AgentThreadState.PAUSED_FOR_RESUME:
         if (pauseUntil) {
           const timeDiff = new Date(pauseUntil).getTime() - Date.now();
           const hours = Math.floor(timeDiff / 3600000);
           const minutes = Math.floor(timeDiff / 60000);
-          const timeStr = hours > 0 ? `${hours} hours` : `${minutes} minutes`;
-          return `Agent paused, will resume at ${new Date(pauseUntil).toLocaleString()} (${timeStr})`;
+          const timeStr =
+            hours > 0
+              ? t('{count} hours', { count: hours })
+              : t('{count} minutes', { count: minutes });
+          return t('Agent paused, will resume at {when} ({in})', {
+            when: new Date(pauseUntil).toLocaleString(),
+            in: timeStr,
+          });
         }
-        return 'Agent paused, will resume at a scheduled time';
+        return t('Agent paused, will resume at a scheduled time');
       case AgentThreadState.WAITING_FOR_RESPONSE:
-        return pausedReason || 'Agent is waiting for response';
+        return pausedReason || t('Agent is waiting for response');
       case AgentThreadState.COMPLETED:
       case AgentThreadState.FAILED:
       case AgentThreadState.TERMINATED:
-        return finishReason || 'Manually finished thread';
+        return finishReason || t('Manually finished thread');
       case AgentThreadState.APPROVAL_REJECTED:
-        return approvalRejectedMessage || 'Approval was rejected';
+        return approvalRejectedMessage || t('Approval was rejected');
       case AgentThreadState.GUARDRAIL_TRIGGER:
-        return 'Agent execution paused due to guardrail trigger';
+        return t('Agent execution paused due to guardrail trigger');
       default:
         return null;
     }
@@ -701,7 +766,7 @@ export function ThreadStateTag({
 
     const client = getClient();
     if (!client) {
-      setThreadExplanation('API key not configured.');
+      setThreadExplanation(t('API key not configured.'));
       setIsLoadingExplanation(false);
       return;
     }
@@ -710,7 +775,7 @@ export function ThreadStateTag({
       const explanation = await client.explainAgentThread(threadId);
       setThreadExplanation(explanation);
     } catch {
-      setThreadExplanation('Could not obtain the thread explanation.');
+      setThreadExplanation(t('Could not obtain the thread explanation.'));
     } finally {
       setIsLoadingExplanation(false);
     }
@@ -801,7 +866,7 @@ export function ThreadStateTag({
     dropdownItems.push({
       key: 'complete',
       icon: <WrenchIcon />,
-      label: 'Complete manually',
+      label: t('Complete manually'),
       onClick: () => { setDropdownOpen(false); setCompleteModalOpen(true); },
     });
   }
@@ -810,7 +875,7 @@ export function ThreadStateTag({
     dropdownItems.push({
       key: 'pause',
       icon: <PauseIcon />,
-      label: 'Pause',
+      label: t('Pause'),
       onClick: () => { setDropdownOpen(false); setPauseModalOpen(true); },
     });
   }
@@ -819,7 +884,7 @@ export function ThreadStateTag({
     dropdownItems.push({
       key: 'resume',
       icon: <PlayIcon />,
-      label: 'Resume',
+      label: t('Resume'),
       onClick: () => { setDropdownOpen(false); setResumeModalOpen(true); },
     });
   }
@@ -828,7 +893,7 @@ export function ThreadStateTag({
     dropdownItems.push({
       key: 'review',
       icon: <EyeIcon />,
-      label: 'Review',
+      label: t('Review'),
       onClick: () => { setDropdownOpen(false); setReviewModalOpen(true); },
     });
   }
@@ -837,7 +902,7 @@ export function ThreadStateTag({
     dropdownItems.push({
       key: 'send_message',
       icon: <SendIcon />,
-      label: 'Send message...',
+      label: t('Send message...'),
       onClick: () => { setDropdownOpen(false); setSendMessageModalOpen(true); },
     });
   }
@@ -845,7 +910,7 @@ export function ThreadStateTag({
   dropdownItems.push({
     key: 'explain',
     icon: <LightbulbIcon />,
-    label: 'Explain thread...',
+    label: t('Explain thread...'),
     onClick: handleExplain,
   });
 
@@ -942,20 +1007,24 @@ export function ThreadStateTag({
         open={pauseModalOpen}
         onClose={() => setPauseModalOpen(false)}
         onConfirm={handlePause}
-        title="Pause Thread"
+        title={t('Pause Thread')}
         icon={<PauseIcon />}
-        message="You are about to pause this queued thread. It can be resumed later."
-        confirmText="Pause"
+        message={t(
+          'You are about to pause this queued thread. It can be resumed later.'
+        )}
+        confirmText={t('Pause')}
       />
 
       <ConfirmModal
         open={resumeModalOpen}
         onClose={() => setResumeModalOpen(false)}
         onConfirm={handleResume}
-        title="Resume Thread"
+        title={t('Resume Thread')}
         icon={<PlayIcon />}
-        message="You are about to resume this thread. It will go back to the queue and be processed when possible."
-        confirmText="Resume"
+        message={t(
+          'You are about to resume this thread. It will go back to the queue and be processed when possible.'
+        )}
+        confirmText={t('Resume')}
       />
 
       <ApprovalModal

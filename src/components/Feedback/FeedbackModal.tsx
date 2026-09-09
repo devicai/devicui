@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import type { FeedbackModalProps } from './Feedback.types';
+import { useTranslations } from '../../i18n';
 
 /**
  * Modal for submitting feedback with optional comment
@@ -12,6 +13,7 @@ export function FeedbackModal({
   isSubmitting = false,
   theme,
 }: FeedbackModalProps): JSX.Element | null {
+  const t = useTranslations();
   const [comment, setComment] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -91,13 +93,15 @@ export function FeedbackModal({
             {feedbackType === 'positive' ? <ThumbsUpIcon filled /> : <ThumbsDownIcon filled />}
           </span>
           <span className="devic-feedback-modal-title">
-            {feedbackType === 'positive' ? 'What did you like?' : 'What could be improved?'}
+            {feedbackType === 'positive'
+              ? t('What did you like?')
+              : t('What could be improved?')}
           </span>
           <button
             type="button"
             className="devic-feedback-modal-close"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('Close')}
           >
             <CloseIcon />
           </button>
@@ -107,7 +111,7 @@ export function FeedbackModal({
           <textarea
             ref={textareaRef}
             className="devic-feedback-textarea"
-            placeholder="Add a comment (optional)..."
+            placeholder={t('Add a comment (optional)...')}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -122,14 +126,14 @@ export function FeedbackModal({
               onClick={onClose}
               disabled={isSubmitting}
             >
-              Cancel
+              {t('Cancel')}
             </button>
             <button
               type="submit"
               className="devic-feedback-btn devic-feedback-btn--primary"
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'Sending...' : 'Submit'}
+              {isSubmitting ? t('Sending...') : t('Submit')}
             </button>
           </div>
         </form>

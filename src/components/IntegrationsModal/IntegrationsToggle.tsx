@@ -3,6 +3,7 @@ import type { Integration, TenantMcpServer } from "../../api/types";
 import { IntegrationLogo } from "./IntegrationLogo";
 import type { IntegrationsState } from "./useIntegrations";
 import type { TenantMcpState } from "./useTenantMcp";
+import { useTranslations } from "../../i18n";
 import "./IntegrationsModal.css";
 
 export interface IntegrationsToggleProps {
@@ -104,12 +105,14 @@ export function IntegrationsToggle({
   disabled,
   onChange,
   onManage,
-  label = "Apps in this chat",
+  label: labelProp,
   dark = false,
   busy = false,
   loading = false,
   className = "",
 }: IntegrationsToggleProps): JSX.Element | null {
+  const t = useTranslations();
+  const label = labelProp ?? t("Apps in this chat");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -208,7 +211,7 @@ export function IntegrationsToggle({
         disabled={busy}
         title={
           offCount
-            ? `${label} — ${offCount} switched off`
+            ? t("{label} — {count} switched off", { label, count: offCount })
             : label
         }
         aria-label={label}
@@ -229,8 +232,13 @@ export function IntegrationsToggle({
           <div className="devic-int-toggle-head">
             <strong>{label}</strong>
             <span>
-              Switched off here, {hasMcp && !hasApps ? "a server" : "an app"}{" "}
-              sits out your next message. It stays connected.
+              {hasMcp && !hasApps
+                ? t(
+                    "Switched off here, a server sits out your next message. It stays connected."
+                  )
+                : t(
+                    "Switched off here, an app sits out your next message. It stays connected."
+                  )}
             </span>
           </div>
 
@@ -249,7 +257,9 @@ export function IntegrationsToggle({
                     className="devic-int-toggle-switch"
                     checked={!off.has(integration.app)}
                     onChange={() => flip(integration.app)}
-                    aria-label={`Use ${integration.name} in this chat`}
+                    aria-label={t("Use {app} in this chat", {
+                      app: integration.name,
+                    })}
                   />
                 </label>
               </li>
@@ -259,7 +269,7 @@ export function IntegrationsToggle({
                 alone the heading would label the entire list. */}
             {hasMcp && hasApps && (
               <li className="devic-int-toggle-group" aria-hidden="true">
-                MCP servers
+                {t("MCP servers")}
               </li>
             )}
 
@@ -279,7 +289,9 @@ export function IntegrationsToggle({
                       className="devic-int-toggle-switch"
                       checked={!off.has(id)}
                       onChange={() => flip(id)}
-                      aria-label={`Use ${server.name} in this chat`}
+                      aria-label={t("Use {server} in this chat", {
+                        server: server.name,
+                      })}
                     />
                   </label>
                 </li>
@@ -297,8 +309,8 @@ export function IntegrationsToggle({
               }}
             >
               {hasMcp && !hasApps
-                ? "Manage connected servers"
-                : "Manage connected apps"}
+                ? t("Manage connected servers")
+                : t("Manage connected apps")}
             </button>
           )}
         </div>

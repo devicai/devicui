@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent, type JSX } from "react";
 import { createPortal } from "react-dom";
 import type { TenantMcpAuthInput, TenantMcpServer } from "../../api/types";
 import { isDarkTheme, themeVars, type DevicTheme } from "../theme";
+import { useTranslations } from "../../i18n";
 
 export interface McpConnectFormProps {
   /**
@@ -52,6 +53,7 @@ export function McpConnectForm({
   onSubmit,
 }: McpConnectFormProps): JSX.Element {
   const custom = !server;
+  const t = useTranslations();
   const [url, setUrl] = useState(server?.url ?? "");
   const [name, setName] = useState(server?.name ?? "");
   const [key, setKey] = useState("");
@@ -69,8 +71,8 @@ export function McpConnectForm({
   );
 
   const headerLabel = server?.headerName
-    ? `${server.headerName} value`
-    : "API key";
+    ? t("{header} value", { header: server.headerName })
+    : t("API key");
 
   const urlInvalid = useMemo(
     () => custom && touched && !/^https:\/\/.+/i.test(url.trim()),
@@ -102,7 +104,9 @@ export function McpConnectForm({
     });
   };
 
-  const title = custom ? "Add an MCP server" : `Connect ${server.name}`;
+  const title = custom
+    ? t("Add an MCP server")
+    : t("Connect {server}", { server: server.name });
 
   return createPortal(
     <div
@@ -136,17 +140,19 @@ export function McpConnectForm({
             <strong>{title}</strong>
             <span>
               {mode === "oauth"
-                ? "You'll be sent to the server to finish authorising."
+                ? t("You'll be sent to the server to finish authorising.")
                 : mode === "header"
-                  ? "Your key goes straight to the server — only you can use it."
-                  : "This server needs no credentials."}
+                  ? t(
+                      "Your key goes straight to the server — only you can use it."
+                    )
+                  : t("This server needs no credentials.")}
             </span>
           </div>
           <button
             type="button"
             className="devic-int-close"
             onClick={onCancel}
-            aria-label="Close"
+            aria-label={t("Close")}
           >
             ×
           </button>
@@ -158,7 +164,9 @@ export function McpConnectForm({
           {custom && (
             <>
               <label className="devic-int-connect-field">
-                <span className="devic-int-connect-label">Server URL</span>
+                <span className="devic-int-connect-label">
+                  {t("Server URL")}
+                </span>
                 <input
                   autoFocus
                   type="url"
@@ -171,34 +179,36 @@ export function McpConnectForm({
                   data-invalid={urlInvalid || undefined}
                 />
                 <small className="devic-int-connect-hint">
-                  Must be reachable over https on a public address.
+                  {t("Must be reachable over https on a public address.")}
                 </small>
               </label>
 
               <label className="devic-int-connect-field">
                 <span className="devic-int-connect-label">
-                  Name <em>(optional)</em>
+                  {t("Name")} <em>{t("(optional)")}</em>
                 </span>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="What you want to call it"
+                  placeholder={t("What you want to call it")}
                   autoComplete="off"
                 />
               </label>
 
               <label className="devic-int-connect-field">
-                <span className="devic-int-connect-label">Authentication</span>
+                <span className="devic-int-connect-label">
+                  {t("Authentication")}
+                </span>
                 <select
                   value={mode}
                   onChange={(e) =>
                     setMode(e.target.value as TenantMcpAuthInput["mode"])
                   }
                 >
-                  <option value="oauth">Sign in (OAuth)</option>
-                  <option value="header">API key</option>
-                  <option value="none">None</option>
+                  <option value="oauth">{t("Sign in (OAuth)")}</option>
+                  <option value="header">{t("API key")}</option>
+                  <option value="none">{t("None")}</option>
                 </select>
               </label>
             </>
@@ -228,8 +238,9 @@ export function McpConnectForm({
                   after the first attempt. */}
               {needsClientCredentials && (
                 <div className="devic-int-notice">
-                  This server needs its own OAuth application. Register one with
-                  it and paste the details below.
+                  {t(
+                    "This server needs its own OAuth application. Register one with it and paste the details below."
+                  )}
                 </div>
               )}
               <button
@@ -238,14 +249,14 @@ export function McpConnectForm({
                 onClick={() => setShowClient((prev) => !prev)}
                 aria-expanded={showClient}
               >
-                {showClient ? "▾" : "▸"} Use my own OAuth application
+                {showClient ? "▾" : "▸"} {t("Use my own OAuth application")}
               </button>
 
               {showClient && (
                 <>
                   <label className="devic-int-connect-field">
                     <span className="devic-int-connect-label">
-                      Client ID <em>(optional)</em>
+                      {t("Client ID")} <em>{t("(optional)")}</em>
                     </span>
                     <input
                       type="text"
@@ -257,7 +268,7 @@ export function McpConnectForm({
                   </label>
                   <label className="devic-int-connect-field">
                     <span className="devic-int-connect-label">
-                      Client secret <em>(optional)</em>
+                      {t("Client secret")} <em>{t("(optional)")}</em>
                     </span>
                     <input
                       type="password"
@@ -270,11 +281,13 @@ export function McpConnectForm({
                   {callbackUrl && (
                     <label className="devic-int-connect-field">
                       <span className="devic-int-connect-label">
-                        Authorised redirect URI
+                        {t("Authorised redirect URI")}
                       </span>
                       <input readOnly value={callbackUrl} spellCheck={false} />
                       <small className="devic-int-connect-hint">
-                        Add this to your OAuth application, exactly as shown.{" "}
+                        {t(
+                          "Add this to your OAuth application, exactly as shown."
+                        )}{" "}
                         <button
                           type="button"
                           className="devic-int-mcp-copy"
@@ -285,7 +298,7 @@ export function McpConnectForm({
                               .catch(() => undefined);
                           }}
                         >
-                          {copied ? "Copied" : "Copy"}
+                          {copied ? t("Copied") : t("Copy")}
                         </button>
                       </small>
                     </label>
@@ -303,14 +316,18 @@ export function McpConnectForm({
             onClick={onCancel}
             disabled={submitting}
           >
-            Cancel
+            {t("Cancel")}
           </button>
           <button
             type="submit"
             className="devic-int-btn devic-int-btn-primary"
             disabled={submitting}
           >
-            {submitting ? "Connecting…" : mode === "oauth" ? "Continue" : "Connect"}
+            {submitting
+              ? t("Connecting…")
+              : mode === "oauth"
+                ? t("Continue")
+                : t("Connect")}
           </button>
         </div>
       </form>

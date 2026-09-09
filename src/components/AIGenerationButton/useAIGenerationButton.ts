@@ -3,6 +3,7 @@ import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from '../../api/client';
 import { usePolling, resolvePollingInterval } from '../../hooks/usePolling';
 import { useModelInterface } from '../../hooks/useModelInterface';
+import { useTranslations } from '../../i18n';
 import type {
   ChatMessage,
   ModelInterfaceTool,
@@ -86,6 +87,7 @@ export function useAIGenerationButton(
   } = options;
 
   const { mode = 'modal' } = buttonOptions;
+  const t = useTranslations();
 
   // Get context
   const context = useOptionalDevicContext();
@@ -247,7 +249,7 @@ export function useAIGenerationButton(
     shouldPoll ? chatUid : null,
     async () => {
       if (!clientRef.current || !chatUid) {
-        throw new Error('Cannot poll without client or chatUid');
+        throw new Error(t('Cannot poll without client or chatUid'));
       }
       return clientRef.current.getRealtimeHistory(assistantId, chatUid);
     },
@@ -277,7 +279,7 @@ export function useAIGenerationButton(
 
         if (data?.status === 'error') {
           setIsProcessing(false);
-          const err = new Error('Processing failed');
+          const err = new Error(t('Processing failed'));
           setError(err);
           onErrorRef.current?.(err);
           resolveRef.current?.(null);
@@ -361,7 +363,7 @@ export function useAIGenerationButton(
       }
 
       if (!finalPrompt.trim()) {
-        const err = new Error('Prompt is required');
+        const err = new Error(t('Prompt is required'));
         setError(err);
         onErrorRef.current?.(err);
         return null;
@@ -372,7 +374,9 @@ export function useAIGenerationButton(
       }
 
       if (!clientRef.current) {
-        const err = new Error('API client not configured. Please provide an API key.');
+        const err = new Error(
+          t('API client not configured. Please provide an API key.')
+        );
         setError(err);
         onErrorRef.current?.(err);
         return null;

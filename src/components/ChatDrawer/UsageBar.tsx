@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from '../../api/client';
 import type { TenantUsage, TenantUsageRule } from '../../api/types';
+import { useTranslations } from '../../i18n';
+import type { Translator } from '../../i18n';
 
 /**
  * Controls what each usage row renders. All flags compose, so a developer can,
@@ -124,21 +126,24 @@ function formatAmount(value: number, metric: 'tokens' | 'cost'): string {
   return Math.round(value).toLocaleString();
 }
 
-function windowLabel(unit: string, every: number): string {
-  const u = every > 1 ? `${unit}s` : unit;
-  return every > 1 ? `every ${every} ${u}` : `per ${unit}`;
+// The unit names are translated on their own so a dictionary can decline
+// them; the sentence around them is a separate entry with placeholders, which
+// is what a language with a different word order needs.
+function windowLabel(t: Translator, unit: string, every: number): string {
+  const u = every > 1 ? t(`{count} ${unit}s`, { count: every }) : t(unit);
+  return every > 1 ? t('every {window}', { window: u }) : t('per {window}', { window: u });
 }
 
-function resetLabel(resetsAt?: number): string {
+function resetLabel(t: Translator, resetsAt?: number): string {
   if (!resetsAt) return '';
   const ms = resetsAt - Date.now();
-  if (ms <= 0) return 'resets now';
+  if (ms <= 0) return t('resets now');
   const mins = Math.round(ms / 60000);
-  if (mins < 60) return `resets in ${mins}m`;
+  if (mins < 60) return t('resets in {count}m', { count: mins });
   const hours = Math.round(mins / 60);
-  if (hours < 48) return `resets in ${hours}h`;
+  if (hours < 48) return t('resets in {count}h', { count: hours });
   const days = Math.round(hours / 24);
-  return `resets in ${days}d`;
+  return t('resets in {count}d', { count: days });
 }
 
 /**
@@ -159,6 +164,7 @@ export function UsageBar({
   refreshKey,
   debug = false,
 }: UsageBarProps): JSX.Element | null {
+  const t = useTranslations();
   const cfg = useMemo(() => ({ ...DEFAULT_DISPLAY, ...display }), [display]);
 
   const devicContext = useOptionalDevicContext();
@@ -241,10 +247,10 @@ export function UsageBar({
           type="button"
           className="devic-usage-toggle"
           onClick={() => setVisible(true)}
-          title="Show usage"
+          title={t('Show usage')}
         >
           <GaugeIcon />
-          <span>Usage</span>
+          <span>{t('Usage')}</span>
         </button>
       </div>
     );
@@ -258,13 +264,15 @@ export function UsageBar({
       return (
         <div className="devic-usage-bar-wrap" data-mode="onDemand">
           <div className="devic-usage-bar" data-empty="true">
-            <span className="devic-usage-bar-label">No usage limits</span>
+            <span className="devic-usage-bar-label">
+              {t('No usage limits')}
+            </span>
             <button
               type="button"
               className="devic-usage-collapse"
               onClick={() => setVisible(false)}
-              title="Hide usage"
-              aria-label="Hide usage"
+              title={t('Hide usage')}
+              aria-label={t('Hide usage')}
             >
               &times;
             </button>
@@ -283,7 +291,7 @@ export function UsageBar({
     showTierChip || mode === 'onDemand' ? (
       <div className="devic-usage-bar-head">
         {showTierChip ? (
-          <span className="devic-usage-tier" title={`Tier: ${tierId}`}>
+          <span className="devic-usage-tier" title={t('Tier: {tier}', { tier: tierId })}>
             {tierId}
           </span>
         ) : (
@@ -294,8 +302,8 @@ export function UsageBar({
             type="button"
             className="devic-usage-collapse"
             onClick={() => setVisible(false)}
-            title="Hide usage"
-            aria-label="Hide usage"
+            title={t('Hide usage')}
+            aria-label={t('Hide usage')}
           >
             &times;
           </button>
@@ -314,23 +322,23 @@ export function UsageBar({
           const valuesText = `${formatAmount(rule.current, rule.metric)} / ${formatAmount(
             rule.limit,
             rule.metric,
-          )} ${rule.metric}`;
+          )} ${t(rule.metric)}`;
           // Distinguish rows by metric when several render; otherwise use the
           // scope-aware label so single-rule mode reads "Usage 24%".
           const prefix = multi
             ? rule.metric === 'cost'
-              ? 'Cost'
-              : 'Tokens'
+              ? t('Cost')
+              : t('Tokens')
             : rule.scope === 'subtenant'
-              ? 'Your usage'
-              : 'Usage';
+              ? t('Your usage')
+              : t('Usage');
           const main: string[] = [];
           if (cfg.showPercent) main.push(`${pct}%`);
           if (cfg.showValues) main.push(valuesText);
           if (main.length === 0) main.push(`${pct}%`);
           const label = `${prefix} ${main.join(' · ')}`.trim();
-          const reset = resetLabel(rule.resetsAt);
-          const win = windowLabel(rule.windowUnit, rule.windowEvery);
+          const reset = resetLabel(t, rule.resetsAt);
+          const win = windowLabel(t, rule.windowUnit, rule.windowEvery);
           const title = `${valuesText} · ${win}${reset ? ` · ${reset}` : ''}`;
 
           return (

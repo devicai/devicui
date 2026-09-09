@@ -7,6 +7,7 @@ import type {
 import type { DevicTheme } from "../theme";
 import { McpConnectForm } from "./McpConnectForm";
 import type { TenantMcpState } from "./useTenantMcp";
+import { useTranslations, type Translator } from "../../i18n";
 
 export interface McpServersSectionProps {
   state: TenantMcpState;
@@ -30,16 +31,21 @@ function newNonce(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-function stateOf(server: TenantMcpServer): {
+function stateOf(
+  t: Translator,
+  server: TenantMcpServer
+): {
   key: "connected" | "reconnect" | "disconnected";
   label: string;
 } {
   const status = server.connection?.status;
-  if (status === "active") return { key: "connected", label: "Connected" };
-  if (status === "error") return { key: "reconnect", label: "Needs attention" };
+  if (status === "active") return { key: "connected", label: t("Connected") };
+  if (status === "error") {
+    return { key: "reconnect", label: t("Needs attention") };
+  }
   if (status === "pending_auth")
-    return { key: "reconnect", label: "Waiting for sign-in" };
-  return { key: "disconnected", label: "Not connected" };
+    return { key: "reconnect", label: t("Waiting for sign-in") };
+  return { key: "disconnected", label: t("Not connected") };
 }
 
 function matches(server: TenantMcpServer, query: string): boolean {
@@ -76,6 +82,7 @@ export function McpServersSection({
   theme,
   query = "",
 }: McpServersSectionProps): JSX.Element | null {
+  const t = useTranslations();
   const { servers, allowCustom, limits, loading, client, scope, refresh } = state;
 
   const [actionError, setActionError] = useState<string | null>(null);
@@ -193,7 +200,7 @@ export function McpServersSection({
       if (result.status === "error") {
         popup?.close();
         setBusyKey(null);
-        setFormError(result.error ?? "The server could not be reached.");
+        setFormError(result.error ?? t("The server could not be reached."));
         return;
       }
 
@@ -251,15 +258,17 @@ export function McpServersSection({
   return (
     <div className="devic-int-mcp-section">
       <div className="devic-int-mcp-heading">
-        <h4>MCP servers</h4>
-        <span>Connect a server and its tools become available in this chat.</span>
+        <h4>{t("MCP servers")}</h4>
+        <span>
+          {t("Connect a server and its tools become available in this chat.")}
+        </span>
       </div>
 
       {actionError && <div className="devic-int-error">{actionError}</div>}
 
       {blockedUrl && (
         <div className="devic-int-notice">
-          Your browser blocked the pop-up.{" "}
+          {t("Your browser blocked the pop-up.")}{" "}
           <a
             href={blockedUrl.url}
             target="_blank"
@@ -269,16 +278,16 @@ export function McpServersSection({
               setBlockedUrl(null);
             }}
           >
-            Open the authorisation page
+            {t("Open the authorisation page")}
           </a>{" "}
-          and come back — then use Refresh.
+          {t("and come back — then use Refresh.")}
         </div>
       )}
 
       {visible.length > 0 && (
         <div className="devic-int-grid">
           {visible.map((server) => {
-            const cardState = stateOf(server);
+            const cardState = stateOf(t, server);
             const rowKey = keyOf(server);
             const busy = busyKey === rowKey;
             const connection = server.connection;
@@ -326,15 +335,18 @@ export function McpServersSection({
                 {connection?.shared && (
                   // Worth saying before they wonder why they cannot remove it.
                   <div className="devic-int-mcp-note">
-                    Connected for everyone on this account
+                    {t("Connected for everyone on this account")}
                   </div>
                 )}
 
                 {connection?.status === "active" &&
                   typeof connection.toolCount === "number" && (
                     <div className="devic-int-mcp-note">
-                      {connection.toolCount} tool
-                      {connection.toolCount === 1 ? "" : "s"} available
+                      {connection.toolCount === 1
+                        ? t("1 tool available")
+                        : t("{count} tools available", {
+                            count: connection.toolCount,
+                          })}
                     </div>
                   )}
 
@@ -361,17 +373,19 @@ export function McpServersSection({
                   }
                   title={
                     connection?.readOnly
-                      ? "This server was connected for the whole account."
+                      ? t("This server was connected for the whole account.")
                       : !connection && atLimit
-                        ? `You can have ${limits.maxServers} connected at a time.`
+                        ? t("You can have {max} connected at a time.", {
+                            max: limits.maxServers,
+                          })
                         : undefined
                   }
                 >
                   {busy
-                    ? "Waiting…"
+                    ? t("Waiting…")
                     : cardState.key === "disconnected"
-                      ? "Connect"
-                      : "Reconnect"}
+                      ? t("Connect")
+                      : t("Reconnect")}
                 </button>
 
                 {connection && !connection.readOnly && (
@@ -381,7 +395,7 @@ export function McpServersSection({
                     onClick={() => void disconnect(server)}
                     disabled={!!busyKey}
                   >
-                    Disconnect
+                    {t("Disconnect")}
                   </button>
                 )}
               </div>
@@ -398,13 +412,15 @@ export function McpServersSection({
           disabled={loading || !!busyKey || atLimit}
           title={
             atLimit
-              ? `You can have ${limits.maxServers} MCP server${
-                  limits.maxServers === 1 ? "" : "s"
-                } connected at a time.`
+              ? limits.maxServers === 1
+                ? t("You can have 1 MCP server connected at a time.")
+                : t("You can have {max} MCP servers connected at a time.", {
+                    max: limits.maxServers,
+                  })
               : undefined
           }
         >
-          + Add your own MCP
+          {t("+ Add your own MCP")}
         </button>
       )}
 

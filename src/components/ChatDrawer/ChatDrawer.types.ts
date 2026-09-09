@@ -6,6 +6,7 @@ import type { UsageBarDisplay, UsageBarData } from './UsageBar';
 import type { RecalledMemoriesRenderer } from './RecalledMemoriesWidget';
 import type { CompactionRenderer } from './CompactionWidget';
 import type { CoreMemoryLabels } from '../CoreMemoryModal';
+import type { DevicTranslations } from '../../i18n';
 
 /**
  * A suggested message displayed as a quick action button.
@@ -736,6 +737,17 @@ export interface ChatDrawerOptions {
    * @default "Apps in this chat"
    */
   integrationsToggleLabel?: string;
+
+  /**
+   * Translations for the texts the drawer renders itself, keyed by the exact
+   * English text: `{ 'New chat': 'Nueva conversación' }`.
+   *
+   * Merged on top of the `DevicProvider`'s `translations` and passed down to
+   * everything the drawer mounts — the message list, the composer, the usage
+   * bar and the dialogs it opens. Anything absent stays as the provider left
+   * it, or in English.
+   */
+  translations?: DevicTranslations;
 }
 
 /**

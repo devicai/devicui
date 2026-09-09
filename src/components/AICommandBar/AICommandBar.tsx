@@ -6,6 +6,7 @@ import { DevicApiClient } from '../../api/client';
 import type { AICommandBarProps, AICommandBarHandle, AICommandBarOptions, ToolCallSummary } from './AICommandBar.types';
 import type { ToolGroupCall } from '../../api/types';
 import { segmentToolCalls } from '../../utils/toolGroups';
+import { DevicTranslationsProvider, useTranslations } from '../../i18n';
 import type { FeedbackState, FeedbackTheme } from '../Feedback';
 import './AICommandBar.css';
 import '../Feedback/Feedback.css';
@@ -78,6 +79,7 @@ const DEFAULT_OPTIONS: Required<AICommandBarOptions> = {
   commands: undefined as any,
   showHistoryCommand: true,
   toolGroups: undefined as any,
+  translations: undefined as any,
 };
 
 /**
@@ -126,6 +128,8 @@ export const AICommandBar = forwardRef<AICommandBarHandle, AICommandBarProps>(
       () => ({ ...DEFAULT_OPTIONS, ...options }),
       [options]
     );
+
+    const t = useTranslations(mergedOptions.translations);
 
     const hook = useAICommandBar({
       assistantId,
@@ -400,6 +404,7 @@ export const AICommandBar = forwardRef<AICommandBarHandle, AICommandBarProps>(
     };
 
     return (
+      <DevicTranslationsProvider translations={mergedOptions.translations}>
       <div
         ref={containerRef}
         className={`devic-command-bar-container ${className || ''}`}
@@ -411,9 +416,10 @@ export const AICommandBar = forwardRef<AICommandBarHandle, AICommandBarProps>(
         {hook.showingCommands && hook.filteredCommands.length > 0 && (
           <div className="devic-command-bar-dropdown">
             <div className="devic-command-bar-dropdown-header">
-              <span>Commands</span>
+              <span>{t('Commands')}</span>
               <span className="devic-command-bar-dropdown-hint">
-                <kbd>↑</kbd><kbd>↓</kbd> to navigate, <kbd>Enter</kbd> to select
+                <kbd>↑</kbd><kbd>↓</kbd> {t('to navigate,')} <kbd>Enter</kbd>{' '}
+                {t('to select')}
               </span>
             </div>
             <div className="devic-command-bar-dropdown-list">
@@ -440,7 +446,7 @@ export const AICommandBar = forwardRef<AICommandBarHandle, AICommandBarProps>(
         {hook.showingHistory && (
           <div className="devic-command-bar-dropdown">
             <div className="devic-command-bar-dropdown-header">
-              <span>Command History</span>
+              <span>{t('Command History')}</span>
               {hook.history.length > 0 && (
                 <button
                   className="devic-command-bar-dropdown-clear"
@@ -450,13 +456,15 @@ export const AICommandBar = forwardRef<AICommandBarHandle, AICommandBarProps>(
                   }}
                   type="button"
                 >
-                  Clear
+                  {t('Clear')}
                 </button>
               )}
             </div>
             <div className="devic-command-bar-dropdown-list" style={resultMessageStyle}>
               {hook.history.length === 0 ? (
-                <div className="devic-command-bar-dropdown-empty">No history yet</div>
+                <div className="devic-command-bar-dropdown-empty">
+                  {t('No history yet')}
+                </div>
               ) : (
                 hook.history.map((item, index) => (
                   <div
@@ -489,7 +497,7 @@ export const AICommandBar = forwardRef<AICommandBarHandle, AICommandBarProps>(
                   onClick={() => setToolsExpanded(!toolsExpanded)}
                 >
                   <ChevronIcon className="devic-command-bar-result-tools-chevron" />
-                  <span>Tool calls</span>
+                  <span>{t('Tool calls')}</span>
                   <span className="devic-command-bar-result-tools-count">
                     {hook.result.toolCalls.length}
                   </span>
@@ -506,7 +514,9 @@ export const AICommandBar = forwardRef<AICommandBarHandle, AICommandBarProps>(
             {/* Message section */}
             <div className="devic-command-bar-result-message" style={resultMessageStyle}>
               {hook.result.message.content?.message || (
-                <span className="devic-command-bar-result-empty">No response</span>
+                <span className="devic-command-bar-result-empty">
+                  {t('No response')}
+                </span>
               )}
             </div>
 
@@ -546,14 +556,14 @@ export const AICommandBar = forwardRef<AICommandBarHandle, AICommandBarProps>(
           {/* Center: Input or Processing Summary */}
           {hook.isProcessing ? (
             <div className="devic-command-bar-summary">
-              {hook.currentToolSummary || mergedOptions.processingMessage}...
+              {hook.currentToolSummary || t(mergedOptions.processingMessage)}...
             </div>
           ) : (
             <input
               ref={hook.inputRef}
               type="text"
               className="devic-command-bar-input"
-              placeholder={mergedOptions.placeholder}
+              placeholder={t(mergedOptions.placeholder)}
               value={hook.inputValue}
               onChange={(e) => hook.setInputValue(e.target.value)}
               onKeyDown={hook.handleKeyDown}
@@ -568,6 +578,7 @@ export const AICommandBar = forwardRef<AICommandBarHandle, AICommandBarProps>(
           )}
         </div>
       </div>
+      </DevicTranslationsProvider>
     );
   }
 );

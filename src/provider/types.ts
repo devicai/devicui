@@ -1,4 +1,5 @@
 import type { DevicApiClient } from '../api/client';
+import type { DevicTranslations } from '../i18n/types';
 
 /**
  * Tenant-level identity metadata sent to the Devic API. Used for per-tenant
@@ -148,6 +149,34 @@ export interface DevicProviderConfig {
   pollingInterval?: number;
 
   /**
+   * Translations for the texts the library renders itself — the drawer
+   * header, the input placeholder, the buttons and tooltips of every widget.
+   *
+   * A plain `English text → your text` map, so the values come from whatever
+   * i18n system the host already runs (i18next, react-intl, a JSON per
+   * locale): nothing is looked up here beyond the key. Anything absent stays
+   * in English, so a partial dictionary is fine, and texts already
+   * configurable on their own (`welcomeMessage`, `inputPlaceholder`, …) keep
+   * winning over it.
+   *
+   * Texts with a `{name}` placeholder keep it in the translation; the
+   * placeholders are filled after the lookup, so they may be reordered.
+   *
+   * @example
+   * ```tsx
+   * <DevicProvider
+   *   apiKey="devic-xxx"
+   *   translations={{
+   *     'New chat': 'Nueva conversación',
+   *     'Type a message...': 'Escribe un mensaje...',
+   *     'Close chat': 'Cerrar el chat',
+   *   }}
+   * >
+   * ```
+   */
+  translations?: DevicTranslations;
+
+  /**
    * Enable debug logging to the browser console
    * @default false
    */
@@ -241,6 +270,12 @@ export interface DevicContextValue {
    * integrator did not configure one, so each component keeps its own default.
    */
   pollingInterval?: number;
+
+  /**
+   * Translations for the texts the library renders itself, keyed by the
+   * English text. Undefined when the integrator configured none.
+   */
+  translations?: DevicTranslations;
 
   /**
    * Whether the provider is properly configured

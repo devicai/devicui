@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { FeedbackModal } from './FeedbackModal';
 import type { MessageActionsProps, FeedbackState } from './Feedback.types';
+import { useTranslations } from '../../i18n';
 
 /**
  * Action buttons for a message (copy, thumbs up, thumbs down)
@@ -16,6 +17,7 @@ export function MessageActions({
   disabled = false,
   theme,
 }: MessageActionsProps): JSX.Element {
+  const t = useTranslations();
   const [feedbackState, setFeedbackState] = useState<FeedbackState>(currentFeedback);
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingFeedbackType, setPendingFeedbackType] = useState<'positive' | 'negative'>('positive');
@@ -78,8 +80,8 @@ export function MessageActions({
             className={`devic-action-btn ${copied ? 'devic-action-btn--active' : ''}`}
             onClick={handleCopy}
             disabled={disabled}
-            title="Copy to clipboard"
-            aria-label="Copy to clipboard"
+            title={t('Copy to clipboard')}
+            aria-label={t('Copy to clipboard')}
           >
             {copied ? <CheckIcon /> : <CopyIcon />}
           </button>
@@ -92,8 +94,8 @@ export function MessageActions({
               className={`devic-action-btn ${feedbackState === 'positive' ? 'devic-action-btn--active devic-action-btn--positive' : ''}`}
               onClick={() => handleFeedbackClick('positive')}
               disabled={disabled}
-              title="Good response"
-              aria-label="Good response"
+              title={t('Good response')}
+              aria-label={t('Good response')}
             >
               <ThumbsUpIcon filled={feedbackState === 'positive'} />
             </button>
@@ -103,8 +105,8 @@ export function MessageActions({
               className={`devic-action-btn ${feedbackState === 'negative' ? 'devic-action-btn--active devic-action-btn--negative' : ''}`}
               onClick={() => handleFeedbackClick('negative')}
               disabled={disabled}
-              title="Bad response"
-              aria-label="Bad response"
+              title={t('Bad response')}
+              aria-label={t('Bad response')}
             >
               <ThumbsDownIcon filled={feedbackState === 'negative'} />
             </button>
