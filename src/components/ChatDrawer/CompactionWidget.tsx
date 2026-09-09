@@ -1,4 +1,5 @@
 import { useState, type JSX, type ReactNode } from "react";
+import { useTranslations } from "../../i18n";
 import type {
   CompactionActivity,
   CompactionCheckpoint,
@@ -162,6 +163,7 @@ export function CompactionWidget({
   renderer,
   expandable = false,
 }: CompactionWidgetProps): JSX.Element | null {
+  const t = useTranslations();
   const [expanded, setExpanded] = useState(false);
 
   if (renderer) {
@@ -177,11 +179,14 @@ export function CompactionWidget({
         <span className="devic-compaction-rule" />
         <span className="devic-compaction-pill">
           <CompressIcon />
-          <span className="devic-compaction-title">Compacting context</span>
+          <span className="devic-compaction-title">
+            {t("Compacting context")}
+          </span>
           <span className="devic-compaction-meta">
-            {activity!.messageCount} message
-            {activity!.messageCount === 1 ? "" : "s"} ·{" "}
-            {formatTokens(activity!.tokensBefore)} tokens
+            {activity!.messageCount === 1
+              ? t("1 message")
+              : t("{count} messages", { count: activity!.messageCount })}{" "}
+            · {t("{tokens} tokens", { tokens: formatTokens(activity!.tokensBefore) })}
           </span>
           <span className="devic-compaction-dots" aria-hidden="true">
             <i />
@@ -197,9 +202,15 @@ export function CompactionWidget({
   const summary = checkpoint.summary || {};
   const structured = hasStructure(summary);
 
-  const tooltip = `${checkpoint.compactedMessageCount} message${
-    checkpoint.compactedMessageCount === 1 ? "" : "s"
-  } are still in this conversation but no longer sent to the assistant`;
+  const tooltip =
+    checkpoint.compactedMessageCount === 1
+      ? t(
+          "1 message is still in this conversation but no longer sent to the assistant"
+        )
+      : t(
+          "{count} messages are still in this conversation but no longer sent to the assistant",
+          { count: checkpoint.compactedMessageCount }
+        );
 
   //The headline, identical either way: whether the checkpoint can be opened
   //changes what the reader may inspect, never what the marker claims.
@@ -207,20 +218,24 @@ export function CompactionWidget({
     <>
       <CompressIcon />
       <span className="devic-compaction-title">
-        Context compacted
+        {t("Context compacted")}
         {checkpoint.index > 1 ? ` (#${checkpoint.index})` : ""}
       </span>
       <span className="devic-compaction-meta">
-        {checkpoint.compactedMessageCount} messages ·{" "}
-        {formatTokens(checkpoint.tokensBefore)} →{" "}
-        {formatTokens(checkpoint.tokensAfter)} tokens
+        {t("{count} messages", { count: checkpoint.compactedMessageCount })} ·{" "}
+        {t("{before} → {after} tokens", {
+          before: formatTokens(checkpoint.tokensBefore),
+          after: formatTokens(checkpoint.tokensAfter),
+        })}
       </span>
       {!isActive && (
         <span
           className="devic-compaction-tag"
-          title="Superseded by a later compaction, which merged this summary into itself. Kept for the record."
+          title={t(
+            "Superseded by a later compaction, which merged this summary into itself. Kept for the record."
+          )}
         >
-          superseded
+          {t("superseded")}
         </span>
       )}
     </>
@@ -257,33 +272,34 @@ export function CompactionWidget({
       {expandable && expanded && (
         <div className="devic-compaction-body">
           <div className="devic-compaction-note">
-            This is what the assistant reads in place of the messages above.
-            The messages themselves are still here.
+            {t(
+              "This is what the assistant reads in place of the messages above. The messages themselves are still here."
+            )}
           </div>
 
           {structured && (
             <>
-              {summary.goal && <Section title="Goal">{summary.goal}</Section>}
+              {summary.goal && <Section title={t("Goal")}>{summary.goal}</Section>}
               {!!summary.constraints?.length && (
-                <Section title="Constraints">
+                <Section title={t("Constraints")}>
                   <Bullets items={summary.constraints} />
                 </Section>
               )}
               {summary.inProgress && (
-                <Section title="In progress">{summary.inProgress}</Section>
+                <Section title={t("In progress")}>{summary.inProgress}</Section>
               )}
               {!!summary.pending?.length && (
-                <Section title="Pending">
+                <Section title={t("Pending")}>
                   <Bullets items={summary.pending} />
                 </Section>
               )}
               {!!summary.decisions?.length && (
-                <Section title="Decisions">
+                <Section title={t("Decisions")}>
                   <Bullets items={summary.decisions} />
                 </Section>
               )}
               {!!summary.data?.length && (
-                <Section title="Key data">
+                <Section title={t("Key data")}>
                   <Bullets
                     items={summary.data.map((entry) =>
                       entry.label ? `${entry.label}: ${entry.value}` : entry.value
@@ -292,12 +308,12 @@ export function CompactionWidget({
                 </Section>
               )}
               {!!summary.done?.length && (
-                <Section title="Done">
+                <Section title={t("Done")}>
                   <Bullets items={summary.done} />
                 </Section>
               )}
               {!!summary.openQuestions?.length && (
-                <Section title="Open questions">
+                <Section title={t("Open questions")}>
                   <Bullets items={summary.openQuestions} />
                 </Section>
               )}
@@ -305,13 +321,13 @@ export function CompactionWidget({
           )}
 
           {summary.raw && (
-            <Section title={structured ? "Notes" : "Summary"}>
+            <Section title={structured ? t("Notes") : t("Summary")}>
               <div className="devic-compaction-raw">{summary.raw}</div>
             </Section>
           )}
 
           {!!checkpoint.facts?.length && (
-            <Section title="Preserved exactly">
+            <Section title={t("Preserved exactly")}>
               <div className="devic-compaction-facts">
                 {checkpoint.facts.map((fact, i) => (
                   <span key={i} className="devic-compaction-fact">

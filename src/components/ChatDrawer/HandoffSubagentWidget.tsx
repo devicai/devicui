@@ -7,6 +7,7 @@ import { ThreadStateTag } from '../ThreadStateTag';
 import { resolvePollingInterval } from '../../hooks/usePolling';
 import { createLogger } from '../../utils/logger';
 import { avatarUri } from '../../utils/avatar';
+import { useTranslations } from '../../i18n';
 
 const TERMINAL_STATES: AgentThreadState[] = [
   AgentThreadState.COMPLETED,
@@ -74,6 +75,7 @@ export function HandoffSubagentWidget({
   pollingInterval,
   renderWidget,
 }: HandoffSubagentWidgetProps): JSX.Element {
+  const t = useTranslations();
   const context = useOptionalDevicContext();
   const resolvedApiKey = apiKey || context?.apiKey;
   const resolvedBaseUrl = baseUrl || context?.baseUrl || 'https://api.devic.ai';
@@ -227,7 +229,7 @@ export function HandoffSubagentWidget({
           )}
         </div>
         <span className="devic-handoff-agent-name">
-          {agent?.name || thread?.name || 'Subagent'}
+          {agent?.name || thread?.name || t('Subagent')}
         </span>
       </div>
 
@@ -237,7 +239,7 @@ export function HandoffSubagentWidget({
           <ThreadStateTag
             state={thread.state}
             threadId={thread._id || subThreadId}
-            agentName={agent?.name || thread?.name || 'Subagent'}
+            agentName={agent?.name || thread?.name || t('Subagent')}
             pausedReason={thread.pausedReason}
             finishReason={thread.finishReason}
             pauseUntil={thread.pauseUntil}

@@ -8,6 +8,7 @@ import type {
 import type { ToolGroupCall } from '../../api/types';
 import type { ToolCallSummary } from '../AICommandBar/AICommandBar.types';
 import { segmentToolCalls } from '../../utils/toolGroups';
+import { DevicTranslationsProvider, useTranslations } from '../../i18n';
 import './AIGenerationButton.css';
 
 const DEFAULT_OPTIONS: Required<AIGenerationButtonOptions> = {
@@ -39,6 +40,7 @@ const DEFAULT_OPTIONS: Required<AIGenerationButtonOptions> = {
   toolRenderers: undefined as any,
   toolIcons: undefined as any,
   processingMessage: 'Processing...',
+  translations: undefined as any,
   toolGroups: undefined as any,
 };
 
@@ -109,6 +111,8 @@ export const AIGenerationButton = forwardRef<AIGenerationButtonHandle, AIGenerat
       () => ({ ...DEFAULT_OPTIONS, ...options }),
       [options]
     );
+
+    const t = useTranslations(mergedOptions.translations);
 
     const hook = useAIGenerationButton({
       assistantId,
@@ -262,7 +266,9 @@ export const AIGenerationButton = forwardRef<AIGenerationButtonHandle, AIGenerat
           )}
           {!mergedOptions.hideLabel && (
             <span className="devic-gen-button-label">
-              {showButtonLoading ? mergedOptions.loadingLabel : mergedOptions.label}
+              {showButtonLoading
+                ? t(mergedOptions.loadingLabel)
+                : t(mergedOptions.label)}
             </span>
           )}
         </>
@@ -360,13 +366,14 @@ export const AIGenerationButton = forwardRef<AIGenerationButtonHandle, AIGenerat
         <div className="devic-gen-processing-status">
           <span className="devic-gen-spinner devic-gen-spinner-small" />
           <span className="devic-gen-processing-text">
-            {hook.currentToolSummary || mergedOptions.processingMessage}
+            {hook.currentToolSummary || t(mergedOptions.processingMessage)}
           </span>
         </div>
       );
     };
 
     return (
+      <DevicTranslationsProvider translations={mergedOptions.translations}>
       <div
         ref={containerRef}
         className={`devic-gen-container ${containerClassName || ''}`}
@@ -400,7 +407,7 @@ export const AIGenerationButton = forwardRef<AIGenerationButtonHandle, AIGenerat
             <textarea
               ref={hook.inputRef}
               className="devic-gen-input"
-              placeholder={mergedOptions.placeholder}
+              placeholder={t(mergedOptions.placeholder)}
               value={hook.inputValue}
               onChange={(e) => hook.setInputValue(e.target.value)}
               onKeyDown={hook.handleKeyDown}
@@ -417,7 +424,7 @@ export const AIGenerationButton = forwardRef<AIGenerationButtonHandle, AIGenerat
                 onClick={hook.close}
                 disabled={hook.isProcessing}
               >
-                {mergedOptions.cancelText}
+                {t(mergedOptions.cancelText)}
               </button>
               <button
                 type="button"
@@ -428,10 +435,10 @@ export const AIGenerationButton = forwardRef<AIGenerationButtonHandle, AIGenerat
                 {hook.isProcessing ? (
                   <>
                     <span className="devic-gen-spinner devic-gen-spinner-small" />
-                    {mergedOptions.loadingLabel}
+                    {t(mergedOptions.loadingLabel)}
                   </>
                 ) : (
-                  mergedOptions.confirmText
+                  t(mergedOptions.confirmText)
                 )}
               </button>
             </div>
@@ -448,12 +455,14 @@ export const AIGenerationButton = forwardRef<AIGenerationButtonHandle, AIGenerat
           >
             <div className="devic-gen-modal">
               <div className="devic-gen-modal-header">
-                <h3 className="devic-gen-modal-title">{mergedOptions.modalTitle}</h3>
+                <h3 className="devic-gen-modal-title">
+                  {t(mergedOptions.modalTitle)}
+                </h3>
                 <button
                   type="button"
                   className="devic-gen-modal-close"
                   onClick={hook.close}
-                  aria-label="Close"
+                  aria-label={t('Close')}
                   disabled={hook.isProcessing}
                 >
                   <CloseIcon />
@@ -470,7 +479,7 @@ export const AIGenerationButton = forwardRef<AIGenerationButtonHandle, AIGenerat
                 <textarea
                   ref={hook.inputRef}
                   className="devic-gen-input"
-                  placeholder={mergedOptions.placeholder}
+                  placeholder={t(mergedOptions.placeholder)}
                   value={hook.inputValue}
                   onChange={(e) => hook.setInputValue(e.target.value)}
                   onKeyDown={hook.handleKeyDown}
@@ -488,7 +497,7 @@ export const AIGenerationButton = forwardRef<AIGenerationButtonHandle, AIGenerat
                   onClick={hook.close}
                   disabled={hook.isProcessing}
                 >
-                  {mergedOptions.cancelText}
+                  {t(mergedOptions.cancelText)}
                 </button>
                 <button
                   type="button"
@@ -499,10 +508,10 @@ export const AIGenerationButton = forwardRef<AIGenerationButtonHandle, AIGenerat
                   {hook.isProcessing ? (
                     <>
                       <span className="devic-gen-spinner devic-gen-spinner-small" />
-                      {mergedOptions.loadingLabel}
+                      {t(mergedOptions.loadingLabel)}
                     </>
                   ) : (
-                    mergedOptions.confirmText
+                    t(mergedOptions.confirmText)
                   )}
                 </button>
               </div>
@@ -510,6 +519,7 @@ export const AIGenerationButton = forwardRef<AIGenerationButtonHandle, AIGenerat
           </div>
         )}
       </div>
+      </DevicTranslationsProvider>
     );
   }
 );

@@ -10,6 +10,7 @@ import type {
   AutocompleteInputProps,
   AutocompleteInputHandle,
 } from './AutocompleteInput.types';
+import { useTranslations } from '../../i18n';
 import './AutocompleteInput.css';
 
 export const AutocompleteInput = forwardRef<
@@ -157,6 +158,8 @@ export const AutocompleteInput = forwardRef<
     }
   }, []);
 
+  const t = useTranslations();
+
   // Resolve CSS variable values for inline styles
   const bgColor = options.backgroundColor || '#fff';
   const textColor = options.textColor || '#333';
@@ -299,7 +302,7 @@ export const AutocompleteInput = forwardRef<
           }}
         >
           <span style={{ color: '#fff', fontSize: 11, fontWeight: 600 }}>Tab</span>
-          <span style={{ color: '#aaa', fontSize: 10 }}>to accept</span>
+          <span style={{ color: '#aaa', fontSize: 10 }}>{t('to accept')}</span>
         </div>
       )}
 

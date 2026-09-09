@@ -10,6 +10,24 @@ export type {
   DrawerRegistration,
 } from './provider';
 
+// Translations — a plain `English text -> your text` dictionary, applied to
+// every text the library renders itself. Configure it once on the provider,
+// or per component through its `translations` option.
+export {
+  DevicTranslationsProvider,
+  useTranslations,
+  useTranslationsDictionary,
+  createTranslator,
+  translate,
+  mergeTranslations,
+  fillTemplate,
+} from './i18n';
+export type {
+  DevicTranslations,
+  Translator,
+  DevicTranslationsProviderProps,
+} from './i18n';
+
 // Components
 export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, ReferenceChip, UsageBar, LimitBanner, QueueNotice, RecalledMemoriesWidget, CompactionWidget } from './components/ChatDrawer';
 export type {

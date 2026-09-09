@@ -11,6 +11,7 @@ import { DevicApiClient } from "../../api/client";
 import type { CoreMemoryEntry, CoreMemoryLimits } from "../../api/types";
 import { useOptionalDevicContext } from "../../provider";
 import { themeVars, type DevicTheme } from "../theme";
+import { useTranslations } from "../../i18n";
 import "./CoreMemoryModal.css";
 
 /** Canonical sections of the core tier, in display order. */
@@ -167,18 +168,31 @@ export function CoreMemoryModal({
   labels,
   theme,
 }: CoreMemoryModalProps): JSX.Element | null {
-  const l = useMemo<CoreMemoryLabels>(
-    () => ({
-      ...DEFAULT_CORE_MEMORY_LABELS,
+  const t = useTranslations();
+  // Three layers, narrowest first: the `labels` this host passed, then the
+  // dictionary, then English. `labels` stays authoritative — a host that
+  // already spells this dialog out itself must not have it changed underneath
+  // by a page-wide dictionary.
+  const l = useMemo<CoreMemoryLabels>(() => {
+    const translated = Object.fromEntries(
+      Object.entries(DEFAULT_CORE_MEMORY_LABELS)
+        .filter(([, value]) => typeof value === "string")
+        .map(([key, value]) => [key, t(value as string)])
+    ) as Omit<CoreMemoryLabels, "sections">;
+    return {
+      ...translated,
       ...labels,
-      title: labels?.title ?? title ?? DEFAULT_CORE_MEMORY_LABELS.title,
+      title: labels?.title ?? title ?? t(DEFAULT_CORE_MEMORY_LABELS.title),
       sections: {
-        ...DEFAULT_CORE_MEMORY_LABELS.sections,
+        ...Object.fromEntries(
+          Object.entries(DEFAULT_CORE_MEMORY_LABELS.sections).map(
+            ([key, value]) => [key, t(value)]
+          )
+        ),
         ...labels?.sections,
       },
-    }),
-    [labels, title]
-  );
+    };
+  }, [labels, title, t]);
   const context = useOptionalDevicContext();
   const resolvedBaseUrl = baseUrl || context?.baseUrl || "https://api.devic.ai";
   const resolvedTenantId = tenantId || context?.tenantId;

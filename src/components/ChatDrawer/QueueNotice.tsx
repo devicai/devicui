@@ -1,5 +1,7 @@
 import React from 'react';
 import type { QueueDisposition } from '../../api/types';
+import { useTranslations } from '../../i18n';
+import type { Translator } from '../../i18n';
 
 export interface QueueNoticeProps {
   /** How many messages are waiting on this conversation right now. */
@@ -28,6 +30,7 @@ export function QueueNotice({
   willProcess,
   alert,
 }: QueueNoticeProps): JSX.Element {
+  const t = useTranslations();
   return (
     <div
       className="devic-queue-notice"
@@ -37,7 +40,7 @@ export function QueueNotice({
       <span className="devic-queue-notice-icon" aria-hidden="true">
         {alert ? <WarningIcon /> : <ClockIcon />}
       </span>
-      <span>{alert || noticeText(queuedCount, willProcess)}</span>
+      <span>{alert || noticeText(t, queuedCount, willProcess)}</span>
     </div>
   );
 }
@@ -51,26 +54,45 @@ export function QueueNotice({
  * next turn" describes a turn that is not happening.
  */
 function noticeText(
+  t: Translator,
   queuedCount: number,
   willProcess?: QueueDisposition
 ): string {
   if (queuedCount <= 0) {
-    return 'The assistant is still answering. Send anyway and your message joins its next turn.';
+    return t(
+      'The assistant is still answering. Send anyway and your message joins its next turn.'
+    );
   }
 
-  const subject = queuedCount === 1 ? '1 message' : `${queuedCount} messages`;
+  // Singular and plural are separate entries rather than a placeholder over a
+  // suffix: the two differ by more than an "s" in most languages.
+  const one = queuedCount === 1;
 
   if (willProcess === 'after_delay') {
-    return `${subject} waiting — the assistant is giving you a moment to finish before it answers.`;
+    return one
+      ? t(
+          '1 message waiting — the assistant is giving you a moment to finish before it answers.'
+        )
+      : t(
+          '{count} messages waiting — the assistant is giving you a moment to finish before it answers.',
+          { count: queuedCount }
+        );
   }
   if (willProcess === 'on_resume') {
-    return `${subject} waiting — the assistant picks ${
-      queuedCount === 1 ? 'it' : 'them'
-    } up when it comes back to this conversation.`;
+    return one
+      ? t(
+          '1 message waiting — the assistant picks it up when it comes back to this conversation.'
+        )
+      : t(
+          '{count} messages waiting — the assistant picks them up when it comes back to this conversation.',
+          { count: queuedCount }
+        );
   }
-  return `${subject} waiting — the assistant picks ${
-    queuedCount === 1 ? 'it' : 'them'
-  } up on its next turn.`;
+  return one
+    ? t('1 message waiting — the assistant picks it up on its next turn.')
+    : t('{count} messages waiting — the assistant picks them up on its next turn.', {
+        count: queuedCount,
+      });
 }
 
 function WarningIcon(): JSX.Element {

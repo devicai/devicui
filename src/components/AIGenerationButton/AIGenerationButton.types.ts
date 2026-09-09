@@ -1,6 +1,7 @@
 import type { ChatMessage, ModelInterfaceTool, ToolGroupConfig } from '../../api/types';
 import type { FeedbackTheme } from '../Feedback';
 import type { ToolCallSummary } from '../AICommandBar/AICommandBar.types';
+import type { DevicTranslations } from '../../i18n';
 
 /**
  * Interaction mode for the AIGenerationButton
@@ -192,6 +193,16 @@ export interface AIGenerationButtonOptions {
    * Tool group configurations for rendering consecutive tool calls together.
    */
   toolGroups?: ToolGroupConfig[];
+
+  /**
+   * Translations for the texts this component renders itself, keyed by the
+   * exact English text: `{ 'Cancel': 'Cancelar' }`.
+   *
+   * Merged on top of the `DevicProvider`'s `translations` and passed down to
+   * everything mounted below. Anything absent stays as the provider left it,
+   * or in English.
+   */
+  translations?: DevicTranslations;
 }
 
 /**

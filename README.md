@@ -12,6 +12,7 @@ React component library for integrating Devic AI assistants into your applicatio
 - **Model Interface Protocol** - Support for client-side tool execution
 - **Message queue** - Write while the assistant is still answering, on assistants that allow it
 - **Message Feedback** - Built-in thumbs up/down feedback with comments
+- **Translations** - A `text: translation` dictionary for every text the library renders
 - **CSS Variables** - Easy theming with CSS custom properties
 - **TypeScript** - Full type definitions included
 - **React 17+** - Compatible with React 17 and above
@@ -96,6 +97,7 @@ Context provider for global configuration.
   tenantId="tenant-123"        // Optional global tenant
   tenantMetadata={{ ... }}     // Optional global metadata
   pollingInterval={1000}       // How often a conversation in progress is polled
+  translations={{ ... }}       // Optional `English text -> your text` dictionary
 >
   <App />
 </DevicProvider>
@@ -133,6 +135,12 @@ provider's:
 Values below 250 ms are clamped — below that the widget floods the API instead
 of answering sooner. The handoff widget, which only watches a subagent run,
 keeps its own 5 s default when nothing is configured.
+
+#### Texts in another language
+
+`translations` replaces the texts the library renders itself, keyed by the
+English text — `{ 'New chat': 'Nueva conversación' }`. See
+[Translations](#translations).
 
 #### Tenant sessions — proving who the end user is
 
@@ -1133,6 +1141,118 @@ Or use the `color` option in ChatDrawer:
 <ChatDrawer
   options={{ color: '#ff4081' }}
 />
+```
+
+## Translations
+
+Every text the library renders itself — the drawer header, the composer, the
+buttons, tooltips and dialogs — goes through a dictionary you can replace.
+It is a plain `English text → your text` map:
+
+```tsx
+<DevicProvider
+  apiKey="devic-xxx"
+  translations={{
+    'New chat': 'Nueva conversación',
+    'Type a message...': 'Escribe un mensaje...',
+    'Close chat': 'Cerrar el chat',
+    'Send message': 'Enviar mensaje',
+  }}
+>
+  <ChatDrawer assistantId="my-assistant" />
+</DevicProvider>
+```
+
+That is the whole mechanism. There is no i18n runtime bundled here and no key
+catalogue to learn: the key is what you see on screen, and the values come
+from whatever you already use — i18next, react-intl, a JSON file per locale.
+Hand it the strings for the current language and re-render when it changes:
+
+```tsx
+const { t, i18n } = useTranslation('devic');
+
+<DevicProvider
+  apiKey="devic-xxx"
+  // Re-created when the language changes, which is what re-renders the widget.
+  translations={useMemo(
+    () => ({
+      'New chat': t('newChat'),
+      'Type a message...': t('inputPlaceholder'),
+    }),
+    [i18n.language]
+  )}
+>
+```
+
+**Anything you leave out stays in English**, so a partial dictionary is fine —
+translate the drawer today and the apps dialog when you get to it.
+
+### Placeholders
+
+Texts that carry a value use `{name}` placeholders. Keep them in the
+translation; they are filled after the lookup, so they may be reordered:
+
+```tsx
+translations={{
+  '{count} messages': '{count} mensajes',
+  'Resets in {count} minutes.': 'Quedan {count} minutos para el reinicio.',
+  '{label} — {count} switched off': '{count} desactivadas de {label}',
+}}
+```
+
+Counted texts come in a singular and a plural entry (`1 message` and
+`{count} messages`), so a language that inflects differently has somewhere to
+say so.
+
+### Per component
+
+Each component takes its own `translations`, merged on top of the provider's.
+Use it when one widget must read differently from the rest of the page:
+
+```tsx
+<ChatDrawer
+  assistantId="support"
+  options={{ translations: { 'New chat': 'Nueva consulta' } }}
+/>
+```
+
+Available on `ChatDrawer`, `AICommandBar`, `AIGenerationButton` and
+`AIElementWrapper`, and it reaches everything they mount — the message list,
+the composer and the dialogs they open. For anything else, wrap a subtree:
+
+```tsx
+import { DevicTranslationsProvider } from '@devicai/ui';
+
+<DevicTranslationsProvider translations={{ Close: 'Cerrar' }}>
+  <IntegrationsPanel assistantId="my-assistant" />
+</DevicTranslationsProvider>
+```
+
+Later layers win: provider → enclosing component → the component's own option.
+
+### What takes precedence
+
+Texts that already have an option of their own (`welcomeMessage`,
+`inputPlaceholder`, `title`, `integrationsLabel`, `coreMemoryLabels`, …) keep
+winning over the dictionary — the dictionary only supplies their defaults. So
+a host that has always set `inputPlaceholder` sees no change, and one that
+never did gets it translated.
+
+### The full list
+
+[TRANSLATIONS.md](./TRANSLATIONS.md) lists every text, grouped by where it
+appears. Two things to watch: copy the key exactly (same case, same `…` and
+`·`), and note that `AIElementWrapper` has shipped Spanish defaults since it
+was added, so its keys are Spanish.
+
+### Reading the dictionary yourself
+
+`useTranslations` returns the same translator the components use, for a custom
+UI built on `useDevicChat`:
+
+```tsx
+const t = useTranslations();
+<button>{t('Send message')}</button>
 ```
 
 ## Message Queue

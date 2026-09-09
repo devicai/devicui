@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslations } from "../../i18n";
 
 /**
  * Visual context a {@link ReferenceChip} is rendered in:
@@ -36,6 +37,7 @@ export function ReferenceChip({
   icon,
   className,
 }: ReferenceChipProps): JSX.Element {
+  const t = useTranslations();
   const base =
     variant === "message"
       ? "devic-message-reference-chip"
@@ -50,7 +52,7 @@ export function ReferenceChip({
           type="button"
           className="devic-reference-chip-remove"
           onClick={onRemove}
-          aria-label="Quitar referencia"
+          aria-label={t("Remove reference")}
         >
           &times;
         </button>

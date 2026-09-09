@@ -7,6 +7,7 @@ import type {
 } from "../../api/types";
 import { isDarkTheme, themeVars, type DevicTheme } from "../theme";
 import { IntegrationLogo } from "./IntegrationLogo";
+import { useTranslations } from "../../i18n";
 
 export interface ConnectFieldsFormProps {
   integration: Integration;
@@ -62,6 +63,7 @@ export function ConnectFieldsForm({
   onCancel,
   onSubmit,
 }: ConnectFieldsFormProps): JSX.Element | null {
+  const t = useTranslations();
   const [mode, setMode] = useState(initialScheme ?? schemes[0]?.mode ?? "");
   const [values, setValues] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState(false);
@@ -109,25 +111,29 @@ export function ConnectFieldsForm({
         className="devic-int-connect-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label={`Connect ${integration.name}`}
+        aria-label={t("Connect {app}", { app: integration.name })}
         onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
       >
         <div className="devic-int-connect-header">
           <IntegrationLogo integration={integration} />
           <div className="devic-int-connect-heading">
-            <strong>Connect {integration.name}</strong>
+            <strong>{t("Connect {app}", { app: integration.name })}</strong>
             <span>
               {scheme.redirect
-                ? `You'll be sent to ${integration.name} to finish authorising.`
-                : "Your credentials go straight to the app — only you can use this account."}
+                ? t("You'll be sent to {app} to finish authorising.", {
+                    app: integration.name,
+                  })
+                : t(
+                    "Your credentials go straight to the app — only you can use this account."
+                  )}
             </span>
           </div>
           <button
             type="button"
             className="devic-int-close"
             onClick={onCancel}
-            aria-label="Close"
+            aria-label={t("Close")}
           >
             ×
           </button>
@@ -140,7 +146,9 @@ export function ConnectFieldsForm({
               just another thing to read before typing a key. */}
           {schemes.length > 1 && (
             <label className="devic-int-connect-field">
-              <span className="devic-int-connect-label">Connect with</span>
+              <span className="devic-int-connect-label">
+                {t("Connect with")}
+              </span>
               <select
                 value={scheme.mode}
                 onChange={(e) => {
@@ -164,7 +172,7 @@ export function ConnectFieldsForm({
               <label key={field.name} className="devic-int-connect-field">
                 <span className="devic-int-connect-label">
                   {field.label}
-                  {!field.required && <em> (optional)</em>}
+                  {!field.required && <em> {t("(optional)")}</em>}
                 </span>
                 <input
                   autoFocus={index === 0}
@@ -198,7 +206,7 @@ export function ConnectFieldsForm({
               target="_blank"
               rel="noopener noreferrer"
             >
-              Where do I find this?
+              {t("Where do I find this?")}
             </a>
           )}
         </div>
@@ -210,7 +218,7 @@ export function ConnectFieldsForm({
             onClick={onCancel}
             disabled={submitting}
           >
-            Cancel
+            {t("Cancel")}
           </button>
           <button
             type="submit"
@@ -218,10 +226,10 @@ export function ConnectFieldsForm({
             disabled={submitting}
           >
             {submitting
-              ? "Connecting…"
+              ? t("Connecting…")
               : scheme.redirect
-                ? "Continue"
-                : "Connect"}
+                ? t("Continue")
+                : t("Connect")}
           </button>
         </div>
       </form>
