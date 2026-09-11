@@ -434,7 +434,9 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
 
   // State
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [streamingMessage, setStreamingMessage] = useState<ChatMessage | null>(null);
   const [chatUid, setChatUid] = useState<string | null>(initialChatUid || null);
+  useEffect(() => { setStreamingMessage(null); }, [chatUid]);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<RealtimeStatus | 'idle'>('idle');
   const [error, setError] = useState<Error | null>(null);
@@ -702,6 +704,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     },
     {
       interval: pollingInterval,
+      streamFn: (onSnapshot, signal) => clientRef.current!.streamRealtimeHistory(assistantId, chatUid!, onSnapshot, signal),
       enabled: shouldPoll,
       stopStatuses: [
         'completed',
@@ -711,6 +714,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         'limit_exceeded',
       ],
       onUpdate: async (data: RealtimeChatHistory) => {
+        setStreamingMessage(data.status === 'processing' ? data.streamingMessage || null : null);
         logRef.current.log('[useDevicChat] onUpdate called, status:', data.status);
 
         // An assistant message written after something was queued from here is
@@ -1428,7 +1432,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   }, [assistantId, resetQueueState]);
 
   return {
-    messages,
+    messages: streamingMessage && isLoading ? [...messages, streamingMessage] : messages,
     chatUid,
     isLoading,
     status,

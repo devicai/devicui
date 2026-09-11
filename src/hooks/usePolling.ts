@@ -32,6 +32,7 @@ export function resolvePollingInterval(
 }
 
 export interface UsePollingOptions {
+  streamFn?: (onSnapshot: (data: RealtimeChatHistory) => Promise<void>, signal: AbortSignal) => Promise<void>;
   /**
    * Polling interval in milliseconds
    * @default 1000
@@ -150,6 +151,11 @@ export function usePolling(
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isMountedRef = useRef(true);
+  const chatUidRef = useRef(chatUid);
+  chatUidRef.current = chatUid;
+  const streamFnRef = useRef(options.streamFn);
+  streamFnRef.current = options.streamFn;
+  const lastStreamAt = useRef(0);
 
   // Refs for callbacks and options to avoid stale closures and unnecessary re-renders
   const onStopRef = useRef(onStop);
@@ -182,13 +188,18 @@ export function usePolling(
     isPollingRef.current = false;
   }, []);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (snapshot?: RealtimeChatHistory) => {
     logRef.current.log('[usePolling] fetchData called, isMounted:', isMountedRef.current);
     if (!isMountedRef.current) return;
 
     try {
       logRef.current.log('[usePolling] Fetching...');
-      const result = await fetchFnRef.current();
+      const started = Date.now();
+      const startedChat = chatUidRef.current;
+      if (!snapshot && started - lastStreamAt.current < intervalValueRef.current * 2) return;
+      const result = snapshot || await fetchFnRef.current();
+      if (startedChat !== chatUidRef.current) return;
+      if (!snapshot && lastStreamAt.current > started) return;
       logRef.current.log('[usePolling] Fetch result:', { status: result.status, messageCount: result.chatHistory?.length });
 
       if (!isMountedRef.current) return;
@@ -221,6 +232,28 @@ export function usePolling(
       setIsPolling(false);
     }
   }, [clearPolling]);
+
+  useEffect(() => {
+    if (!enabled || !chatUid || !isPolling || !streamFnRef.current) return;
+    const controller = new AbortController();
+    lastStreamAt.current = 0;
+    const connect = async () => {
+      while (!controller.signal.aborted && isPollingRef.current) {
+        try {
+          await streamFnRef.current!(async snapshot => {
+            if (controller.signal.aborted || !isPollingRef.current) return;
+            lastStreamAt.current = Date.now();
+            await fetchData(snapshot);
+          }, controller.signal);
+        } catch { break; } // Existing polling is the recovery path.
+        lastStreamAt.current = 0;
+        if (!controller.signal.aborted) await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+      lastStreamAt.current = 0;
+    };
+    void connect();
+    return () => { controller.abort(); lastStreamAt.current = 0; };
+  }, [enabled, chatUid, isPolling, fetchData]);
 
   const start = useCallback(() => {
     if (intervalRef.current) return;

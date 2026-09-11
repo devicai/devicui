@@ -422,6 +422,8 @@ export interface CoreMemorySnapshot {
  * Real-time chat history response
  */
 export interface RealtimeChatHistory {
+  /** Ephemeral provider output; never persisted or treated as a tool call. */
+  streamingMessage?: ChatMessage;
   chatUID: string;
   clientUID: string;
   chatHistory: ChatMessage[];
