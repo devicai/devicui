@@ -1122,7 +1122,7 @@ function ChatDrawerInner({
             canStart={isOpen && assistantInfo.assistant?.liveVoice?.enabled === true && !chat.isLoading && !chat.handedOff && !chat.limitExceeded && !inputWidget && inlineWidgets.length === 0}
             recordSessions={assistantInfo.assistant?.liveVoice?.recordSessions} />
         </React.Suspense>}
-        {chat.voice.active && !inputWidget ? <div className="devic-input-area">{limitBannerNode}{usageBarNode}{queueNoticeNode}</div> : Boolean(mergedOptions.customPromptBox) && !(chat.voice.active && inputWidget) ? (
+        {chat.voice.active && !inputWidget ? <>{limitBannerNode}{usageBarNode}{queueNoticeNode}</> : Boolean(mergedOptions.customPromptBox) && !(chat.voice.active && inputWidget) ? (
           <div className="devic-input-area">
             {limitBannerNode}
             {usageBarNode}

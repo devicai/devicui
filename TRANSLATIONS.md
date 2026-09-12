@@ -440,3 +440,8 @@ wrapper** and translate like any other, into English included.
 | `Voice connection timed out.` | — |
 | `Could not prepare the audio connection.` | — |
 | `Voice status unavailable. Session stopped.` | — |
+# Live prompter
+
+- `Live voice conversation`
+- `Your audio level`
+- `Assistant audio level`

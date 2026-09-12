@@ -266,3 +266,5 @@ export type { MessageActionsProps, FeedbackModalProps, FeedbackState, FeedbackTh
 // Utilities
 export { generateId, deepMerge, debounce, throttle, formatFileSize, storage, segmentToolCalls } from './utils';
 export type { ToolGroupSegment } from './utils';
+export { LiveVoicePrompter } from './components/ChatDrawer/LiveVoicePrompter';
+export type { LiveVoicePrompterProps } from './components/ChatDrawer/LiveVoicePrompter';
