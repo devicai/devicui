@@ -1,0 +1,209 @@
+/*
+ * The voice bubble lives outside the drawer, so it carries the drawer's
+ * palette itself: the same variables, the same defaults, overridable with the
+ * `theme` prop (inline) or from the host's stylesheet. Colour is spent where
+ * the call box spends it — the accent on the bubble and the assistant's wave,
+ * green on the live dot, red on the button that hangs up.
+ */
+.devic-voice-bubble {
+  --devic-primary: #1890ff;
+  --devic-primary-hover: #40a9ff;
+  --devic-primary-light: #e6f7ff;
+  --devic-bg: #ffffff;
+  --devic-bg-secondary: #f5f5f5;
+  --devic-text: #333333;
+  --devic-text-secondary: #666666;
+  --devic-text-muted: #999999;
+  --devic-border: #e8e8e8;
+  --devic-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+  --devic-error: #ff4d4f;
+  --devic-radius: 8px;
+  --devic-radius-sm: 4px;
+  --devic-radius-lg: 16px;
+  --devic-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --devic-user-bubble-text: #fff;
+  --devic-voice-prompter-height: 132px;
+  --devic-voice-label-width: 64px;
+  position: fixed;
+  bottom: var(--devic-bubble-offset, 24px);
+  right: var(--devic-bubble-offset, 24px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  font-family: var(--devic-font-family);
+  font-size: 14px;
+  color: var(--devic-text);
+  box-sizing: border-box;
+}
+.devic-voice-bubble *, .devic-voice-bubble *::before, .devic-voice-bubble *::after { box-sizing: border-box; }
+.devic-voice-bubble[data-dark="true"] {
+  --devic-text-secondary: #bfbfbf;
+  --devic-text-muted: #8c8c8c;
+  --devic-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+}
+.devic-voice-bubble[data-side="left"] { right: auto; left: var(--devic-bubble-offset, 24px); align-items: flex-start; }
+.devic-voice-bubble[data-panel-side="below"] { flex-direction: column-reverse; }
+.devic-voice-bubble[data-placement="inline"] { position: relative; bottom: auto; right: auto; left: auto; display: inline-flex; }
+.devic-voice-bubble[data-placement="inline"] .devic-voice-bubble-panel { position: absolute; bottom: calc(100% + 12px); right: 0; }
+.devic-voice-bubble[data-placement="inline"][data-side="left"] .devic-voice-bubble-panel { right: auto; left: 0; }
+.devic-voice-bubble[data-placement="inline"][data-panel-side="below"] .devic-voice-bubble-panel { bottom: auto; top: calc(100% + 12px); }
+
+/* ---- the bubble: one round accent button, a timer beside it while tucked away ---- */
+.devic-voice-bubble-dock { display: flex; align-items: center; gap: 10px; }
+.devic-voice-bubble[data-side="left"] .devic-voice-bubble-dock { flex-direction: row-reverse; }
+.devic-voice-bubble-btn {
+  position: relative;
+  width: var(--devic-bubble-size, 56px);
+  height: var(--devic-bubble-size, 56px);
+  border: none;
+  border-radius: 50%;
+  background: var(--devic-primary);
+  color: var(--devic-user-bubble-text, #fff);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 150ms ease, background 150ms ease;
+}
+.devic-voice-bubble-btn:hover:not(:disabled) { background: var(--devic-primary-hover); transform: translateY(-1px); }
+.devic-voice-bubble-btn:active:not(:disabled) { transform: scale(0.96); }
+.devic-voice-bubble-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.devic-voice-bubble[data-voice-state="connected"] .devic-voice-bubble-btn::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--devic-voice-connected-color, #52c41a);
+  animation: devic-voice-bubble-ring 1.8s ease-out infinite;
+}
+.devic-voice-bubble-wave rect { transform-origin: center; animation: devic-voice-bubble-bars 1.1s ease-in-out infinite; }
+.devic-voice-bubble-wave rect:nth-child(2) { animation-delay: 0.15s; }
+.devic-voice-bubble-wave rect:nth-child(3) { animation-delay: 0.3s; }
+.devic-voice-bubble-wave rect:nth-child(4) { animation-delay: 0.45s; }
+.devic-voice-bubble-wave rect:nth-child(5) { animation-delay: 0.6s; }
+.devic-voice-bubble-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--devic-border);
+  border-radius: 999px;
+  background: var(--devic-bg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--devic-text);
+  white-space: nowrap;
+}
+
+/* ---- the panel: a small call screen ---- */
+.devic-voice-bubble-panel {
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  padding: 14px 14px 16px;
+  border: 1px solid var(--devic-border);
+  border-radius: var(--devic-radius-lg);
+  background: var(--devic-bg);
+  color: var(--devic-text);
+  box-shadow: var(--devic-shadow);
+  transform-origin: bottom right;
+  animation: devic-voice-bubble-open 180ms ease-out;
+}
+.devic-voice-bubble[data-side="left"] .devic-voice-bubble-panel { transform-origin: bottom left; }
+.devic-voice-bubble[data-panel-side="below"] .devic-voice-bubble-panel { transform-origin: top right; }
+.devic-voice-bubble[data-panel-side="below"][data-side="left"] .devic-voice-bubble-panel { transform-origin: top left; }
+.devic-voice-bubble-header { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.devic-voice-bubble-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--devic-bg-secondary); }
+.devic-voice-bubble-heading { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.devic-voice-bubble-name { font-size: 15px; font-weight: 600; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.devic-voice-bubble-collapse {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--devic-radius-sm);
+  background: none;
+  color: var(--devic-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.devic-voice-bubble-collapse:hover { color: var(--devic-text); background: var(--devic-bg-secondary); }
+.devic-voice-bubble-panel .devic-voice-prompter { margin-top: 12px; padding: 10px 12px 8px; border-radius: var(--devic-radius); background: var(--devic-bg-secondary); }
+.devic-voice-bubble-panel .devic-voice-error, .devic-voice-bubble-panel .devic-voice-note { margin-top: 10px; }
+.devic-voice-bubble-inline-btn { display: block; margin: 8px auto 0; }
+
+/* the controls, centred as a phone lays them out: mute, hang up, and the room the layout keeps for symmetry */
+.devic-voice-bubble-controls { display: flex; align-items: center; justify-content: center; gap: 20px; margin-top: 16px; flex-wrap: wrap; }
+.devic-voice-bubble-round {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--devic-border);
+  border-radius: 50%;
+  background: var(--devic-bg-secondary);
+  color: var(--devic-text);
+  cursor: pointer;
+  transition: transform 120ms ease, filter 120ms ease;
+}
+.devic-voice-bubble-round:hover:not(:disabled) { filter: brightness(0.96); }
+.devic-voice-bubble-round:active:not(:disabled) { transform: scale(0.95); }
+.devic-voice-bubble-round:disabled { opacity: 0.5; cursor: default; }
+.devic-voice-bubble-round.devic-voice-mute[aria-pressed="true"] { color: var(--devic-error, #ff4d4f); border-color: currentColor; }
+.devic-voice-bubble-spacer { visibility: hidden; }
+.devic-voice-bubble-hangup, .devic-voice-bubble-call {
+  width: 60px;
+  height: 60px;
+  border: none;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+.devic-voice-bubble-hangup { background: var(--devic-voice-end-color, #cf1322); }
+.devic-voice-bubble-hangup:hover:not(:disabled) { filter: brightness(1.1); }
+.devic-voice-bubble-call { background: var(--devic-voice-connected-color, #52c41a); }
+.devic-voice-bubble-call:hover:not(:disabled) { filter: brightness(1.08); }
+.devic-voice-bubble-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--devic-border);
+  border-radius: 999px;
+  background: var(--devic-bg);
+  color: var(--devic-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.devic-voice-bubble-action:hover { background: var(--devic-bg-secondary); }
+.devic-voice-bubble-action--primary { border-color: var(--devic-primary); background: var(--devic-primary); color: var(--devic-user-bubble-text, #fff); }
+.devic-voice-bubble-action--primary:hover { background: var(--devic-primary-hover); border-color: var(--devic-primary-hover); }
+.devic-voice-bubble button:focus-visible { outline: 2px solid var(--devic-primary); outline-offset: 2px; }
+
+@keyframes devic-voice-bubble-ring {
+  0% { transform: scale(0.9); opacity: 0.9; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+@keyframes devic-voice-bubble-bars {
+  0%, 100% { transform: scaleY(0.45); }
+  50% { transform: scaleY(1); }
+}
+@keyframes devic-voice-bubble-open {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .devic-voice-bubble-panel, .devic-voice-bubble-wave rect, .devic-voice-bubble[data-voice-state="connected"] .devic-voice-bubble-btn::after { animation: none; }
+  .devic-voice-bubble-btn, .devic-voice-bubble-round { transition: none; }
+}
+@media (max-width: 480px) {
+  .devic-voice-bubble[data-placement="floating"] .devic-voice-bubble-panel { width: calc(100vw - 32px); }
+}

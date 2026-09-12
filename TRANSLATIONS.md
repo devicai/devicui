@@ -438,6 +438,22 @@ wrapper** and translate like any other, into English included.
 | `Voice connection timed out.` | — |
 | `Could not prepare the audio connection.` | — |
 | `Voice status unavailable. Session stopped.` | — |
+
+## Voice bubble
+
+| English key | Variables |
+| --- | --- |
+| `Call {name}` | name (the assistant's) |
+| `Voice call` | — |
+| `Calling…` | — |
+| `Ready to call` | — |
+| `Call ended · {time}` | time (`m:ss`) |
+| `Call failed` | — |
+| `Hide call` | — |
+| `End call` | — |
+| `Call again` | — |
+| `Open in chat` | — |
+| `Close` | — |
 # Live prompter
 
 - `Live voice conversation`

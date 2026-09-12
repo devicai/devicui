@@ -66,6 +66,10 @@ export type {
   GuardrailPayload,
 } from './components/ChatDrawer';
 
+// LiveVoiceBubble — a voice call to one assistant, as a floating or inline bubble
+export { LiveVoiceBubble } from './components/LiveVoiceBubble';
+export type { LiveVoiceBubbleProps, LiveVoiceBubbleHandle, LiveVoiceCallSummary } from './components/LiveVoiceBubble';
+
 // CoreMemoryModal
 export { CoreMemoryModal, DEFAULT_CORE_MEMORY_LABELS } from './components/CoreMemoryModal';
 export type { CoreMemoryModalProps, CoreMemoryLabels } from './components/CoreMemoryModal';

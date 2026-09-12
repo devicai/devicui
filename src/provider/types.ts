@@ -220,6 +220,8 @@ export interface DrawerRegistration {
   close: () => void;
   toggle?: () => void;
   sendMessage?: (message: string) => void;
+  /** Load a conversation, so another widget can hand one over — the voice bubble does. */
+  setChatUid?: (chatUid: string) => void;
 }
 
 /**
@@ -335,9 +337,16 @@ export interface DevicContextValue {
   registerDrawer: (handle: DrawerRegistration) => () => void;
 
   /**
-   * Open the registered drawer (no-op if none is registered).
+   * Open the registered drawer (no-op if none is registered). With a
+   * `chatUid`, that conversation is loaded first.
    */
-  openDrawer: () => void;
+  openDrawer: (chatUid?: string) => void;
+
+  /**
+   * Whether a ChatDrawer is currently registered, so a widget that offers to
+   * open one — the voice bubble's *Open in chat* — can know whether to.
+   */
+  hasDrawer: boolean;
 }
 
 /**
