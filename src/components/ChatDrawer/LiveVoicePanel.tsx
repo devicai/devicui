@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { UseDevicLiveVoiceResult } from '../../hooks/useDevicLiveVoice';
+import type { LiveVoiceInvitationProps } from './ChatDrawer.types';
 import { useTranslations } from '../../i18n';
 import './LiveVoicePanel.css';
 import { LiveVoicePrompter } from './LiveVoicePrompter';
@@ -8,6 +9,10 @@ export interface LiveVoicePanelProps {
   voice: UseDevicLiveVoiceResult;
   canStart: boolean;
   recordSessions?: boolean;
+  /** Close the invitation card; the drawer remembers it per assistant. */
+  onDismiss?: () => void;
+  /** A host's own invitation, in place of the default card. */
+  invitation?: (props: LiveVoiceInvitationProps) => ReactNode;
   /** Rendered above the call box while voice is active: the composer's own banners. */
   children?: ReactNode;
 }
@@ -25,8 +30,9 @@ function formatSeconds(total: number): string {
  * prompter, one wave per speaker and the call controls where the send button
  * normally sits.
  */
-export default function LiveVoicePanel({ voice, canStart, recordSessions, children }: LiveVoicePanelProps) {
+export default function LiveVoicePanel({ voice, canStart, recordSessions, onDismiss, invitation, children }: LiveVoicePanelProps) {
   const t = useTranslations();
+  const start = () => { if (canStart) void voice.start(); };
 
   if (voice.active) {
     const status = voice.state === 'connected' ? t('Live · {time}', { time: formatSeconds(voice.seconds) })
@@ -54,6 +60,8 @@ export default function LiveVoicePanel({ voice, canStart, recordSessions, childr
     </div>;
   }
 
+  if (invitation) return <>{invitation({ start, canStart, dismiss: () => onDismiss?.(), recordSessions, error: voice.error })}</>;
+
   return <section className="devic-live-voice" aria-label={t('Voice mode')}>
     <div className="devic-voice-card">
       <span className="devic-voice-card-icon" aria-hidden="true"><MicIcon /></span>
@@ -63,7 +71,8 @@ export default function LiveVoicePanel({ voice, canStart, recordSessions, childr
           {t('Talk to the assistant in real time.')}{recordSessions !== false && <> {t('Voice sessions are recorded according to the assistant settings.')}</>}
         </div>
       </div>
-      <button className="devic-voice-start" type="button" disabled={!canStart} onClick={() => void voice.start()}><MicIcon />{t('Start voice')}</button>
+      <button className="devic-voice-start" type="button" disabled={!canStart} onClick={start}><MicIcon />{t('Start voice')}</button>
+      {onDismiss && <button className="devic-voice-card-close" type="button" onClick={onDismiss} title={t('Hide voice mode')} aria-label={t('Hide voice mode')}><CloseIcon /></button>}
     </div>
     {voice.error && <div className="devic-voice-error" role="alert">{t(voice.error.message)}</div>}
   </section>;
@@ -77,6 +86,11 @@ function MicIcon() {
 function MicOffIcon() {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <line x1="1" y1="1" x2="23" y2="23" /><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" /><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+  </svg>;
+}
+function CloseIcon() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
   </svg>;
 }
 function HangUpIcon() {

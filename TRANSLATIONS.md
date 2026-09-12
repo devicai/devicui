@@ -417,6 +417,7 @@ wrapper** and translate like any other, into English included.
 | `Restoring voice…` | — |
 | `Closing voice…` | — |
 | `Start voice` | — |
+| `Hide voice mode` | — |
 | `End voice` | — |
 | `Cancel` | — |
 | `Mute` | — |

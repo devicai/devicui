@@ -127,9 +127,35 @@ export interface AllowedFileTypes {
 /**
  * ChatDrawer display options
  */
+/** What a custom voice invitation (`options.liveVoice.invitation`) is given. */
+export interface LiveVoiceInvitationProps {
+  /** Open a call; a no-op while `canStart` is false. */
+  start: () => void;
+  /** False while the assistant is busy, a widget is pending, a limit is hit or voice is off. */
+  canStart: boolean;
+  /** Hide the invitation for this assistant; remembered in localStorage. */
+  dismiss: () => void;
+  /** The assistant's recording policy, when known. */
+  recordSessions?: boolean;
+  /** The last call's error, if it ended badly. */
+  error?: Error;
+}
+
 export interface ChatDrawerOptions {
-  /** Opt-in real-time voice; the assistant must also enable liveVoice. */
-  liveVoice?: { enabled: boolean };
+  /**
+   * Opt-in real-time voice; the assistant must also enable liveVoice.
+   *
+   * With voice available the composer gains a Start voice button next to the
+   * dictation mic, and a new conversation shows an invitation card above the
+   * composer. `invitation` replaces that card with your own (it receives
+   * `start`, `canStart`, `dismiss`, the recording policy and the last error)
+   * or, as `false`, removes it and leaves only the composer button. The card
+   * can be closed; the choice is kept in localStorage per assistant.
+   */
+  liveVoice?: {
+    enabled: boolean;
+    invitation?: false | ((props: LiveVoiceInvitationProps) => React.ReactNode);
+  };
   /**
    * Drawer position
    * @default 'right'
@@ -1111,6 +1137,13 @@ export interface ChatInputProps {
    * rather than the conversation.
    */
   integrationsToggle?: React.ReactNode;
+  /**
+   * Start a real-time voice call from the composer. When given, a Start voice
+   * button (a waveform, distinct from the dictation mic) sits next to Send.
+   */
+  onStartLiveVoice?: () => void;
+  /** The voice button is shown but cannot start right now. */
+  liveVoiceDisabled?: boolean;
 }
 
 /**

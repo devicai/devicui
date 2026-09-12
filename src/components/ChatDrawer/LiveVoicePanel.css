@@ -208,3 +208,25 @@
   .devic-voice-prompter-text { transition: none; }
   .devic-voice-status-dot { animation: none; }
 }
+
+/* close the invitation: a quiet control in the card's corner */
+.devic-voice-card { position: relative; padding-right: 36px; }
+.devic-voice-card-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--devic-radius-sm);
+  background: none;
+  color: var(--devic-text-muted);
+  cursor: pointer;
+}
+.devic-voice-card-close:hover { color: var(--devic-text); background: var(--devic-bg-secondary); }
+
+/* the composer's Start voice button: a waveform, not the dictation mic */
+.devic-live-voice-btn.devic-input-btn:hover:not(:disabled) { color: var(--devic-primary); }
