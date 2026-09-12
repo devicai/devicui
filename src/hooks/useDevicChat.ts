@@ -7,6 +7,7 @@ import { useModelInterface, type PendingWidgetCall } from './useModelInterface';
 import { createLogger } from '../utils/logger';
 import { useAssistantInfo } from '../api/assistantInfo';
 import { useTranslations } from '../i18n';
+import { useDevicLiveVoice, type UseDevicLiveVoiceResult } from './useDevicLiveVoice';
 import type {
   ChatMessage,
   ChatFile,
@@ -41,6 +42,8 @@ const QUEUE_HANDOVER_GRACE_TICKS = 60;
 const normalizeText = (text?: string): string => (text ?? '').trim();
 
 export interface UseDevicChatOptions {
+  /** Opt-in full-duplex voice. Uses the same chat SSE and client tools. */
+  liveVoice?: { enabled: boolean };
   /**
    * Assistant identifier
    */
@@ -209,6 +212,7 @@ export interface StopResult {
 }
 
 export interface UseDevicChatResult {
+  voice: UseDevicLiveVoiceResult;
   /**
    * Current chat messages
    */
@@ -518,17 +522,13 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   });
 
   // Create API client
-  const clientRef = useRef<DevicApiClient | null>(null);
-  if (!clientRef.current && (apiKey || getTenantSession)) {
-    clientRef.current = new DevicApiClient({ apiKey, baseUrl, getTenantSession, onSessionExpired });
-  }
-
-  // Update client config if it changes
-  useEffect(() => {
-    if (clientRef.current && apiKey) {
-      clientRef.current.setConfig({ apiKey, baseUrl });
-    }
-  }, [apiKey, baseUrl]);
+  const client = useMemo(() => apiKey || getTenantSession
+    ? new DevicApiClient({ apiKey, baseUrl, getTenantSession, onSessionExpired }) : null,
+    [apiKey, baseUrl, getTenantSession, onSessionExpired]);
+  const clientRef = useRef<DevicApiClient | null>(client);
+  // A voice controller keeps its original client for teardown. Mutating its
+  // credentials on account switch would close the old session as the new user.
+  clientRef.current = client;
 
   // --- Message queue --------------------------------------------------------
 
@@ -649,7 +649,13 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   // Load initial chat history if chatUid prop is provided
   // This runs once on mount (or when initialChatUid changes) to fetch existing conversation
   const initialChatLoadedRef = useRef(false);
+  const previousInitialChatRef = useRef(initialChatUid);
   useEffect(() => {
+    if (previousInitialChatRef.current !== initialChatUid) {
+      previousInitialChatRef.current = initialChatUid;
+      initialChatLoadedRef.current = false;
+      void voiceRef.current.stop();
+    }
     if (initialChatUid && clientRef.current && !initialChatLoadedRef.current) {
       initialChatLoadedRef.current = true;
 
@@ -662,6 +668,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
             initialChatUid,
             { tenantId: resolvedTenantId }
           );
+          if (previousInitialChatRef.current !== initialChatUid) return;
           setMessages(history.chatContent);
           mergeRecalledMemories(history.recalledMemories);
           mergeCompactions(history.compactions);
@@ -691,6 +698,29 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     onToolExecute: onToolCall,
   });
 
+  const voice = useDevicLiveVoice({
+    client: clientRef.current, assistantId, chatUid, enabled: options.liveVoice?.enabled,
+    context: { tenantId: resolvedTenantId, subtenantId: resolvedSubtenantId,
+      metadata: { ...resolvedTenantMetadata, ...(Object.keys(resolvedSubtenantMetadata).length ? { subtenantMetadata: resolvedSubtenantMetadata } : {}) },
+      tags: resolvedTags, tools: toolSchemas, enabledTools, disabledIntegrations },
+    onChatCreated: uid => {
+      if (chatUidRef.current !== uid) { chatUidRef.current = uid; setChatUid(uid); onChatCreatedRef.current?.(uid); }
+      setShouldPoll(true);
+    },
+    onError: error => onErrorRef.current?.(error),
+  });
+  const observingVoice = voice.active && !!chatUid && voice.chatUid === chatUid;
+  const observing = shouldPoll || observingVoice;
+  const voiceRef = useRef(voice); voiceRef.current = voice;
+  const wasVoiceActive = useRef(false);
+  useEffect(() => {
+    if (wasVoiceActive.current && !voice.active && status === 'completed' && !queuedCount) setShouldPoll(false);
+    wasVoiceActive.current = voice.active;
+  }, [voice.active, status, queuedCount]);
+  const handledClientCalls = useRef(new Set<string>());
+  const notifiedMessages = useRef(new Map<string, string>());
+  useEffect(() => { handledClientCalls.current.clear(); notifiedMessages.current.clear(); }, [chatUid, assistantId]);
+
   // Pending widget calls awaiting user interaction
   const [pendingWidgetCalls, setPendingWidgetCalls] = useState<PendingWidgetCall[]>([]);
   const pendingWidgetCallsRef = useRef<PendingWidgetCall[]>([]);
@@ -701,7 +731,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   // Polling hook - uses callbacks for side effects, return value not needed
   logRef.current.log('[useDevicChat] Render - shouldPoll:', shouldPoll, 'chatUid:', chatUid);
   usePolling(
-    shouldPoll ? chatUid : null,
+    observing ? chatUid : null,
     async () => {
       logRef.current.log('[useDevicChat] fetchFn called, chatUid:', chatUid);
       if (!clientRef.current || !chatUid) {
@@ -714,10 +744,10 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     {
       interval: pollingInterval,
       // Only when asked for: the poll is the default until the flag flips.
-      streamFn: streaming
+      streamFn: (streaming || observingVoice)
         ? (onSnapshot, signal, onActivity) => clientRef.current!.streamRealtimeHistory(assistantId, chatUid!, onSnapshot, signal, onActivity)
         : undefined,
-      enabled: shouldPoll,
+      enabled: observing,
       stopStatuses: [
         'completed',
         'error',
@@ -726,6 +756,12 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         'limit_exceeded',
       ],
       onUpdate: async (data: RealtimeChatHistory) => {
+        if (observingVoice) {
+          setIsLoading(data.status === 'processing' || data.status === 'buffering');
+          setHandedOff(data.status === 'handed_off');
+          setHandedOffSubThreadId(data.status === 'handed_off' ? data.handedOffSubThreadId || null : null);
+          if (data.status === 'error' || data.status === 'limit_exceeded') void voiceRef.current.stop();
+        }
         setStreamingMessage(data.status === 'processing' ? data.streamingMessage || null : null);
         logRef.current.log('[useDevicChat] onUpdate called, status:', data.status);
 
@@ -833,7 +869,9 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
 
         // Notify about new messages
         const lastMessage = data.chatHistory[data.chatHistory.length - 1];
-        if (lastMessage && lastMessage.role === 'assistant') {
+        const messageRevision = lastMessage ? JSON.stringify(lastMessage) : '';
+        if (lastMessage && lastMessage.role === 'assistant' && notifiedMessages.current.get(lastMessage.uid) !== messageRevision) {
+          notifiedMessages.current.set(lastMessage.uid, messageRevision);
           onMessageReceivedRef.current?.(lastMessage);
         }
 
@@ -843,6 +881,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         }
       },
       holdOpen: (data) => {
+        if (observingVoice && ['completed', 'waiting_for_tool_response', 'handed_off'].includes(data.status)) return true;
         // Only `completed` is worth waiting on. An error, a usage limit or a
         // gate mean something else is going on, and holding the poll open would
         // just be watching a conversation that is not coming back.
@@ -919,9 +958,13 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       if (!clientRef.current || !chatUid) return;
 
       // Get pending tool calls
-      const pendingCalls = data.pendingToolCalls || extractPendingToolCalls(data.chatHistory);
+      const pendingCalls = (data.pendingToolCalls || extractPendingToolCalls(data.chatHistory))
+        .filter(call => !handledClientCalls.current.has(call.id));
 
       if (pendingCalls.length === 0) return;
+      // Reserve before awaiting callbacks: repeated snapshots must not execute
+      // side effects twice. An ambiguous tool-response failure is not replayed.
+      pendingCalls.forEach(call => handledClientCalls.current.add(call.id));
 
       try {
         // Execute client-side tools (partitioned into immediate responses and widget-driven)
@@ -1225,6 +1268,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
 
   // Clear chat
   const clearChat = useCallback(() => {
+    void voiceRef.current.stop();
     setShouldPoll(false);
     setHandedOff(false);
     setHandedOffSubThreadId(null);
@@ -1249,6 +1293,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   // Load existing chat
   const loadChat = useCallback(
     async (loadChatUid: string) => {
+      await voiceRef.current.stop();
       if (!clientRef.current) {
         const err = new Error(t('API client not configured'));
         setError(err);
@@ -1310,7 +1355,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   // 5s (or the configured cadence) to detect when the parent thread is no
   // longer in handed_off state.
   useEffect(() => {
-    if (!handedOff || !chatUid || !clientRef.current) return;
+    if (observingVoice || !handedOff || !chatUid || !clientRef.current) return;
 
     const pollHandoff = async () => {
       try {
@@ -1337,7 +1382,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         handoffPollRef.current = null;
       }
     };
-  }, [handedOff, chatUid, assistantId, handoffPollingInterval]);
+  }, [handedOff, chatUid, assistantId, handoffPollingInterval, observingVoice]);
 
   // Called by HandoffSubagentWidget when the subthread reaches a terminal state
   const onHandoffCompleted = useCallback(() => {
@@ -1444,6 +1489,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   }, [assistantId, resetQueueState]);
 
   return {
+    voice,
     messages: streamingMessage && isLoading ? [...messages, streamingMessage] : messages,
     chatUid,
     isLoading,

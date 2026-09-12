@@ -122,7 +122,7 @@ export interface UsePollingOptions {
   /**
    * Callback on each poll update
    */
-  onUpdate?: (data: RealtimeChatHistory) => void;
+  onUpdate?: (data: RealtimeChatHistory) => void | Promise<void>;
 
   /**
    * Callback on poll error
@@ -271,7 +271,7 @@ export function usePolling(
 
       setData(result);
       setError(null);
-      onUpdateRef.current?.(result);
+      await onUpdateRef.current?.(result);
 
       // Check if we should stop polling
       const shouldStop =

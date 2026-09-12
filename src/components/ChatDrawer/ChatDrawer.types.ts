@@ -55,6 +55,8 @@ export type MessageBubbleRenderer = (
  * The component receives chat actions and state so it can drive the conversation.
  */
 export interface CustomPromptBoxProps {
+  /** Live voice control for custom composers. */
+  voice?: import('../../hooks/useDevicLiveVoice').UseDevicLiveVoiceResult;
   /**
    * Send a message (optionally with file attachments).
    * Pass `meta.transcriptId` to link the message to a speech-to-text transcript
@@ -126,6 +128,8 @@ export interface AllowedFileTypes {
  * ChatDrawer display options
  */
 export interface ChatDrawerOptions {
+  /** Opt-in real-time voice; the assistant must also enable liveVoice. */
+  liveVoice?: { enabled: boolean };
   /**
    * Drawer position
    * @default 'right'

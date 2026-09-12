@@ -1,4 +1,8 @@
 // Provider
+export { useDevicLiveVoice } from './hooks/useDevicLiveVoice';
+export type { UseDevicLiveVoiceOptions, UseDevicLiveVoiceResult } from './hooks/useDevicLiveVoice';
+export type { LiveVoiceState, LiveVoiceSnapshot } from './voice/LiveVoiceController';
+export type { LiveVoiceConfiguration, LiveVoiceContext, CreateLiveSessionRequest, LiveVoiceSession, LiveVoiceSessionStatus, LiveVoiceRecording, LiveVoiceUsage, LiveVoiceTurn } from './api/liveVoice.types';
 export { DevicProvider, DevicContext, useDevicContext, useOptionalDevicContext } from './provider';
 export type {
   DevicProviderConfig,
@@ -262,3 +266,5 @@ export type { MessageActionsProps, FeedbackModalProps, FeedbackState, FeedbackTh
 // Utilities
 export { generateId, deepMerge, debounce, throttle, formatFileSize, storage, segmentToolCalls } from './utils';
 export type { ToolGroupSegment } from './utils';
+export { LiveVoicePrompter } from './components/ChatDrawer/LiveVoicePrompter';
+export type { LiveVoicePrompterProps } from './components/ChatDrawer/LiveVoicePrompter';

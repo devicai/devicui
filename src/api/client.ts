@@ -1,4 +1,5 @@
 import { consumeChatStream } from '../utils/consumeChatStream';
+import type { CreateLiveSessionRequest, LiveVoiceSession, LiveVoiceSessionStatus, LiveVoiceRecording, LiveVoiceUsage } from './liveVoice.types';
 import type {
   ProcessMessageDto,
   ChatMessage,
@@ -215,6 +216,7 @@ export class DevicApiClient {
     endpoint: string,
     options: RequestInit = {},
     isRetry = false,
+    binary = false,
   ): Promise<T> {
     const url = `${this.config.baseUrl}${endpoint}`;
     const credential = await this.authorization();
@@ -236,7 +238,7 @@ export class DevicApiClient {
     // turns that into a pause instead of a broken conversation.
     if (response.status === 401 && this.config.getTenantSession && !isRetry) {
       if (await this.recoverSession(credential)) {
-        return this.request<T>(endpoint, options, true);
+        return this.request<T>(endpoint, options, true, binary);
       }
     }
 
@@ -260,6 +262,8 @@ export class DevicApiClient {
       throw new DevicApiError(errorData);
     }
 
+    if (binary) return await response.blob() as T;
+    if (response.status === 204) return undefined as T;
     // Handle responses that may have a wrapper structure
     const data = await response.json();
 
@@ -271,9 +275,41 @@ export class DevicApiClient {
     return data as T;
   }
 
-  /**
-   * Get all assistant specializations
-   */
+  private async liveRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
+    try { return await this.request<T>(path, { ...options, signal: controller.signal }); }
+    finally { clearTimeout(timeout); }
+  }
+
+  createLiveSession(assistantId: string, body: CreateLiveSessionRequest): Promise<LiveVoiceSession> {
+    // No network-error retry: an ambiguous response could hide a paid session.
+    return this.liveRequest(`/api/v1/assistants/${encodeURIComponent(assistantId)}/live/sessions`, {
+      method: 'POST', body: JSON.stringify(body),
+    });
+  }
+
+  getLiveSessionStatus(assistantId: string, sessionId: string): Promise<LiveVoiceSessionStatus> {
+    return this.liveRequest(`/api/v1/assistants/${encodeURIComponent(assistantId)}/live/sessions/${encodeURIComponent(sessionId)}`);
+  }
+
+  closeLiveSession(assistantId: string, sessionId: string): Promise<{ closing: boolean; chatUid: string }> {
+    return this.liveRequest(`/api/v1/assistants/${encodeURIComponent(assistantId)}/live/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE', keepalive: true });
+  }
+
+  getLiveRecordings(assistantId: string, chatUid: string, offset = 0, limit = 100): Promise<LiveVoiceRecording[]> {
+    return this.request(`/api/v1/assistants/${encodeURIComponent(assistantId)}/chats/${encodeURIComponent(chatUid)}/recordings?offset=${offset}&limit=${limit}`);
+  }
+
+  getLiveRecordingAudio(assistantId: string, chatUid: string, sessionId: string): Promise<Blob> {
+    return this.request(`/api/v1/assistants/${encodeURIComponent(assistantId)}/chats/${encodeURIComponent(chatUid)}/recordings/${encodeURIComponent(sessionId)}/audio`, {}, false, true);
+  }
+
+  getLiveVoiceUsage(assistantId: string, chatUid: string): Promise<LiveVoiceUsage> {
+    return this.request(`/api/v1/assistants/${encodeURIComponent(assistantId)}/chats/${encodeURIComponent(chatUid)}/live-usage`);
+  }
+
+  /** Get all assistant specializations. */
   async getAssistants(external = false): Promise<AssistantSpecialization[]> {
     const query = external ? "?external=true" : "";
     return this.request<AssistantSpecialization[]>(

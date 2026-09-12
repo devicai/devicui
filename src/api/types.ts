@@ -216,6 +216,7 @@ export interface ToolCallResponse {
  * DTO for sending messages to the assistant
  */
 export interface ProcessMessageDto {
+  disabledIntegrations?: string[];
   message: string;
   chatUid?: string;
   userName?: string;
@@ -228,6 +229,7 @@ export interface ProcessMessageDto {
     [key: string]: any;
   };
   tenantId?: string;
+  subtenantId?: string;
   previousConversation?: PreviousMessage[];
   enabledTools?: string[];
   provider?: string;
@@ -677,6 +679,7 @@ export interface CoreMemoryList {
  * Assistant specialization info
  */
 export interface AssistantSpecialization {
+  liveVoice?: import('./liveVoice.types').LiveVoiceConfiguration;
   identifier: string;
   name: string;
   description: string;

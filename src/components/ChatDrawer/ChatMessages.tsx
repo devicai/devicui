@@ -738,7 +738,8 @@ export function ChatMessages({
     <div className="devic-messages-container" ref={containerRef}>
       {messages.length === 0 &&
         !isLoading &&
-        (welcomeMessage || suggestedMessages?.length) && (
+        // Boolean, or an empty suggestions list prints a stray "0".
+        !!(welcomeMessage || suggestedMessages?.length) && (
           <div className="devic-welcome">
             {welcomeMessage && (
               <p className="devic-welcome-text">{welcomeMessage}</p>
