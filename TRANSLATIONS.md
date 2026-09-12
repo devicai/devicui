@@ -406,3 +406,37 @@ Its defaults have been Spanish since it was added, so its keys are the
 Spanish texts — `Preguntar a IA`, `Pensando…`, `Cerrar`,
 `Cuéntame más sobre: {label}`. They are listed above under **Element
 wrapper** and translate like any other, into English included.
+# Live voice
+
+| English key | Variables |
+| --- | --- |
+| `Voice mode` | — |
+| `Voice · included minutes` | — |
+| `Live · {seconds} s · included minutes` | seconds |
+| `Connecting voice…` | — |
+| `Restoring voice…` | — |
+| `Closing voice…` | — |
+| `Start voice` | — |
+| `End voice` | — |
+| `Mute` | — |
+| `Unmute` | — |
+| `Enable audio` | — |
+| `You` | — |
+| `Assistant` | — |
+| `Listening…` | — |
+| `Voice sessions are recorded according to the assistant settings.` | — |
+| `Voice recordings` | — |
+| `Hide recordings` | — |
+| `No voice recordings yet.` | — |
+| `Play recording` | — |
+| `Download recording` | — |
+| `Partial` | — |
+| `Load more` | — |
+| `Could not load voice recordings.` | — |
+| `Voice requires microphone access on HTTPS or localhost.` | — |
+| `Voice connection interrupted. Please start again.` | — |
+| `Could not confirm the previous voice session closed.` | — |
+| `Voice session failed.` | — |
+| `Voice connection timed out.` | — |
+| `Could not prepare the audio connection.` | — |
+| `Voice status unavailable. Session stopped.` | — |

@@ -29,9 +29,11 @@ import type { DevicTheme } from '../theme';
 import type { ChatDrawerProps, ChatDrawerOptions, ChatDrawerHandle } from './ChatDrawer.types';
 import type { QueueDisposition } from '../../api/types';
 import './styles.css';
+const LiveVoicePanel = React.lazy(() => import('./LiveVoicePanel'));
 import { avatarUri } from '../../utils/avatar';
 
 const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
+  liveVoice: { enabled: false },
   position: 'right',
   width: '100%',
   defaultOpen: false,
@@ -268,10 +270,12 @@ function ChatDrawerInner({
     onChatCreated: handleChatCreated,
     onFileUpload,
     messageQueue: mergedOptions.messageQueue,
+    liveVoice: mergedOptions.liveVoice,
     debug: mergedOptions.debug,
   });
 
   // Fetch assistant avatar when showAvatar is enabled
+  useEffect(() => { if (!isOpen) void chat.voice.stop(); }, [isOpen, chat.voice.stop]);
   const context = useOptionalDevicContext();
   const resolvedApiKey = apiKey || context?.apiKey;
   // The session source, when the page authenticates with one. Every client
@@ -306,6 +310,7 @@ function ChatDrawerInner({
     baseUrl: resolvedBaseUrl,
     credential: resolvedApiKey || 'session',
     enabled:
+      (!!mergedOptions.liveVoice?.enabled && isOpen) ||
       (!!mergedOptions.showAvatar && !mergedOptions.avatarUrl) ||
       (mergedOptions.showIntegrationsButton !== false && isOpen),
   });
@@ -1112,13 +1117,19 @@ function ChatDrawerInner({
         />
 
         {/* Input */}
-        {mergedOptions.customPromptBox ? (
+        {mergedOptions.liveVoice?.enabled && <React.Suspense fallback={null}>
+          <LiveVoicePanel voice={chat.voice} client={infoClient} assistantId={assistantId} chatUid={chat.chatUid}
+            canStart={isOpen && assistantInfo.assistant?.liveVoice?.enabled === true && !chat.isLoading && !chat.handedOff && !chat.limitExceeded && !inputWidget && inlineWidgets.length === 0}
+            recordSessions={assistantInfo.assistant?.liveVoice?.recordSessions} />
+        </React.Suspense>}
+        {chat.voice.active && !inputWidget ? <div className="devic-input-area">{limitBannerNode}{usageBarNode}{queueNoticeNode}</div> : Boolean(mergedOptions.customPromptBox) && !(chat.voice.active && inputWidget) ? (
           <div className="devic-input-area">
             {limitBannerNode}
             {usageBarNode}
             {integrationsHintNode}
             {queueNoticeNode}
             {mergedOptions.customPromptBox({
+              voice: chat.voice,
               sendMessage: handleSend,
               transcribeAudio,
               stop: chat.stopChat,

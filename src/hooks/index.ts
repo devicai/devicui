@@ -1,4 +1,6 @@
 export { useDevicChat } from './useDevicChat';
+export { useDevicLiveVoice } from './useDevicLiveVoice';
+export type { UseDevicLiveVoiceOptions, UseDevicLiveVoiceResult } from './useDevicLiveVoice';
 export type {
   UseDevicChatOptions,
   UseDevicChatResult,

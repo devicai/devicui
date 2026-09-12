@@ -1467,3 +1467,6 @@ import type {
 ## License
 
 MIT
+# Live voice (unreleased)
+
+Enable with `options={{ liveVoice: { enabled: true } }}` on `ChatDrawer`, after enabling voice on the assistant. Reuses the existing SSE for messages and tools; WebRTC carries audio. See [Live voice integration](docs/live-voice.md) for backend requirements, tenant sessions, lifecycle, recordings and headless hooks. No OpenAI key is needed in the browser.

@@ -1,0 +1,16 @@
+.devic-live-voice { margin-top: var(--devic-voice-gap, 12px); padding: var(--devic-voice-padding, 12px); border-top: 1px solid var(--devic-border); color: var(--devic-text); background: var(--devic-bg-secondary); }
+.devic-voice-controls { display: flex; align-items: center; flex-wrap: wrap; gap: var(--devic-voice-gap, 8px); }
+.devic-voice-controls > span { flex: 1; min-width: 120px; }
+.devic-live-voice button, .devic-live-voice a { color: var(--devic-text); background: var(--devic-bg); border: 1px solid var(--devic-border); border-radius: var(--devic-radius-sm, 6px); padding: 6px 10px; cursor: pointer; }
+.devic-live-voice button:disabled { cursor: default; opacity: .5; }
+.devic-live-voice small { color: var(--devic-text-secondary); display: block; margin-top: 6px; }
+.devic-voice-lines { display: grid; gap: 6px; margin-bottom: 10px; }
+.devic-voice-line { display: flex; align-items: center; gap: 8px; height: 28px; min-width: 0; }
+.devic-voice-line--user { color: var(--devic-voice-user-color, var(--devic-primary)); }
+.devic-voice-line--assistant { color: var(--devic-voice-assistant-color, var(--devic-text-secondary)); }
+.devic-voice-prompter { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; scroll-behavior: smooth; }
+.devic-voice-wave { --devic-voice-level: 0; width: 44px; height: 24px; display: flex; gap: 2px; align-items: center; flex-shrink: 0; }
+.devic-voice-wave i { width: 4px; background: currentColor; border-radius: 2px; transform: scaleY(calc(.1 + var(--devic-voice-level) * .9)); transition: transform 70ms linear; }
+.devic-voice-recordings { max-height: 180px; overflow: auto; display: grid; gap: 6px; }
+.devic-voice-recordings audio { width: 100%; }
+@media (prefers-reduced-motion: reduce) { .devic-voice-prompter { scroll-behavior: auto; } .devic-voice-wave i { transition: none; } }

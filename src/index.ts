@@ -1,4 +1,8 @@
 // Provider
+export { useDevicLiveVoice } from './hooks/useDevicLiveVoice';
+export type { UseDevicLiveVoiceOptions, UseDevicLiveVoiceResult } from './hooks/useDevicLiveVoice';
+export type { LiveVoiceState, LiveVoiceSnapshot } from './voice/LiveVoiceController';
+export type { LiveVoiceConfiguration, LiveVoiceContext, CreateLiveSessionRequest, LiveVoiceSession, LiveVoiceSessionStatus, LiveVoiceRecording, LiveVoiceUsage, LiveVoiceTurn } from './api/liveVoice.types';
 export { DevicProvider, DevicContext, useDevicContext, useOptionalDevicContext } from './provider';
 export type {
   DevicProviderConfig,
