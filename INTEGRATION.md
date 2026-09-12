@@ -494,6 +494,12 @@ An API that does not serve the stream answers with something other than
 so the flag can be turned on before every deployment has caught up. The stream
 reconnects on its own after a drop, with the poll covering the gap.
 
+The stream is opened with `?partial=1` (0.60.0): while only the reply being
+written changes, the API sends `delta` frames with the appended text (or a
+`partial` frame with the reply so far) instead of a full snapshot, and the
+library merges them into the last snapshot before handing it to the hooks. An
+older API ignores the parameter and keeps sending full snapshots.
+
 ## Writing While the Assistant Answers
 
 An assistant can be configured (`messageQueueEnabled`, in its context settings)

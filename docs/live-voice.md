@@ -1,4 +1,4 @@
-# Live voice (unreleased)
+# Live voice (0.61.0)
 
 Live voice reuses `useDevicChat`'s existing authenticated SSE, snapshot reconciliation, tool timeline, client-tool callbacks and interactive widgets. WebRTC is only the audio transport. This is not the existing Whisper dictation / hands-free loop.
 
@@ -37,6 +37,6 @@ Voice recordings are fetched only when requested, and audio only on Play. Downlo
 
 ## Required server changes
 
-Requires SuntropyAI Live Voice production plus `feat/live-voice-client-context` (the start endpoint accepts tools/metadata/tags and filters). Public gateway consumers additionally require api-gateway PRs #16 and #17 for private audio and tenant-session routes. Older assistants without the capability keep the Start button disabled. Do not enable the widget against an older server expecting client tools to be retained.
+Requires SuntropyAI Live Voice production plus the client-context change (SuntropyAI PR #467: the start endpoint accepts tools/metadata/tags and filters) and, for public gateway consumers, api-gateway PRs #16 and #17 (private audio and tenant-session routes). All three were merged on 2026-09-12. Older assistants without the capability keep the Start button disabled. Do not enable the widget against an older server expecting client tools to be retained.
 
-No version bump or npm publication is part of this implementation. Build/test locally and review the backend and library PRs together before release.
+Published as 0.61.0.

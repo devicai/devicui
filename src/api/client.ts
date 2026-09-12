@@ -381,7 +381,9 @@ export class DevicApiClient {
     signal: AbortSignal,
     onActivity?: () => void,
   ): Promise<void> {
-    const url = `${this.config.baseUrl}/api/v1/assistants/${encodeURIComponent(assistantId)}/chats/${encodeURIComponent(chatUid)}/stream`;
+    // `partial=1`: while only the reply being written changes, the API sends
+    // `partial` frames with just that instead of the whole conversation.
+    const url = `${this.config.baseUrl}/api/v1/assistants/${encodeURIComponent(assistantId)}/chats/${encodeURIComponent(chatUid)}/stream?partial=1`;
     let credential = await this.authorization();
     const open = () => fetch(url, { signal, headers: { Authorization: `Bearer ${credential}`, Accept: 'text/event-stream', 'devic-api-source': 'ui' } });
     let response = await open();
