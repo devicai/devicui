@@ -1119,7 +1119,10 @@ function ChatDrawerInner({
         {/* Input */}
         {/* Idle, the voice widget is a card above the composer; during a call
             it takes the composer's place, banners included. */}
-        {mergedOptions.liveVoice?.enabled && <React.Suspense fallback={null}>
+        {/* A host opts in, but the card only shows for an assistant that can
+            take a call: with the assistant known and voice off, an end user
+            would just see a Start button that never enables. */}
+        {mergedOptions.liveVoice?.enabled && (chat.voice.active || !assistantInfo.assistant || assistantInfo.assistant.liveVoice?.enabled === true) && <React.Suspense fallback={null}>
           <LiveVoicePanel voice={chat.voice} client={infoClient} assistantId={assistantId} chatUid={chat.chatUid}
             canStart={isOpen && assistantInfo.assistant?.liveVoice?.enabled === true && !chat.isLoading && !chat.handedOff && !chat.limitExceeded && !inputWidget && inlineWidgets.length === 0}
             recordSessions={assistantInfo.assistant?.liveVoice?.recordSessions}>
