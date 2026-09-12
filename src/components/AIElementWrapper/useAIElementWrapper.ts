@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from '../../api/client';
-import { usePolling, resolvePollingInterval } from '../../hooks/usePolling';
+import { usePolling, resolvePollingInterval, resolveStreaming } from '../../hooks/usePolling';
 import { useModelInterface } from '../../hooks/useModelInterface';
 import { useTranslations } from '../../i18n';
 import type {
@@ -18,6 +18,8 @@ export interface UseAIElementWrapperOptions {
   tenantMetadata?: Record<string, any>;
   /** Poll cadence (ms) for the generation in progress (overrides the provider's). */
   pollingInterval?: number;
+  /** Follow it over a server-sent event stream instead of polling (overrides the provider's). */
+  streaming?: boolean;
   modelInterfaceTools?: ModelInterfaceTool[];
   onResponse?: (message: ChatMessage) => void;
   onError?: (error: Error) => void;
@@ -48,6 +50,7 @@ export function useAIElementWrapper(
     tenantId,
     tenantMetadata,
     pollingInterval: propsPollingInterval,
+    streaming: propsStreaming,
     modelInterfaceTools = [],
     onResponse,
     onError,
@@ -65,6 +68,7 @@ export function useAIElementWrapper(
     propsPollingInterval,
     context?.pollingInterval
   );
+  const streaming = resolveStreaming(propsStreaming, context?.streaming);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<ChatMessage | null>(null);
@@ -131,6 +135,9 @@ export function useAIElementWrapper(
     },
     {
       interval: pollingInterval,
+      streamFn: streaming
+        ? (onSnapshot, signal) => clientRef.current!.streamRealtimeHistory(assistantId!, chatUid!, onSnapshot, signal)
+        : undefined,
       enabled: shouldPoll,
       stopStatuses: ['completed', 'error', 'waiting_for_tool_response'],
       onUpdate: async (data: RealtimeChatHistory) => {

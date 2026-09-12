@@ -97,6 +97,7 @@ Context provider for global configuration.
   tenantId="tenant-123"        // Optional global tenant
   tenantMetadata={{ ... }}     // Optional global metadata
   pollingInterval={1000}       // How often a conversation in progress is polled
+  streaming={false}            // Follow conversations over SSE instead of polling (opt-in)
   translations={{ ... }}       // Optional `English text -> your text` dictionary
 >
   <App />
@@ -135,6 +136,27 @@ provider's:
 Values below 250 ms are clamped — below that the widget floods the API instead
 of answering sooner. The handoff widget, which only watches a subagent run,
 keeps its own 5 s default when nothing is configured.
+
+#### Streaming instead of polling
+
+Opt in with `streaming` and a conversation in progress is followed over a
+server-sent event stream instead: the assistant's reply appears as it is
+produced, and the poll only runs while the stream is down. It is off by
+default for now and will become the default once it has been exercised in the
+field; a component can still refuse it with `streaming={false}`.
+
+```tsx
+<DevicProvider apiKey="devic-xxx" streaming>
+  <ChatDrawer assistantId="support" />
+  <AICommandBar assistantId="support" streaming={false} />
+</DevicProvider>
+```
+
+The stream is `GET /api/v1/assistants/:id/chats/:chatUid/stream`, served by the
+same API with the same credential as the poll. Against an API that does not
+serve it the widgets notice and keep polling, so turning it on is safe before
+the API you talk to has caught up. The handoff widget, which watches a subagent
+run rather than a conversation, always polls.
 
 #### Texts in another language
 
@@ -326,6 +348,7 @@ A complete chat drawer component.
   tenantMetadata={{ userId: '123' }}
   apiKey="override-key"          // Override provider
   pollingInterval={1000}         // Override provider (ms, min 250)
+  streaming={false}              // Override provider (SSE instead of polling)
 
   // Callbacks
   onMessageSent={(message) => {}}
@@ -955,6 +978,7 @@ const {
   enabledTools: ['tool1', 'tool2'],
   modelInterfaceTools: [...],
   pollingInterval: 1000,        // Overrides the provider's (ms, min 250)
+  streaming: false,             // Overrides the provider's (SSE instead of polling)
   messageQueue: undefined,      // Follows the assistant's setting; true/false pins it
   onMessageSent: (message) => {},
   onMessageReceived: (message) => {},

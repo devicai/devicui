@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useOptionalDevicContext } from '../provider';
 import type { TenantMetadata, SubtenantMetadata } from '../provider';
 import { DevicApiClient, DevicApiError } from '../api/client';
-import { usePolling, resolvePollingInterval } from './usePolling';
+import { usePolling, resolvePollingInterval, resolveStreaming } from './usePolling';
 import { useModelInterface, type PendingWidgetCall } from './useModelInterface';
 import { createLogger } from '../utils/logger';
 import { useAssistantInfo } from '../api/assistantInfo';
@@ -116,6 +116,13 @@ export interface UseDevicChatOptions {
    * @default 1000
    */
   pollingInterval?: number;
+
+  /**
+   * Follow the conversation over a server-sent event stream instead of
+   * polling it. Overrides the DevicProvider's `streaming`.
+   * @default false
+   */
+  streaming?: boolean;
 
   /**
    * Callback when a message is sent
@@ -383,6 +390,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     disabledIntegrations,
     modelInterfaceTools = [],
     pollingInterval: propsPollingInterval,
+    streaming: propsStreaming,
     onMessageSent,
     onMessageReceived,
     onToolCall,
@@ -422,6 +430,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     propsPollingInterval,
     context?.pollingInterval
   );
+  const streaming = resolveStreaming(propsStreaming, context?.streaming);
   const handoffPollingInterval = resolvePollingInterval(
     propsPollingInterval,
     context?.pollingInterval,
@@ -704,7 +713,10 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     },
     {
       interval: pollingInterval,
-      streamFn: (onSnapshot, signal) => clientRef.current!.streamRealtimeHistory(assistantId, chatUid!, onSnapshot, signal),
+      // Only when asked for: the poll is the default until the flag flips.
+      streamFn: streaming
+        ? (onSnapshot, signal) => clientRef.current!.streamRealtimeHistory(assistantId, chatUid!, onSnapshot, signal)
+        : undefined,
       enabled: shouldPoll,
       stopStatuses: [
         'completed',

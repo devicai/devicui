@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from '../../api/client';
-import { usePolling, resolvePollingInterval } from '../../hooks/usePolling';
+import { usePolling, resolvePollingInterval, resolveStreaming } from '../../hooks/usePolling';
 import { useModelInterface } from '../../hooks/useModelInterface';
 import { useTranslations } from '../../i18n';
 import type {
@@ -27,6 +27,8 @@ export interface UseAICommandBarOptions {
   tags?: string[];
   /** Poll cadence (ms) for the command in progress (overrides the provider's). */
   pollingInterval?: number;
+  /** Follow it over a server-sent event stream instead of polling (overrides the provider's). */
+  streaming?: boolean;
   options?: AICommandBarOptions;
   isVisible?: boolean;
   onVisibilityChange?: (visible: boolean) => void;
@@ -145,6 +147,7 @@ export function useAICommandBar(options: UseAICommandBarOptions): UseAICommandBa
     tenantMetadata,
     tags,
     pollingInterval: propsPollingInterval,
+    streaming: propsStreaming,
     options: barOptions = {},
     isVisible: controlledVisible,
     onVisibilityChange,
@@ -178,6 +181,7 @@ export function useAICommandBar(options: UseAICommandBarOptions): UseAICommandBa
     propsPollingInterval,
     context?.pollingInterval
   );
+  const streaming = resolveStreaming(propsStreaming, context?.streaming);
 
   // Visibility state
   const [internalVisible, setInternalVisible] = useState(false);
@@ -517,6 +521,9 @@ export function useAICommandBar(options: UseAICommandBarOptions): UseAICommandBa
     },
     {
       interval: pollingInterval,
+      streamFn: streaming
+        ? (onSnapshot, signal) => clientRef.current!.streamRealtimeHistory(assistantId!, chatUid!, onSnapshot, signal)
+        : undefined,
       enabled: shouldPoll,
       stopStatuses: ['completed', 'error', 'waiting_for_tool_response'],
       onUpdate: async (data: RealtimeChatHistory) => {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from '../../api/client';
-import { usePolling, resolvePollingInterval } from '../../hooks/usePolling';
+import { usePolling, resolvePollingInterval, resolveStreaming } from '../../hooks/usePolling';
 import { useModelInterface } from '../../hooks/useModelInterface';
 import { useTranslations } from '../../i18n';
 import type {
@@ -25,6 +25,8 @@ export interface UseAIGenerationButtonOptions {
   tags?: string[];
   /** Poll cadence (ms) for the generation in progress (overrides the provider's). */
   pollingInterval?: number;
+  /** Follow it over a server-sent event stream instead of polling (overrides the provider's). */
+  streaming?: boolean;
   options?: AIGenerationButtonOptions;
   modelInterfaceTools?: ModelInterfaceTool[];
   onResponse?: (result: GenerationResult) => void;
@@ -75,6 +77,7 @@ export function useAIGenerationButton(
     tenantMetadata,
     tags,
     pollingInterval: propsPollingInterval,
+    streaming: propsStreaming,
     options: buttonOptions = {},
     modelInterfaceTools = [],
     onResponse,
@@ -104,6 +107,7 @@ export function useAIGenerationButton(
     propsPollingInterval,
     context?.pollingInterval
   );
+  const streaming = resolveStreaming(propsStreaming, context?.streaming);
 
   // State
   const [isOpen, setIsOpen] = useState(false);
@@ -255,6 +259,9 @@ export function useAIGenerationButton(
     },
     {
       interval: pollingInterval,
+      streamFn: streaming
+        ? (onSnapshot, signal) => clientRef.current!.streamRealtimeHistory(assistantId!, chatUid!, onSnapshot, signal)
+        : undefined,
       enabled: shouldPoll,
       stopStatuses: ['completed', 'error', 'waiting_for_tool_response'],
       onUpdate: async (data: RealtimeChatHistory) => {

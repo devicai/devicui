@@ -31,7 +31,34 @@ export function resolvePollingInterval(
   return DEFAULT_POLLING_INTERVAL_MS;
 }
 
+/**
+ * Whether a conversation in progress is followed over a server-sent event
+ * stream instead of polled. Off until the integrator opts in; the flag will
+ * default to on once the streaming endpoint has been exercised in the field.
+ */
+export const DEFAULT_STREAMING = false;
+
+/**
+ * Picks the first explicit choice out of the candidates, in priority order
+ * (component prop, then provider), ignoring anything that is not a boolean
+ * and falling back to `DEFAULT_STREAMING`.
+ */
+export function resolveStreaming(
+  ...candidates: Array<boolean | undefined | null>
+): boolean {
+  for (const value of candidates) {
+    if (typeof value === 'boolean') return value;
+  }
+  return DEFAULT_STREAMING;
+}
+
 export interface UsePollingOptions {
+  /**
+   * Opens a server-sent event stream for the conversation and feeds every
+   * snapshot it carries. While it delivers, the timer below stays quiet; when
+   * it fails or ends early, the timer takes over and the stream is reopened.
+   * Absent, the hook only polls.
+   */
   streamFn?: (onSnapshot: (data: RealtimeChatHistory) => Promise<void>, signal: AbortSignal) => Promise<void>;
   /**
    * Polling interval in milliseconds
