@@ -31,7 +31,7 @@ function fakeApi({ quietMs = 20, streamUnavailable = false } = {}) {
   let polls = 0;
   const fetch = async (url, init = {}) => {
     const pathname = new URL(url).pathname;
-    requests.push(`${init.method || 'GET'} ${pathname}`);
+    requests.push(`${init.method || 'GET'} ${pathname}${new URL(url).search}`);
     if (init.method === 'POST' && pathname.endsWith('/messages')) return json({ chatUid: 'chat-1' });
     if (pathname.endsWith('/realtime')) {
       polls += 1;
@@ -42,6 +42,8 @@ function fakeApi({ quietMs = 20, streamUnavailable = false } = {}) {
       const frames = [
         `event: snapshot\ndata: ${JSON.stringify(snapshot('processing', { streamingMessage: { ...assistantReply, content: { message: 'Hel' } } }))}\n\n`,
         ': keep-alive\n\n',
+        `event: partial\ndata: ${JSON.stringify({ streamingMessage: { ...assistantReply, content: { message: 'Hello ba' } } })}\n\n`,
+        `event: delta\ndata: ${JSON.stringify({ append: 'ck' })}\n\n`,
         `event: snapshot\ndata: ${JSON.stringify(finished())}\n\n`,
       ];
       const body = new ReadableStream({
@@ -54,7 +56,7 @@ function fakeApi({ quietMs = 20, streamUnavailable = false } = {}) {
     }
     return json({ identifier: 'asst', name: 'Assistant' });
   };
-  return { fetch, requests, streamed: () => requests.filter((r) => r.endsWith('/stream')), polled: () => requests.filter((r) => r.endsWith('/realtime')) };
+  return { fetch, requests, streamed: () => requests.filter((r) => r.includes('/stream')), polled: () => requests.filter((r) => r.endsWith('/realtime')), partialAsked: () => requests.some((r) => r.endsWith('/stream?partial=1')) };
 }
 
 /** Mounts the hook, sends one message and waits for the conversation to settle. */
@@ -90,7 +92,7 @@ test('without the flag the hook only polls: /stream is never requested', async (
 
 test('with streaming: true the conversation is followed over /stream and never polled', async () => {
   const api = await converse({ apiKey: 'key', streaming: true });
-  assert.deepEqual(api.streamed(), ['GET /api/v1/assistants/asst/chats/chat-1/stream']);
+  assert.deepEqual(api.streamed(), ['GET /api/v1/assistants/asst/chats/chat-1/stream?partial=1']);
   assert.deepEqual(api.polled(), []);
 });
 
@@ -145,4 +147,38 @@ test('the provider can opt every widget in, and a component can still refuse', a
   assert.equal(inherited.streamed().length, 1);
   const refused = await converse({ streaming: false }, provider(true));
   assert.deepEqual(refused.streamed(), []);
+});
+
+test('the client asks the API for partial frames', async () => {
+  const api = await converse({ apiKey: 'key', streaming: true });
+  assert.equal(api.partialAsked(), true);
+});
+
+test('partial frames are merged into the last snapshot; one before any snapshot is ignored', async () => {
+  const { consumeChatStream } = loadTs(src('utils/consumeChatStream.ts'));
+  const frames = [
+    `event: partial\ndata: ${JSON.stringify({ streamingMessage: { content: { message: 'lost' } } })}\n\n`,
+    `event: snapshot\ndata: ${JSON.stringify(snapshot('processing', { streamingMessage: { content: { message: 'Hel' } } }))}\n\n`,
+    `event: partial\ndata: ${JSON.stringify({ streamingMessage: { content: { message: 'Hello' } } })}\n\n`,
+    `event: delta\ndata: ${JSON.stringify({ append: ' world' })}\n\n`,
+    ': keep-alive\n\n',
+    `event: partial\ndata: ${JSON.stringify({ streamingMessage: null })}\n\n`,
+    `event: snapshot\ndata: ${JSON.stringify(finished())}\n\n`,
+  ];
+  const body = new ReadableStream({
+    start(controller) { for (const frame of frames) controller.enqueue(new TextEncoder().encode(frame)); controller.close(); },
+  });
+  const seen = [];
+  let activity = 0;
+  await consumeChatStream(new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } }), (s) => { seen.push(s); }, () => { activity += 1; });
+  assert.deepEqual(seen.map((s) => [s.status, s.streamingMessage?.content.message ?? null]), [
+    ['processing', 'Hel'],
+    ['processing', 'Hello'],
+    ['processing', 'Hello world'],
+    ['processing', null],
+    ['completed', null],
+  ]);
+  assert.deepEqual(seen[1].chatHistory, seen[0].chatHistory, 'the merged state keeps the snapshot fields');
+  assert.equal(seen.at(-1).chatHistory.length, 2);
+  assert.ok(activity >= 1);
 });

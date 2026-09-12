@@ -1,9 +1,13 @@
 /**
- * Consume Devic's version-1 SSE snapshots, tolerating arbitrary UTF-8/chunk
- * boundaries. `onActivity` fires on every chunk, keep-alive comments included,
- * so the caller can tell a quiet connection from a dead one.
+ * Consume Devic's version-1 SSE frames, tolerating arbitrary UTF-8/chunk
+ * boundaries. `snapshot` frames carry the whole state. When the stream was
+ * opened with `?partial=1`, changes to the reply being written arrive as
+ * `partial` frames (the whole `streamingMessage`) or `delta` frames (only the
+ * text appended to it); both are merged into the last snapshot, so the caller
+ * always receives a full state. `onActivity` fires on every chunk, keep-alive
+ * comments included, so the caller can tell a quiet connection from a dead one.
  */
-export async function consumeChatStream<T>(
+export async function consumeChatStream<T extends object>(
   response: Response,
   onSnapshot: (snapshot: T) => void | Promise<void>,
   onActivity?: () => void,
@@ -14,6 +18,7 @@ export async function consumeChatStream<T>(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let last: (T & { streamingMessage?: any }) | undefined;
   try {
     while (true) {
       const { value, done } = await reader.read();
@@ -26,9 +31,30 @@ export async function consumeChatStream<T>(
         const frame = buffer.slice(0, boundary);
         buffer = buffer.slice(boundary + 2);
         const lines = frame.split('\n');
-        if (!lines.some(line => line === 'event: snapshot')) continue;
+        const event = lines.find(line => line.startsWith('event:'))?.slice(6).trim();
+        if (event !== 'snapshot' && event !== 'partial' && event !== 'delta') continue;
         const data = lines.filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
-        if (data) await onSnapshot(JSON.parse(data));
+        if (!data) continue;
+        const parsed = JSON.parse(data);
+        if (event === 'snapshot') {
+          last = parsed;
+        } else if (!last) {
+          // Nothing to merge into yet; the next snapshot carries everything.
+          continue;
+        } else if (event === 'partial') {
+          last = { ...last, ...parsed };
+        } else {
+          const message = last.streamingMessage;
+          if (!message || typeof parsed.append !== 'string') continue;
+          last = {
+            ...last,
+            streamingMessage: {
+              ...message,
+              content: { ...message.content, message: `${message.content?.message ?? ''}${parsed.append}` },
+            },
+          };
+        }
+        await onSnapshot(last as T);
       }
     }
   } finally {
@@ -36,4 +62,3 @@ export async function consumeChatStream<T>(
     reader.releaseLock();
   }
 }
-

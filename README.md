@@ -158,6 +158,12 @@ serve it the widgets notice and keep polling, so turning it on is safe before
 the API you talk to has caught up. The handoff widget, which watches a subagent
 run rather than a conversation, always polls.
 
+Since 0.60.0 the library asks for `?partial=1`: while only the reply being
+written changes, the API sends just the text appended since the last frame
+instead of the whole conversation, which keeps a streamed turn lighter on the
+wire than polling it. An API that predates the option ignores it and sends
+full snapshots, as before.
+
 #### Texts in another language
 
 `translations` replaces the texts the library renders itself, keyed by the
