@@ -5,21 +5,18 @@ const { act, create } = require('react-test-renderer');
 const { loadTs } = require('./helpers/loadTs.cjs');
 const Panel = loadTs(require('node:path').join(__dirname, '../src/components/ChatDrawer/LiveVoicePanel.tsx')).default;
 global.IS_REACT_ACT_ENVIRONMENT = true;
-test('voice panel keeps recordings lazy, then takes the composer\'s place with prompter, waves and call controls', async () => {
-  let lists = 0; let downloads = 0; let starts = 0; let stops = 0; const mutes = [];
+test('voice panel is an invitation card, then takes the composer\'s place with prompter, waves and call controls', async () => {
+  let starts = 0; let stops = 0; const mutes = [];
   const voice = { active: false, state: 'idle', muted: false, seconds: 0, transcript: [], start: async () => starts++, stop: async () => stops++, mute: value => mutes.push(value), play() {} };
-  const client = { async getLiveRecordings() { lists++; return [{ sessionId: 's', status: 'ready', startedAt: 1 }]; }, async getLiveRecordingAudio() { downloads++; return new Blob(['RIFF']); } };
   let renderer;
-  const props = { voice, client, assistantId: 'a', chatUid: 'c', canStart: true };
+  const props = { voice, canStart: true };
   const button = label => renderer.root.findAllByType('button').find(n => n.children.some(c => c === label) || n.props['aria-label'] === label);
   const byClass = className => renderer.root.findAllByProps({ className });
   try {
     await act(async () => { renderer = create(React.createElement(Panel, props)); });
-    assert.equal(lists, 0); assert.equal(downloads, 0);
     assert.equal(byClass('devic-voice-card').length, 1, 'idle: the invitation card above the composer');
     assert.equal(byClass('devic-input-area devic-voice-area').length, 0);
-    await act(async () => { await button('Voice recordings').props.onClick(); }); assert.equal(lists, 1); assert.equal(downloads, 0);
-    await act(async () => { await button('Play recording').props.onClick(); }); assert.equal(downloads, 1);
+    assert.ok(!JSON.stringify(renderer.toJSON()).includes('Included minutes'), 'no allowance tag on the card');
     await act(async () => { await button('Start voice').props.onClick(); }); assert.equal(starts, 1);
 
     const connecting = { ...voice, active: true, state: 'connecting' };
@@ -38,7 +35,6 @@ test('voice panel keeps recordings lazy, then takes the composer\'s place with p
     assert.equal(byClass('devic-voice-turn devic-voice-turn--current').length, 1);
     assert.equal(byClass('banner').length, 1, 'the composer banners render above the call box');
     assert.ok(JSON.stringify(renderer.toJSON()).includes('Live · 1:05'), 'elapsed time as m:ss');
-    assert.equal(renderer.root.findAllByType('audio').length, 0, 'recording playback stops before live audio');
     const mute = button('Mute');
     assert.equal(mute.props['aria-pressed'], false);
     await act(async () => { mute.props.onClick(); }); assert.deepEqual(mutes, [true]);
