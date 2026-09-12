@@ -18,6 +18,8 @@ export interface UseDevicLiveVoiceResult extends LiveVoiceSnapshot {
   stop: () => Promise<void>;
   mute: (muted: boolean) => void;
   play: () => Promise<void>;
+  /** Answer the "still there?" countdown: restarts the idle clock. */
+  stillHere: () => void;
 }
 
 export function useDevicLiveVoice(options: UseDevicLiveVoiceOptions): UseDevicLiveVoiceResult {
@@ -66,5 +68,6 @@ export function useDevicLiveVoice(options: UseDevicLiveVoiceOptions): UseDevicLi
   useEffect(() => { if (snapshot.error) latest.current.onError?.(snapshot.error); }, [snapshot.error]);
   return { ...snapshot, active: !['idle', 'error'].includes(snapshot.state), start, stop,
     mute: useCallback((muted: boolean) => controller.current?.mute(muted), []),
+    stillHere: useCallback(() => controller.current?.stillHere(), []),
     play: useCallback(async () => { await controller.current?.play(); }, []) };
 }

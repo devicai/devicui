@@ -81,3 +81,41 @@ test('cancel while microphone permission is pending stops the late track without
     assert.equal(track.stopped, true); assert.equal(api.creates.length, 0);
   } finally { voice.dispose(); media.restore(); }
 });
+test('warns before the server ends a silent call, clears on speech or "I\'m here", and reports the idle end', async () => {
+  const media = fakeVoice(); const api = client(); let state; const statusCalls = [];
+  api.createLiveSession = async () => ({ sessionId: 's1', chatUid: 'c1', sdp: 'answer', maxDurationSeconds: 60, idleTimeoutSeconds: 4 });
+  let ended = false;
+  api.getLiveSessionStatus = async (id, session, touch) => { statusCalls.push(touch); return { status: 'active', connected: true, seconds: 2, ...(ended ? { endReason: 'idle' } : {}) }; };
+  const voice = new LiveVoiceController(api, 'a', {}, s => { state = s; }, () => {});
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  try {
+    await voice.start();
+    assert.equal(state.idleTimeoutSeconds, 4); assert.equal(state.idleEndsAt, undefined);
+    // Warning window is half of a 4 s timeout, sampled by the 1 s health poll:
+    // after ~2.6 s of silence the countdown shows.
+    await sleep(2600);
+    assert.ok(state.idleEndsAt, 'countdown shown'); assert.ok(state.idleEndsAt > Date.now());
+    media.peers[0].event({ type: 'session.input_transcript.delta', delta: 'hi' });
+    assert.equal(state.idleEndsAt, undefined, 'speech clears it');
+    await sleep(3100);
+    assert.ok(state.idleEndsAt, 'silence again');
+    voice.stillHere();
+    assert.equal(state.idleEndsAt, undefined);
+    await sleep(20);
+    assert.ok(statusCalls.includes(true), 'the server was touched');
+    ended = true;
+    media.peers[0].event({ type: 'session.closed', usage: { seconds: 5 } });
+    await sleep(30);
+    assert.equal(state.endReason, 'idle'); assert.equal(state.state, 'idle');
+  } finally { voice.dispose(); media.restore(); }
+});
+test('a microphone track that ends closes the call with a clear error', async () => {
+  const media = fakeVoice(); const api = client(); let state;
+  const voice = new LiveVoiceController(api, 'a', {}, s => { state = s; }, () => {});
+  try {
+    await voice.start(); assert.equal(state.state, 'connected');
+    media.tracks[0].readyState = 'ended';
+    await new Promise(r => setTimeout(r, 1100));
+    assert.match(state.error?.message || '', /No microphone signal/); assert.deepEqual(api.closes, ['s1']);
+  } finally { voice.dispose(); media.restore(); }
+});

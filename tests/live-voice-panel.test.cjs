@@ -111,3 +111,18 @@ test('wave level is RMS loudness clamped to 1, and silence is 0', () => {
   const quiet = new Uint8Array(256).fill(128); quiet[0] = 160;
   assert.ok(waveLevel(quiet) > 0 && waveLevel(quiet) < 0.1, 'a single click does not spike the bar');
 });
+
+test('the call box counts down before an idle end and the card says why the call ended', async () => {
+  let here = 0;
+  const voice = { active: true, state: 'connected', muted: false, seconds: 100, transcript: [], idleEndsAt: Date.now() + 12000, start() {}, stop() {}, mute() {}, play() {}, stillHere: () => here++ };
+  let renderer;
+  try {
+    await act(async () => { renderer = create(React.createElement(Panel, { voice, canStart: true })); });
+    const text = JSON.stringify(renderer.toJSON());
+    assert.match(text, /Still there\? The call ends in 1[12] s/);
+    const button = renderer.root.findAllByType('button').find(n => n.children.some(c => c === "I'm here"));
+    await act(async () => { button.props.onClick(); }); assert.equal(here, 1);
+    await act(async () => { renderer.update(React.createElement(Panel, { voice: { ...voice, active: false, state: 'idle', idleEndsAt: undefined, endReason: 'idle' }, canStart: true })); });
+    assert.ok(JSON.stringify(renderer.toJSON()).includes('The call ended after a while without anyone speaking.'));
+  } finally { await act(async () => renderer?.unmount()); }
+});

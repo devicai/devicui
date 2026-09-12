@@ -20,6 +20,10 @@ The default widget follows Active Chat, in the drawer's own clothes. With voice 
 
 For a custom UI use `useDevicChat({ ..., liveVoice: { enabled: true } }).voice`, also supplied as `CustomPromptBoxProps.voice`. It exposes `start()`, `stop()`, `mute(boolean)`, `play()`, `active`, `state`, `seconds`, `transcript`, media streams and errors. `useDevicLiveVoice` is separately exported for headless transport use; pass a `DevicApiClient`, assistantId, chatUid, enabled flag and context. The standalone hook does not render or observe chat history: use `useDevicChat` when client tools or conversation rendering are needed.
 
+## Silence and a dead microphone
+
+A silent call is billed like a spoken one, so the server ends it once nobody has spoken for the assistant's `liveVoice.idleTimeoutSeconds` (180 s by default; 0 turns it off). The start response carries that value and the library shows a countdown in the call box for the last 30 s (or half the window when it is short) with an *I'm here* button; pressing it, or anyone speaking, restarts the clock here and on the server (`getLiveSessionStatus(…, true)` → `?touch=1`). A call the server ended this way reports `endReason: 'idle'` on `voice`, and the invitation card says so. Independently, the library watches the microphone once connected: an ended track, a system mute or 15 s of exact digital silence while not muted ends the call with *No microphone signal* — a call nobody can speak into should not stay open on the meter. Headless hosts get `stillHere()`, `idleTimeoutSeconds`, `idleEndsAt` and `endReason` on `useDevicChat().voice` / `useDevicLiveVoice()`.
+
 ## Lifecycle and context
 
 - Explicit opt-in; no microphone prompt, media allocation or transport import before Start.

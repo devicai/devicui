@@ -9,9 +9,14 @@ export interface LiveVoiceConfiguration {
 export type LiveVoiceContext = Pick<ProcessMessageDto,
   'tenantId' | 'subtenantId' | 'metadata' | 'tools' | 'enabledTools' | 'disabledIntegrations' | 'tags'>;
 export interface CreateLiveSessionRequest extends LiveVoiceContext { sdp: string; chatUid?: string; }
-export interface LiveVoiceSession { sessionId: string; chatUid: string; sdp: string; maxDurationSeconds: number; }
+export interface LiveVoiceSession { sessionId: string; chatUid: string; sdp: string; maxDurationSeconds: number;
+  /** Seconds of silence after which the server ends the call; 0 or absent = never. */
+  idleTimeoutSeconds?: number; }
 export interface LiveVoiceTurn { role: 'user' | 'assistant'; text: string; }
 export interface LiveVoiceSessionStatus {
+  /** Why the server ended the call, e.g. `idle`. */
+  endReason?: string;
+  idleTimeoutSeconds?: number;
   sessionId: string;
   chatUid: string;
   status: string;

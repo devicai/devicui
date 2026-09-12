@@ -289,8 +289,9 @@ export class DevicApiClient {
     });
   }
 
-  getLiveSessionStatus(assistantId: string, sessionId: string): Promise<LiveVoiceSessionStatus> {
-    return this.liveRequest(`/api/v1/assistants/${encodeURIComponent(assistantId)}/live/sessions/${encodeURIComponent(sessionId)}`);
+  /** `touch`: the person confirmed they are still on the call; the server restarts its idle clock. */
+  getLiveSessionStatus(assistantId: string, sessionId: string, touch = false): Promise<LiveVoiceSessionStatus> {
+    return this.liveRequest(`/api/v1/assistants/${encodeURIComponent(assistantId)}/live/sessions/${encodeURIComponent(sessionId)}${touch ? '?touch=1' : ''}`);
   }
 
   closeLiveSession(assistantId: string, sessionId: string): Promise<{ closing: boolean; chatUid: string }> {
