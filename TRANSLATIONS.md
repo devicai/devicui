@@ -411,7 +411,6 @@ wrapper** and translate like any other, into English included.
 | English key | Variables |
 | --- | --- |
 | `Voice mode` | — |
-| `Included minutes` | — |
 | `Talk to the assistant in real time.` | — |
 | `Live · {time}` | time (`m:ss` elapsed) |
 | `Connecting voice…` | — |
@@ -427,14 +426,6 @@ wrapper** and translate like any other, into English included.
 | `Assistant` | — |
 | `Listening…` | — |
 | `Voice sessions are recorded according to the assistant settings.` | — |
-| `Voice recordings` | — |
-| `Hide recordings` | — |
-| `No voice recordings yet.` | — |
-| `Play recording` | — |
-| `Download recording` | — |
-| `Partial` | — |
-| `Load more` | — |
-| `Could not load voice recordings.` | — |
 | `Voice requires microphone access on HTTPS or localhost.` | — |
 | `Voice connection interrupted. Please start again.` | — |
 | `Could not confirm the previous voice session closed.` | — |
