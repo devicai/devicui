@@ -20,6 +20,23 @@ The default widget follows Active Chat, in the drawer's own clothes. With voice 
 
 For a custom UI use `useDevicChat({ ..., liveVoice: { enabled: true } }).voice`, also supplied as `CustomPromptBoxProps.voice`. It exposes `start()`, `stop()`, `mute(boolean)`, `play()`, `active`, `state`, `seconds`, `transcript`, media streams and errors. `useDevicLiveVoice` is separately exported for headless transport use; pass a `DevicApiClient`, assistantId, chatUid, enabled flag and context. The standalone hook does not render or observe chat history: use `useDevicChat` when client tools or conversation rendering are needed.
 
+## The voice bubble (0.63.0)
+
+`LiveVoiceBubble` is the call without the chat: a round button that calls one assistant and opens a small call screen beside it. It is meant for a page that has no drawer open — a product page, a help centre, a kiosk — or that keeps the drawer for later.
+
+```tsx
+<DevicProvider apiKey="devic-xxx">
+  <ChatDrawer assistantId="support" options={{ liveVoice: { enabled: true } }} />
+  <LiveVoiceBubble assistantId="support" placement="floating" side="right" theme={{ color: '#4661b1' }} />
+</DevicProvider>
+```
+
+- **Idle**: the bubble alone, `--devic-primary` with a phone icon. It only renders once the assistant is known to have `liveVoice.enabled`; for one that does not, nothing is rendered.
+- **Pressed**: the call starts at once — the press is the microphone gesture — and the panel opens next to the bubble (`panelSide`), 340 px wide: avatar and name, the live status (`Calling…`, `Live · m:ss`, the *Still there?* countdown with *I'm here*), the `LiveVoicePrompter` with the last six turns and both waves, and the controls centred as a phone lays them out: mute, a red hang-up button. Pressing the bubble again tucks the panel away; the call goes on, the bubble pulses green and the elapsed time sits in a chip beside it.
+- **Ended** — by hang-up, the server's silence timeout, a hard stop or a failure: the header says `Call ended · m:ss` (or `Call failed`, with the error), the transcript stays readable and the controls become *Open in chat* and *Close*. *Open in chat* loads the conversation in the `ChatDrawer` registered on the provider (`DrawerRegistration.setChatUid`, new in 0.63.0; `openDrawer(chatUid)` and `hasDrawer` on the context) and opens it; `onOpenInChat` replaces that. Either way the bubble forgets the conversation: the next call is a new one. After a failure a green *Call again* button appears too.
+- **Placement**: `floating` (fixed, `side` and `offset`) or `inline` (in flow; the panel is absolutely positioned next to it). `size` sets the diameter. A ref exposes `start()`, `stop()`, `expand()`, `collapse()`.
+- **What it is not**: it does not observe chat history or run client tools (`modelInterfaceTools`); it uses `useDevicLiveVoice` directly. Two bubbles for the same assistant are two calls. It carries the drawer's CSS variables on its own root, with `theme` applied inline, so it themes without a drawer on the page.
+
 ## Silence and a dead microphone
 
 A silent call is billed like a spoken one, so the server ends it once nobody has spoken for the assistant's `liveVoice.idleTimeoutSeconds` (180 s by default; 0 turns it off). The start response carries that value and the library shows a countdown in the call box for the last 30 s (or half the window when it is short) with an *I'm here* button; pressing it, or anyone speaking, restarts the clock here and on the server (`getLiveSessionStatus(…, true)` → `?touch=1`). A call the server ended this way reports `endReason: 'idle'` on `voice`, and the invitation card says so. Independently, the library watches the microphone once connected: an ended track, a system mute or 15 s of exact digital silence while not muted ends the call with *No microphone signal* — a call nobody can speak into should not stay open on the meter. Headless hosts get `stillHere()`, `idleTimeoutSeconds`, `idleEndsAt` and `endReason` on `useDevicChat().voice` / `useDevicLiveVoice()`.
@@ -43,4 +60,4 @@ The default widget does not list recordings (0.61.2); a host that wants them cal
 
 Requires SuntropyAI Live Voice production plus the client-context change (SuntropyAI PR #467: the start endpoint accepts tools/metadata/tags and filters) and, for public gateway consumers, api-gateway PRs #16 and #17 (private audio and tenant-session routes). All three were merged on 2026-09-12. For an assistant whose configuration says voice is off, the card is not rendered at all (0.61.1); while the assistant is still unknown, Start stays disabled. Do not enable the widget against an older server expecting client tools to be retained.
 
-Published as 0.61.0.
+Published as 0.61.0; the bubble in 0.63.0.

@@ -5,6 +5,7 @@ React component library for integrating Devic AI assistants into your applicatio
 ## Features
 
 - **ChatDrawer** - A ready-to-use chat drawer component
+- **LiveVoiceBubble** - A voice call to an assistant as a floating or inline bubble, handed to the drawer when it ends
 - **AICommandBar** - A spotlight-style command bar for quick AI interactions
 - **AIGenerationButton** - A button for triggering AI generation with modal, tooltip, or direct modes
 - **Tenant sessions** - Short-lived signed tokens, so the page never carries an API key
@@ -532,6 +533,37 @@ the sections:
 
 The drawer takes the same object as `options.coreMemoryLabels`; its `title`
 is also the tooltip of the brain button.
+
+### LiveVoiceBubble
+
+A voice call to one assistant, as a bubble. Idle it is a round button — pinned to a corner of the page, or inline wherever you place it. Pressing it starts the call and opens a small panel beside it: the assistant's name and live status, the transcript sliding upward like a teleprompter, one audio wave per speaker and the call controls in the centre — mute and a red hang-up button, as a phone shows them. Pressing the bubble again tucks the panel away while the call goes on, with the elapsed time beside it. When the call ends the panel offers *Open in chat*, which loads the conversation in the `ChatDrawer` registered on the same `DevicProvider` and opens it, or *Close*, after which the next call starts a new conversation.
+
+```tsx
+import { DevicProvider, ChatDrawer, LiveVoiceBubble } from '@devicai/ui';
+
+<DevicProvider apiKey="devic-xxx">
+  <ChatDrawer assistantId="support" options={{ liveVoice: { enabled: true } }} />
+  <LiveVoiceBubble assistantId="support" theme={{ color: '#4661b1' }} />
+</DevicProvider>
+```
+
+The assistant must have live voice enabled on the server; otherwise the bubble renders nothing. Props:
+
+| Prop | Description |
+| --- | --- |
+| `assistantId` | The assistant to call. |
+| `placement` | `floating` (default) pins it to a corner; `inline` renders it where it is placed and opens the panel next to it. |
+| `side`, `offset` | Corner of a floating bubble (`right` by default) and its distance from the edges (`24`). |
+| `panelSide` | Where the panel opens: `above` (default) or `below`. |
+| `size`, `zIndex`, `icon` | Diameter in pixels (`56`), stacking order (`1000`), a node in place of the phone icon. |
+| `label`, `title`, `avatarUrl` | Accessible name of the bubble (`Call {name}`), the name and face in the panel header — the assistant's by default. |
+| `theme`, `translations` | Colours and font as the drawer's options name them; a dictionary for the texts it renders. |
+| `tenantId`, `subtenantId`, `tenantMetadata`, `subtenantMetadata`, `tags`, `enabledTools`, `disabledIntegrations` | The context the call is created with, on top of the provider's. |
+| `onCallStart`, `onCallEnd`, `onChatCreated`, `onError`, `onClose` | Lifecycle; `onCallEnd` and `onClose` receive `{ chatUid, seconds, endReason, transcript }`. |
+| `onOpenInChat` | Replaces the registered drawer as the place a finished call continues. Without either, the option is not offered. |
+| `disabled` | The bubble cannot start a call; a running one can still be ended. |
+
+A ref gives `start()`, `stop()`, `expand()` and `collapse()`. The bubble carries the drawer's CSS variables itself, so `--devic-primary`, `--devic-bg`, `--devic-text` and the voice variables (`--devic-voice-assistant-color`, `--devic-voice-end-color`, …) can be set on `.devic-voice-bubble` from a stylesheet as well as through `theme`. Calls made from the bubble do not run client tools (`modelInterfaceTools`); server-side tools work as in any chat. See [docs/live-voice.md](./docs/live-voice.md).
 
 ### IntegrationsModal
 

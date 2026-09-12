@@ -4,6 +4,8 @@ import type { UseDevicLiveVoiceResult } from '../../hooks/useDevicLiveVoice';
 
 export interface LiveVoicePrompterProps {
   voice: Pick<UseDevicLiveVoiceResult, 'transcript' | 'input' | 'output' | 'muted' | 'state'>;
+  /** How many of the latest turns stay in the viewport. @default 4 */
+  maxTurns?: number;
 }
 
 /** Level readings kept per wave: one bar each, spread over the whole width. */
@@ -105,7 +107,7 @@ function VoiceWave({ stream, role }: { stream?: MediaStream; role: 'user' | 'ass
  * at the bottom of a fixed-height viewport and everything earlier slides up and
  * fades out through the top edge; below it, one level wave per speaker.
  */
-export function LiveVoicePrompter({ voice }: LiveVoicePrompterProps) {
+export function LiveVoicePrompter({ voice, maxTurns = 4 }: LiveVoicePrompterProps) {
   const t = useTranslations();
   const viewport = useRef<HTMLDivElement>(null);
   const text = useRef<HTMLDivElement>(null);
@@ -123,7 +125,7 @@ export function LiveVoicePrompter({ voice }: LiveVoicePrompterProps) {
   return <div className="devic-voice-prompter" aria-label={t('Live voice conversation')}>
     <div ref={viewport} className="devic-voice-prompter-viewport" aria-live="polite">
       <div ref={text} className="devic-voice-prompter-text">
-        {voice.transcript.length ? voice.transcript.slice(-4).map((turn, i, turns) =>
+        {voice.transcript.length ? voice.transcript.slice(-Math.max(1, maxTurns)).map((turn, i, turns) =>
           <p key={i} className={`devic-voice-turn${i === turns.length - 1 ? ' devic-voice-turn--current' : ''}`}>
             <span>{turn.role === 'user' ? t('You') : t('Assistant')}</span>{turn.text.replace(/\s+/g, ' ')}
           </p>) : <p className="devic-voice-turn devic-voice-turn--placeholder">{placeholder}</p>}

@@ -45,6 +45,7 @@ export function DevicProvider({
 }: DevicProviderProps): JSX.Element {
   const [references, setReferences] = useState<AIReference[]>([]);
   const drawerRef = useRef<DrawerRegistration | null>(null);
+  const [hasDrawer, setHasDrawer] = useState(false);
 
   const addReference = useCallback((ref: Omit<AIReference, 'id'>): string => {
     const id = generateId();
@@ -62,14 +63,17 @@ export function DevicProvider({
 
   const registerDrawer = useCallback((handle: DrawerRegistration) => {
     drawerRef.current = handle;
+    setHasDrawer(true);
     return () => {
       if (drawerRef.current === handle) {
         drawerRef.current = null;
+        setHasDrawer(false);
       }
     };
   }, []);
 
-  const openDrawer = useCallback(() => {
+  const openDrawer = useCallback((chatUid?: string) => {
+    if (chatUid) drawerRef.current?.setChatUid?.(chatUid);
     drawerRef.current?.open();
   }, []);
 
@@ -130,6 +134,7 @@ export function DevicProvider({
       clearReferences,
       registerDrawer,
       openDrawer,
+      hasDrawer,
     }),
     [
       client,
@@ -153,6 +158,7 @@ export function DevicProvider({
       clearReferences,
       registerDrawer,
       openDrawer,
+      hasDrawer,
     ]
   );
 

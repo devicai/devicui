@@ -580,6 +580,7 @@ function ChatDrawerInner({
       close: handleClose,
       toggle: handleToggle,
       sendMessage: (message: string) => chat.sendMessage(message),
+      setChatUid: (chatUid: string) => chat.loadChat(chatUid),
     });
     return unregister;
   }, [context, handleOpen, handleClose, handleToggle, chat]);
