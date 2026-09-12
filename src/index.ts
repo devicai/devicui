@@ -268,3 +268,5 @@ export { generateId, deepMerge, debounce, throttle, formatFileSize, storage, seg
 export type { ToolGroupSegment } from './utils';
 export { LiveVoicePrompter } from './components/ChatDrawer/LiveVoicePrompter';
 export type { LiveVoicePrompterProps } from './components/ChatDrawer/LiveVoicePrompter';
+export type { LiveVoiceInvitationProps } from './components/ChatDrawer/ChatDrawer.types';
+export { isVoiceInvitationHidden, hideVoiceInvitation, showVoiceInvitation } from './utils/voiceInvitation';

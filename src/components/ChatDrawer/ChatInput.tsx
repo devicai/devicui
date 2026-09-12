@@ -121,6 +121,8 @@ function ChatInputBox({
   limitBanner,
   integrationsHint,
   integrationsToggle,
+  onStartLiveVoice,
+  liveVoiceDisabled = false,
 }: ChatInputProps): JSX.Element {
   const t = useTranslations();
   const [message, setMessage] = useState('');
@@ -996,6 +998,21 @@ function ChatInputBox({
               rows={1}
             />
 
+            {/* Real-time voice: a waveform, so it does not read as the
+                dictation mic on the other side of the box. */}
+            {onStartLiveVoice && !isRecordingActive && !isTranscribing && (
+              <button
+                className="devic-input-btn devic-live-voice-btn"
+                onClick={onStartLiveVoice}
+                disabled={inputDisabled || liveVoiceDisabled || isProcessing}
+                type="button"
+                title={t('Start voice')}
+                aria-label={t('Start voice')}
+              >
+                <VoiceModeIcon />
+              </button>
+            )}
+
             {/*
               Stop and send are not alternatives while a run is in flight: the
               run can be stopped, and a message can also be written for it to
@@ -1327,6 +1344,30 @@ function CloseIcon(): JSX.Element {
 /**
  * Stop icon (square)
  */
+/**
+ * Voice mode icon: a waveform, as opposed to the dictation microphone.
+ */
+function VoiceModeIcon(): JSX.Element {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="4" y1="10" x2="4" y2="14" />
+      <line x1="8" y1="6" x2="8" y2="18" />
+      <line x1="12" y1="3" x2="12" y2="21" />
+      <line x1="16" y1="7" x2="16" y2="17" />
+      <line x1="20" y1="10" x2="20" y2="14" />
+    </svg>
+  );
+}
+
 function StopIcon(): JSX.Element {
   return (
     <svg

@@ -49,6 +49,41 @@ test('voice panel is an invitation card, then takes the composer\'s place with p
   } finally { await act(async () => renderer?.unmount()); }
 });
 
+test('the invitation can be closed, and a host can replace it with its own', async () => {
+  let starts = 0; let dismissed = 0;
+  const voice = { active: false, state: 'idle', muted: false, seconds: 0, transcript: [], start: async () => starts++, stop() {}, mute() {}, play() {} };
+  let renderer;
+  const button = label => renderer.root.findAllByType('button').find(n => n.children.some(c => c === label) || n.props['aria-label'] === label);
+  try {
+    await act(async () => { renderer = create(React.createElement(Panel, { voice, canStart: true, onDismiss: () => dismissed++ })); });
+    await act(async () => { button('Hide voice mode').props.onClick(); }); assert.equal(dismissed, 1);
+
+    let given;
+    const invitation = props => { given = props; return React.createElement('button', { className: 'mine', onClick: props.start }, 'Call'); };
+    await act(async () => { renderer.update(React.createElement(Panel, { voice, canStart: false, recordSessions: true, onDismiss: () => dismissed++, invitation })); });
+    assert.equal(renderer.root.findAllByProps({ className: 'devic-voice-card' }).length, 0, 'the default card is replaced');
+    assert.equal(given.canStart, false); assert.equal(given.recordSessions, true);
+    await act(async () => { given.start(); }); assert.equal(starts, 0, 'start is a no-op while canStart is false');
+    await act(async () => { given.dismiss(); }); assert.equal(dismissed, 2);
+    await act(async () => { renderer.update(React.createElement(Panel, { voice, canStart: true, invitation })); });
+    await act(async () => { given.start(); }); assert.equal(starts, 1);
+  } finally { await act(async () => renderer?.unmount()); }
+});
+
+test('the closed invitation is remembered per assistant and survives a blocked storage', () => {
+  const { isVoiceInvitationHidden, hideVoiceInvitation, showVoiceInvitation } = loadTs(require('node:path').join(__dirname, '../src/utils/voiceInvitation.ts'));
+  const store = new Map();
+  global.localStorage = { getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: k => store.delete(k) };
+  try {
+    assert.equal(isVoiceInvitationHidden('a'), false);
+    hideVoiceInvitation('a');
+    assert.equal(isVoiceInvitationHidden('a'), true); assert.equal(isVoiceInvitationHidden('b'), false);
+    showVoiceInvitation('a'); assert.equal(isVoiceInvitationHidden('a'), false);
+    global.localStorage = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); }, removeItem() { throw new Error('blocked'); } };
+    assert.equal(isVoiceInvitationHidden('a'), false); hideVoiceInvitation('a'); showVoiceInvitation('a');
+  } finally { delete global.localStorage; }
+});
+
 test('prompter follows newest words, bounds turns, handles resize and cleans observers', async () => {
   const { LiveVoicePrompter } = loadTs(require('node:path').join(__dirname, '../src/components/ChatDrawer/LiveVoicePrompter.tsx'));
   const original = global.ResizeObserver;

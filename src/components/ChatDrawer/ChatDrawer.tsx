@@ -24,6 +24,7 @@ import {
   pruneIntegrationChoice,
 } from '../IntegrationsModal';
 import { isDarkTheme } from '../theme';
+import { isVoiceInvitationHidden, hideVoiceInvitation } from '../../utils/voiceInvitation';
 import { DevicTranslationsProvider, useTranslations } from '../../i18n';
 import type { DevicTheme } from '../theme';
 import type { ChatDrawerProps, ChatDrawerOptions, ChatDrawerHandle } from './ChatDrawer.types';
@@ -276,6 +277,9 @@ function ChatDrawerInner({
 
   // Fetch assistant avatar when showAvatar is enabled
   useEffect(() => { if (!isOpen) void chat.voice.stop(); }, [isOpen, chat.voice.stop]);
+  // The invitation card, once closed, stays closed for this assistant.
+  const [voiceInvitationHidden, setVoiceInvitationHidden] = useState(() => isVoiceInvitationHidden(assistantId));
+  useEffect(() => { setVoiceInvitationHidden(isVoiceInvitationHidden(assistantId)); }, [assistantId]);
   const context = useOptionalDevicContext();
   const resolvedApiKey = apiKey || context?.apiKey;
   // The session source, when the page authenticates with one. Every client
@@ -593,6 +597,11 @@ function ChatDrawerInner({
     }
     return { inlineWidgets: inline, inputWidget: input };
   }, [chat.pendingWidgetCalls]);
+
+  // Real-time voice: available when the host opted in and the assistant has
+  // it on; startable when nothing else claims the composer.
+  const voiceAvailable = !!mergedOptions.liveVoice?.enabled && assistantInfo.assistant?.liveVoice?.enabled === true;
+  const canStartVoice = voiceAvailable && isOpen && !chat.isLoading && !chat.handedOff && !chat.limitExceeded && !inputWidget && inlineWidgets.length === 0;
 
   // Active references from DevicProvider (created by AIElementWrapper)
   const references = context?.references ?? [];
@@ -1120,13 +1129,15 @@ function ChatDrawerInner({
         {/* Idle, the voice widget is a card above the composer; during a call
             it takes the composer's place, banners included. */}
         {/* A host opts in, but the invitation only shows on a new conversation
-            (no chat yet) and for an assistant that can take a call: with the
-            assistant known and voice off, an end user would just see a Start
-            button that never enables. A running call stays whatever the chat. */}
-        {mergedOptions.liveVoice?.enabled && (chat.voice.active || (!chat.chatUid && (!assistantInfo.assistant || assistantInfo.assistant.liveVoice?.enabled === true))) && <React.Suspense fallback={null}>
-          <LiveVoicePanel voice={chat.voice}
-            canStart={isOpen && assistantInfo.assistant?.liveVoice?.enabled === true && !chat.isLoading && !chat.handedOff && !chat.limitExceeded && !inputWidget && inlineWidgets.length === 0}
-            recordSessions={assistantInfo.assistant?.liveVoice?.recordSessions}>
+            (no chat yet), for an assistant that can take a call, and until the
+            person closes it: with the assistant known and voice off, an end
+            user would just see a Start button that never enables. A running
+            call stays whatever the chat; the composer button is always there. */}
+        {mergedOptions.liveVoice?.enabled && (chat.voice.active || (!chat.chatUid && !voiceInvitationHidden && mergedOptions.liveVoice.invitation !== false && (!assistantInfo.assistant || assistantInfo.assistant.liveVoice?.enabled === true))) && <React.Suspense fallback={null}>
+          <LiveVoicePanel voice={chat.voice} canStart={canStartVoice}
+            recordSessions={assistantInfo.assistant?.liveVoice?.recordSessions}
+            invitation={mergedOptions.liveVoice.invitation || undefined}
+            onDismiss={() => { hideVoiceInvitation(assistantId); setVoiceInvitationHidden(true); }}>
             {chat.voice.active && !inputWidget ? <>{limitBannerNode}{usageBarNode}{queueNoticeNode}</> : null}
           </LiveVoicePanel>
         </React.Suspense>}
@@ -1207,6 +1218,8 @@ function ChatDrawerInner({
             limitBanner={limitBannerNode}
             integrationsHint={integrationsHintNode}
             integrationsToggle={integrationsToggleNode}
+            onStartLiveVoice={voiceAvailable ? () => void chat.voice.start() : undefined}
+            liveVoiceDisabled={!canStartVoice}
           />
         )}
       </div>
