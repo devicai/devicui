@@ -418,6 +418,10 @@ wrapper** and translate like any other, into English included.
 | `Closing voice…` | — |
 | `Start voice` | — |
 | `Hide voice mode` | — |
+| `Still there? The call ends in {seconds} s` | seconds |
+| `I'm here` | — |
+| `The call ended after a while without anyone speaking.` | — |
+| `No microphone signal. Check your microphone and start again.` | — |
 | `End voice` | — |
 | `Cancel` | — |
 | `Mute` | — |

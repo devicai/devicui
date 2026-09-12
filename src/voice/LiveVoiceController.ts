@@ -13,6 +13,12 @@ export interface LiveVoiceSnapshot {
   output?: MediaStream;
   error?: Error;
   playbackBlocked?: boolean;
+  /** Seconds of silence after which the server ends the call; 0 = never. */
+  idleTimeoutSeconds?: number;
+  /** Set while the call is about to end for silence: when it will, so a UI can count down. */
+  idleEndsAt?: number;
+  /** Why the server ended the last call, e.g. `idle`. */
+  endReason?: string;
 }
 export const initialVoiceSnapshot = (): LiveVoiceSnapshot => ({ state: 'idle', muted: false, seconds: 0, transcript: [] });
 
@@ -25,6 +31,8 @@ export class LiveVoiceController {
   private audio?: HTMLAudioElement;
   private closing?: Promise<void>;
   private disposed = false;
+  /** Last moment anyone spoke, or the person confirmed presence. */
+  private lastActivity = 0;
   constructor(private client: DevicApiClient, private assistantId: string,
     private context: LiveVoiceContext, private changed: (value: LiveVoiceSnapshot) => void,
     private created: (chatUid: string) => void) {}
@@ -41,13 +49,21 @@ export class LiveVoiceController {
     try { await this.audio?.play(); this.update({ playbackBlocked: false }); }
     catch { this.update({ playbackBlocked: true }); }
   }
+  /** The person is still there: restart the idle clock here and on the server. */
+  stillHere() {
+    this.lastActivity = Date.now();
+    if (this.snapshot.idleEndsAt) this.update({ idleEndsAt: undefined });
+    const id = this.snapshot.sessionId;
+    if (id && this.snapshot.state === 'connected') void this.client.getLiveSessionStatus(this.assistantId, id, true).catch(() => {});
+  }
   async start(chatUid?: string, recovering = false): Promise<void> {
     if (this.disposed || this.closing || (!recovering && !['idle', 'error'].includes(this.snapshot.state))) return;
     const generation = ++this.generation;
     const current = () => generation === this.generation && !this.disposed;
     if (!recovering) this.attempts = 0;
     this.update({ state: 'connecting', error: undefined, chatUid, sessionId: undefined,
-      seconds: 0, ...(recovering ? {} : { transcript: [], muted: false }) });
+      seconds: 0, idleEndsAt: undefined, endReason: undefined, ...(recovering ? {} : { transcript: [], muted: false }) });
+    this.lastActivity = Date.now();
     let media: MediaStream | undefined;
     let peer: RTCPeerConnection | undefined;
     let channel: RTCDataChannel | undefined;
@@ -60,8 +76,13 @@ export class LiveVoiceController {
     let sessionId: string | undefined;
     let connectionLostAt = 0;
     let healthFailures = 0;
+    let micCheck: ReturnType<typeof setInterval> | undefined;
+    let micContext: AudioContext | undefined;
+    let micAnalyser: AnalyserNode | undefined;
+    let micQuiet = 0;
     const cleanup = () => {
-      clearInterval(health); clearTimeout(deadline); clearTimeout(connectDeadline);
+      clearInterval(health); clearTimeout(deadline); clearTimeout(connectDeadline); clearInterval(micCheck);
+      if (micContext) { try { void micContext.close().catch(() => {}); } catch { /* Already closed. */ } micContext = undefined; micAnalyser = undefined; }
       media?.getTracks().forEach(track => track.stop());
       if (channel) { channel.onclose = null; channel.onmessage = null; channel.close(); }
       if (peer) { peer.onconnectionstatechange = null; peer.ontrack = null; peer.close(); }
@@ -74,7 +95,41 @@ export class LiveVoiceController {
       if (!current() || !backendReady || peer?.connectionState !== 'connected') return;
       clearTimeout(connectDeadline);
       media?.getAudioTracks().forEach(track => { track.enabled = !this.snapshot.muted; });
+      if (this.snapshot.state !== 'connected') { this.lastActivity = Date.now(); watchMicrophone(); }
       this.update({ state: 'connected' });
+    };
+    // A microphone that delivers nothing — ended track, system mute, or a
+    // stream of exact digital silence — would otherwise keep a paid call open
+    // with nobody able to speak. Analyse only; never route audio.
+    const watchMicrophone = () => {
+      if (micCheck) return;
+      const track = media?.getAudioTracks()[0];
+      if (!track) return;
+      const samples = new Uint8Array(256);
+      try {
+        if (typeof AudioContext !== 'undefined') {
+          micContext = new AudioContext(); micAnalyser = micContext.createAnalyser(); micAnalyser.fftSize = 256;
+          micContext.createMediaStreamSource(media!).connect(micAnalyser); void micContext.resume().catch(() => {});
+        }
+      } catch { micAnalyser = undefined; }
+      micCheck = setInterval(() => {
+        if (!current() || this.snapshot.state !== 'connected') return;
+        const fail = () => {
+          this.update({ error: new Error('No microphone signal. Check your microphone and start again.') });
+          void this.stop();
+        };
+        if (track.readyState === 'ended') { fail(); return; }
+        if (this.snapshot.muted) { micQuiet = 0; return; }
+        let silent = track.muted === true;
+        if (micAnalyser && !silent) {
+          try {
+            micAnalyser.getByteTimeDomainData(samples);
+            silent = samples.every(sample => sample === 128);
+          } catch { silent = false; }
+        }
+        micQuiet = silent ? micQuiet + 1 : 0;
+        if (micQuiet >= 15) fail();
+      }, 1000);
     };
     const recover = async () => {
       if (!current()) return;
@@ -128,7 +183,8 @@ export class LiveVoiceController {
           const event = JSON.parse(message.data);
           if (event.type === 'session.started') { backendReady = true; ready(); }
           if (['session.input_transcript.delta', 'session.output_transcript.delta'].includes(event.type) && typeof event.delta === 'string') {
-            lastTranscript = Date.now();
+            lastTranscript = Date.now(); this.lastActivity = lastTranscript;
+            if (this.snapshot.idleEndsAt) this.update({ idleEndsAt: undefined });
             const role = event.type === 'session.input_transcript.delta' ? 'user' : 'assistant';
             const turns = this.snapshot.transcript.slice(-3).map(turn => ({ ...turn }));
             if (turns[turns.length - 1]?.role === role) turns[turns.length - 1].text = (turns[turns.length - 1].text + event.delta).slice(-2000);
@@ -138,6 +194,7 @@ export class LiveVoiceController {
           if (event.type === 'session.closed' && sessionId) {
             void this.client.getLiveSessionStatus(this.assistantId, sessionId).then(state => {
               if (!current()) return;
+              if (state.endReason) this.update({ endReason: state.endReason });
               if (state.restartRequested) void recover(); else void this.stop();
             }).catch(() => { if (current()) void this.stop(); });
           }
@@ -162,7 +219,7 @@ export class LiveVoiceController {
       const result = await this.client.createLiveSession(this.assistantId, { ...this.context, chatUid, sdp: peer.localDescription!.sdp });
       sessionId = result.sessionId;
       if (!current()) { void this.client.closeLiveSession(this.assistantId, sessionId).catch(() => {}); return; }
-      this.update({ sessionId, chatUid: result.chatUid }); this.created(result.chatUid);
+      this.update({ sessionId, chatUid: result.chatUid, idleTimeoutSeconds: result.idleTimeoutSeconds || 0 }); this.created(result.chatUid);
       deadline = setTimeout(() => { void this.stop(); }, Math.max(1, Math.min(6000, result.maxDurationSeconds || 6000)) * 1000);
       await peer.setRemoteDescription({ type: 'answer', sdp: result.sdp });
       let busy = false;
@@ -174,6 +231,15 @@ export class LiveVoiceController {
           if (!current()) return;
           healthFailures = 0;
           this.update({ seconds: state.seconds });
+          // The server ends a silent call at idleTimeoutSeconds; warn for the
+          // last 30 s (or half the window when it is short) so the person can
+          // say "I'm here" instead of losing the call.
+          const idle = this.snapshot.idleTimeoutSeconds || 0;
+          if (idle > 0 && this.snapshot.state === 'connected') {
+            const endsAt = this.lastActivity + idle * 1000;
+            const warn = Date.now() >= endsAt - Math.min(30000, idle * 500);
+            if (warn ? this.snapshot.idleEndsAt !== endsAt : !!this.snapshot.idleEndsAt) this.update({ idleEndsAt: warn ? endsAt : undefined });
+          }
           if (state.interrupted || state.restartRequested || (connectionLostAt && Date.now() - connectionLostAt > 5000)) { void recover(); return; }
           if (state.status === 'closed') { void this.stop(); return; }
           backendReady = state.connected; ready();

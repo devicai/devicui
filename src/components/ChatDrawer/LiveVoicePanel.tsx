@@ -35,14 +35,19 @@ export default function LiveVoicePanel({ voice, canStart, recordSessions, onDism
   const start = () => { if (canStart) void voice.start(); };
 
   if (voice.active) {
-    const status = voice.state === 'connected' ? t('Live · {time}', { time: formatSeconds(voice.seconds) })
+    // About to end for silence: the countdown takes the status line, and the
+    // button next to it keeps the call.
+    const idleIn = voice.idleEndsAt && voice.state === 'connected' ? Math.max(0, Math.ceil((voice.idleEndsAt - Date.now()) / 1000)) : undefined;
+    const status = idleIn !== undefined ? t('Still there? The call ends in {seconds} s', { seconds: idleIn })
+      : voice.state === 'connected' ? t('Live · {time}', { time: formatSeconds(voice.seconds) })
       : voice.state === 'reconnecting' ? t('Restoring voice…') : voice.state === 'closing' ? t('Closing voice…') : t('Connecting voice…');
-    return <div className="devic-input-area devic-voice-area" data-voice-state={voice.state}>
+    return <div className="devic-input-area devic-voice-area" data-voice-state={voice.state} data-voice-idle={idleIn !== undefined ? 'true' : undefined}>
       {children}
       <section className="devic-voice-box" aria-label={t('Voice mode')}>
         <LiveVoicePrompter voice={voice} />
         <div className="devic-voice-bar">
           <span className="devic-voice-status" role="status"><i className="devic-voice-status-dot" aria-hidden="true" />{status}</span>
+          {idleIn !== undefined && <button type="button" className="devic-voice-text-btn devic-voice-still-here" onClick={() => voice.stillHere()}>{t("I'm here")}</button>}
           {voice.playbackBlocked && <button type="button" className="devic-voice-text-btn" onClick={() => void voice.play()}>{t('Enable audio')}</button>}
           {voice.state === 'connecting'
             ? <button type="button" className="devic-voice-text-btn" onClick={() => void voice.stop()}>{t('Cancel')}</button>
@@ -75,6 +80,7 @@ export default function LiveVoicePanel({ voice, canStart, recordSessions, onDism
       {onDismiss && <button className="devic-voice-card-close" type="button" onClick={onDismiss} title={t('Hide voice mode')} aria-label={t('Hide voice mode')}><CloseIcon /></button>}
     </div>
     {voice.error && <div className="devic-voice-error" role="alert">{t(voice.error.message)}</div>}
+    {!voice.error && voice.endReason === 'idle' && <div className="devic-voice-note" role="status">{t('The call ended after a while without anyone speaking.')}</div>}
   </section>;
 }
 
