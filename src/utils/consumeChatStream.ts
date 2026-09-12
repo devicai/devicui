@@ -1,5 +1,13 @@
-/** Consume Devic's version-1 SSE snapshots, tolerating arbitrary UTF-8/chunk boundaries. */
-export async function consumeChatStream<T>(response: Response, onSnapshot: (snapshot: T) => void | Promise<void>): Promise<void> {
+/**
+ * Consume Devic's version-1 SSE snapshots, tolerating arbitrary UTF-8/chunk
+ * boundaries. `onActivity` fires on every chunk, keep-alive comments included,
+ * so the caller can tell a quiet connection from a dead one.
+ */
+export async function consumeChatStream<T>(
+  response: Response,
+  onSnapshot: (snapshot: T) => void | Promise<void>,
+  onActivity?: () => void,
+): Promise<void> {
   if (!response.ok || !response.headers.get('content-type')?.includes('text/event-stream') || !response.body) {
     throw new Error('Chat streaming unavailable');
   }
@@ -10,6 +18,7 @@ export async function consumeChatStream<T>(response: Response, onSnapshot: (snap
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
+      onActivity?.();
       buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
       if (buffer.length > 16 * 1024 * 1024) throw new Error('Chat stream frame too large');
       let boundary: number;

@@ -136,7 +136,7 @@ export function useAIElementWrapper(
     {
       interval: pollingInterval,
       streamFn: streaming
-        ? (onSnapshot, signal) => clientRef.current!.streamRealtimeHistory(assistantId!, chatUid!, onSnapshot, signal)
+        ? (onSnapshot, signal, onActivity) => clientRef.current!.streamRealtimeHistory(assistantId!, chatUid!, onSnapshot, signal, onActivity)
         : undefined,
       enabled: shouldPoll,
       stopStatuses: ['completed', 'error', 'waiting_for_tool_response'],

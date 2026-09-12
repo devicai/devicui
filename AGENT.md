@@ -174,8 +174,9 @@ changes mid-run.
 Streaming is opt-in on the same path: `resolveStreaming` (component prop →
 `DevicProvider.streaming` → `DEFAULT_STREAMING`, currently `false`) decides
 whether a `streamFn` is handed to `usePolling`. With one, the hook opens
-`client.streamRealtimeHistory()` (SSE, parsed by `consumeChatStream`) and lets
-the timer idle while snapshots keep arriving; without one it only polls. The
+`client.streamRealtimeHistory()` (SSE, parsed by `consumeChatStream`) and keeps
+the timer silent for as long as the connection is open (keep-alive comments
+count as life; `streamSilenceMs` drops a dead one); without one it only polls. The
 handoff widget has no stream. Flipping `DEFAULT_STREAMING` is the future
 opt-out.
 

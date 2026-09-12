@@ -715,7 +715,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       interval: pollingInterval,
       // Only when asked for: the poll is the default until the flag flips.
       streamFn: streaming
-        ? (onSnapshot, signal) => clientRef.current!.streamRealtimeHistory(assistantId, chatUid!, onSnapshot, signal)
+        ? (onSnapshot, signal, onActivity) => clientRef.current!.streamRealtimeHistory(assistantId, chatUid!, onSnapshot, signal, onActivity)
         : undefined,
       enabled: shouldPoll,
       stopStatuses: [
