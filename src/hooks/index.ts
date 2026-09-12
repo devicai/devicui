@@ -9,6 +9,8 @@ export type {
 export {
   usePolling,
   resolvePollingInterval,
+  resolveStreaming,
+  DEFAULT_STREAMING,
   DEFAULT_POLLING_INTERVAL_MS,
   MIN_POLLING_INTERVAL_MS,
 } from './usePolling';

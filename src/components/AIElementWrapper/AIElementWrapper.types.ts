@@ -173,6 +173,13 @@ export interface AIElementWrapperProps {
   pollingInterval?: number;
 
   /**
+   * Follow the conversation over a server-sent event stream instead of
+   * polling it. Overrides the DevicProvider's `streaming`.
+   * @default false
+   */
+  streaming?: boolean;
+
+  /**
    * Tenant ID (overrides DevicProvider).
    */
   tenantId?: string;

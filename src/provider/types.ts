@@ -149,6 +149,19 @@ export interface DevicProviderConfig {
   pollingInterval?: number;
 
   /**
+   * Follow a conversation in progress over a server-sent event stream
+   * instead of polling it, for every component under this provider. The
+   * assistant's reply then arrives as it is produced, and the request per
+   * `pollingInterval` becomes a fallback that only runs while the stream is
+   * down. Needs an API that serves `GET .../chats/:chatUid/stream`; against
+   * an older one the widgets notice and keep polling. Overridable per
+   * component via its own `streaming`.
+   *
+   * @default false
+   */
+  streaming?: boolean;
+
+  /**
    * Translations for the texts the library renders itself — the drawer
    * header, the input placeholder, the buttons and tooltips of every widget.
    *
@@ -270,6 +283,13 @@ export interface DevicContextValue {
    * integrator did not configure one, so each component keeps its own default.
    */
   pollingInterval?: number;
+
+  /**
+   * Whether conversations are followed over a server-sent event stream.
+   * Undefined when the integrator did not choose, so each component keeps its
+   * own default.
+   */
+  streaming?: boolean;
 
   /**
    * Translations for the texts the library renders itself, keyed by the

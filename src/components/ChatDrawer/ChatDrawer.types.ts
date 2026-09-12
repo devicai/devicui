@@ -878,6 +878,15 @@ export interface ChatDrawerProps {
   pollingInterval?: number;
 
   /**
+   * Follow the conversation over a server-sent event stream instead of
+   * polling it: the reply arrives as it is produced, and `pollingInterval`
+   * becomes the fallback used while the stream is down. Overrides the
+   * DevicProvider's `streaming`.
+   * @default false
+   */
+  streaming?: boolean;
+
+  /**
    * Callback when a message is sent
    */
   onMessageSent?: (message: ChatMessage) => void;

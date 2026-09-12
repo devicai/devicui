@@ -467,6 +467,33 @@ mobile client on a metered connection. Any component can override it:
 Values below 250 ms are clamped. A change applies to the conversation already
 running, not only to the next one.
 
+## Streaming Instead of Polling
+
+`streaming` follows a conversation in progress over a server-sent event stream
+(`GET /api/v1/assistants/:id/chats/:chatUid/stream`) instead of polling it. The
+reply arrives as it is produced, and `pollingInterval` becomes the fallback
+cadence used only while the stream is down. It is opt-in for now; the default
+will flip once the endpoint has been exercised in the field.
+
+```tsx
+<DevicProvider apiKey="your-api-key" streaming>
+  <ChatDrawer assistantId="support-assistant" />
+  <AIGenerationButton assistantId="writer" streaming={false} />
+</DevicProvider>
+```
+
+| Where | Prop | Default |
+| --- | --- | --- |
+| `DevicProvider` | `streaming` | `false` |
+| `ChatDrawer`, `AICommandBar`, `AIGenerationButton`, `AIElementWrapper` | `streaming` | provider's, else `false` |
+| `useDevicChat` | `streaming` | provider's, else `false` |
+| `HandoffSubagentWidget` | — | always polls |
+
+An API that does not serve the stream answers with something other than
+`text/event-stream`; the widgets treat that as "unavailable" and keep polling,
+so the flag can be turned on before every deployment has caught up. The stream
+reconnects on its own after a drop, with the poll covering the gap.
+
 ## Writing While the Assistant Answers
 
 An assistant can be configured (`messageQueueEnabled`, in its context settings)

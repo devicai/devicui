@@ -1,3 +1,4 @@
+import { consumeChatStream } from '../utils/consumeChatStream';
 import type {
   ProcessMessageDto,
   ChatMessage,
@@ -332,8 +333,28 @@ export class DevicApiClient {
   }
 
   /**
-   * Get real-time chat history (for polling in async mode)
+   * Follow a conversation in progress over its server-sent event stream.
+   * Resolves when the server closes the stream; rejects when it is not a
+   * stream at all (an older API) or the connection fails. `onActivity` fires
+   * on every chunk received, keep-alives included.
    */
+  async streamRealtimeHistory(
+    assistantId: string,
+    chatUid: string,
+    onSnapshot: (snapshot: RealtimeChatHistory) => void | Promise<void>,
+    signal: AbortSignal,
+    onActivity?: () => void,
+  ): Promise<void> {
+    const url = `${this.config.baseUrl}/api/v1/assistants/${encodeURIComponent(assistantId)}/chats/${encodeURIComponent(chatUid)}/stream`;
+    let credential = await this.authorization();
+    const open = () => fetch(url, { signal, headers: { Authorization: `Bearer ${credential}`, Accept: 'text/event-stream', 'devic-api-source': 'ui' } });
+    let response = await open();
+    if (response.status === 401 && this.config.getTenantSession && await this.recoverSession(credential)) {
+      credential = await this.authorization(); response = await open();
+    }
+    await consumeChatStream(response, onSnapshot, onActivity);
+  }
+
   async getRealtimeHistory(
     assistantId: string,
     chatUid: string,
