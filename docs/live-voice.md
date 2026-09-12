@@ -37,6 +37,6 @@ Voice recordings are fetched only when requested, and audio only on Play. Downlo
 
 ## Required server changes
 
-Requires SuntropyAI Live Voice production plus the client-context change (SuntropyAI PR #467: the start endpoint accepts tools/metadata/tags and filters) and, for public gateway consumers, api-gateway PRs #16 and #17 (private audio and tenant-session routes). All three were merged on 2026-09-12. Older assistants without the capability keep the Start button disabled. Do not enable the widget against an older server expecting client tools to be retained.
+Requires SuntropyAI Live Voice production plus the client-context change (SuntropyAI PR #467: the start endpoint accepts tools/metadata/tags and filters) and, for public gateway consumers, api-gateway PRs #16 and #17 (private audio and tenant-session routes). All three were merged on 2026-09-12. For an assistant whose configuration says voice is off, the card is not rendered at all (0.61.1); while the assistant is still unknown, Start stays disabled. Do not enable the widget against an older server expecting client tools to be retained.
 
 Published as 0.61.0.
