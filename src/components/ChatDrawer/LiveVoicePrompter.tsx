@@ -6,7 +6,30 @@ export interface LiveVoicePrompterProps {
   voice: Pick<UseDevicLiveVoiceResult, 'transcript' | 'input' | 'output' | 'muted' | 'state'>;
 }
 
-/** Analyse existing streams only: never acquire a microphone or route audio. */
+/** Level readings kept per wave: one bar each, spread over the whole width. */
+const WAVE_HISTORY = 160;
+/** A new reading this often, so 160 bars are eight seconds of conversation. */
+const WAVE_TICK_MS = 50;
+/** Silence draws a dotted baseline rather than nothing, so the row reads as "live, quiet". */
+const WAVE_FLOOR = 0.06;
+
+/** Loudness of the last analyser window, 0..1: RMS rather than peak, so a click does not spike. */
+export function waveLevel(samples: Uint8Array): number {
+  let sum = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const value = (samples[i] - 128) / 128;
+    sum += value * value;
+  }
+  return Math.min(1, Math.sqrt(sum / samples.length) * 4);
+}
+
+/**
+ * A full-width level history for one speaker: newest at the right, sliding
+ * left. Drawn in the row's CSS `color`, so the user's wave takes the muted grey
+ * and the assistant's the accent, and the two rows in parallel show who spoke
+ * when without a legend. Analyses existing streams only: never acquires a
+ * microphone or routes audio.
+ */
 function VoiceWave({ stream, role }: { stream?: MediaStream; role: 'user' | 'assistant' }) {
   const t = useTranslations();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -21,7 +44,8 @@ function VoiceWave({ stream, role }: { stream?: MediaStream; role: 'user' | 'ass
     let analyser: AnalyserNode | undefined;
     let frame = 0;
     let tick = -Infinity;
-    const levels = new Float32Array(160);
+    let color = '';
+    const levels = new Float32Array(WAVE_HISTORY);
     const samples = new Uint8Array(256);
     try {
       if (stream && typeof AudioContext !== 'undefined') {
@@ -31,29 +55,33 @@ function VoiceWave({ stream, role }: { stream?: MediaStream; role: 'user' | 'ass
       }
     } catch { /* A visualisation failure must not interrupt the call. */ }
     const fit = () => {
-      const ratio = window.devicePixelRatio || 1;
-      canvas.width = Math.max(1, Math.round(canvas.clientWidth * ratio));
-      canvas.height = Math.max(1, Math.round(canvas.clientHeight * ratio));
+      const ratio = typeof devicePixelRatio === 'number' && devicePixelRatio > 0 ? devicePixelRatio : 1;
+      canvas.width = Math.max(1, Math.round((canvas.clientWidth || canvas.width) * ratio));
+      canvas.height = Math.max(1, Math.round((canvas.clientHeight || canvas.height) * ratio));
     };
     const draw = (now: number) => {
-      if (now - tick >= 50) {
+      if (now - tick >= WAVE_TICK_MS) {
         tick = now; samples.fill(128);
         try { analyser?.getByteTimeDomainData(samples); } catch { /* Closed stream. */ }
-        let sum = 0;
-        for (const sample of samples) sum += ((sample - 128) / 128) ** 2;
-        levels.copyWithin(0, 1); levels[159] = Math.min(1, Math.sqrt(sum / samples.length) * 4);
-        const { width, height } = canvas;
-        drawing!.clearRect(0, 0, width, height);
-        drawing!.strokeStyle = getComputedStyle(canvas).color;
-        drawing!.lineCap = 'round'; drawing!.lineWidth = Math.max(1, width / 320);
-        for (let i = 0; i < levels.length; i++) {
-          const bar = Math.max(1, levels[i] * (height - 2));
-          const x = (i + .5) * width / levels.length;
-          drawing!.globalAlpha = .3 + .7 * i / levels.length;
-          drawing!.beginPath(); drawing!.moveTo(x, (height - bar) / 2);
-          drawing!.lineTo(x, (height + bar) / 2); drawing!.stroke();
-        }
+        levels.copyWithin(0, 1); levels[WAVE_HISTORY - 1] = waveLevel(samples);
+        color = typeof getComputedStyle === 'function' ? getComputedStyle(canvas).color : '';
       }
+      const { width, height } = canvas;
+      drawing!.clearRect(0, 0, width, height);
+      drawing!.strokeStyle = color || '#8c8c8c';
+      drawing!.lineCap = 'round';
+      const step = width / WAVE_HISTORY;
+      const bar = Math.max(1, step * 0.5);
+      drawing!.lineWidth = bar;
+      const middle = height / 2;
+      for (let i = 0; i < WAVE_HISTORY; i++) {
+        const tall = Math.max(0, Math.max(WAVE_FLOOR, levels[i]) * (height - bar) - bar);
+        const x = i * step + step / 2;
+        drawing!.globalAlpha = 0.3 + 0.7 * (i / WAVE_HISTORY);
+        drawing!.beginPath(); drawing!.moveTo(x, middle - tall / 2);
+        drawing!.lineTo(x, middle + tall / 2); drawing!.stroke();
+      }
+      drawing!.globalAlpha = 1;
       frame = requestAnimationFrame(draw);
     };
     fit();
@@ -62,8 +90,9 @@ function VoiceWave({ stream, role }: { stream?: MediaStream; role: 'user' | 'ass
     return () => {
       cancelAnimationFrame(frame); observer?.disconnect(); source?.disconnect(); analyser?.disconnect();
       if (context) void context.close().catch(() => {});
+      try { drawing!.clearRect(0, 0, canvas.width, canvas.height); } catch { /* Detached canvas. */ }
     };
-  }, [stream]);
+  }, [stream, role]);
   return <div className={`devic-voice-wave-row devic-voice-wave-row--${role}`}>
     <span>{role === 'user' ? t('You') : t('Assistant')}</span>
     <canvas ref={canvasRef} className="devic-voice-wave-canvas" width={640} height={28} role="img"
@@ -71,7 +100,11 @@ function VoiceWave({ stream, role }: { stream?: MediaStream; role: 'user' | 'ass
   </div>;
 }
 
-/** Fixed-height, bottom-following transcript, matching Active Chat's prompter. */
+/**
+ * The transcript as a teleprompter, matching Active Chat: the newest words sit
+ * at the bottom of a fixed-height viewport and everything earlier slides up and
+ * fades out through the top edge; below it, one level wave per speaker.
+ */
 export function LiveVoicePrompter({ voice }: LiveVoicePrompterProps) {
   const t = useTranslations();
   const viewport = useRef<HTMLDivElement>(null);

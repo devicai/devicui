@@ -411,13 +411,15 @@ wrapper** and translate like any other, into English included.
 | English key | Variables |
 | --- | --- |
 | `Voice mode` | — |
-| `Voice · included minutes` | — |
-| `Live · {seconds} s · included minutes` | seconds |
+| `Included minutes` | — |
+| `Talk to the assistant in real time.` | — |
+| `Live · {time}` | time (`m:ss` elapsed) |
 | `Connecting voice…` | — |
 | `Restoring voice…` | — |
 | `Closing voice…` | — |
 | `Start voice` | — |
 | `End voice` | — |
+| `Cancel` | — |
 | `Mute` | — |
 | `Unmute` | — |
 | `Enable audio` | — |

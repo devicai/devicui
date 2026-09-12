@@ -1117,12 +1117,16 @@ function ChatDrawerInner({
         />
 
         {/* Input */}
+        {/* Idle, the voice widget is a card above the composer; during a call
+            it takes the composer's place, banners included. */}
         {mergedOptions.liveVoice?.enabled && <React.Suspense fallback={null}>
           <LiveVoicePanel voice={chat.voice} client={infoClient} assistantId={assistantId} chatUid={chat.chatUid}
             canStart={isOpen && assistantInfo.assistant?.liveVoice?.enabled === true && !chat.isLoading && !chat.handedOff && !chat.limitExceeded && !inputWidget && inlineWidgets.length === 0}
-            recordSessions={assistantInfo.assistant?.liveVoice?.recordSessions} />
+            recordSessions={assistantInfo.assistant?.liveVoice?.recordSessions}>
+            {chat.voice.active && !inputWidget ? <>{limitBannerNode}{usageBarNode}{queueNoticeNode}</> : null}
+          </LiveVoicePanel>
         </React.Suspense>}
-        {chat.voice.active && !inputWidget ? <>{limitBannerNode}{usageBarNode}{queueNoticeNode}</> : Boolean(mergedOptions.customPromptBox) && !(chat.voice.active && inputWidget) ? (
+        {chat.voice.active && !inputWidget ? null : Boolean(mergedOptions.customPromptBox) && !(chat.voice.active && inputWidget) ? (
           <div className="devic-input-area">
             {limitBannerNode}
             {usageBarNode}
