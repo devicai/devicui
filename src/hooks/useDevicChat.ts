@@ -653,6 +653,13 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   useEffect(() => {
     if (previousInitialChatRef.current !== initialChatUid) {
       previousInitialChatRef.current = initialChatUid;
+      // The parent can echo the ID just emitted by onChatCreated. That adopts
+      // the running voice chat; it does not select a different conversation.
+      if (initialChatUid && initialChatUid === chatUidRef.current &&
+        voiceRef.current.active && voiceRef.current.chatUid === initialChatUid) {
+        initialChatLoadedRef.current = true;
+        return;
+      }
       initialChatLoadedRef.current = false;
       void voiceRef.current.stop();
     }
