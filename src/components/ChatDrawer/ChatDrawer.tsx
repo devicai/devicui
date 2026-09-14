@@ -9,6 +9,7 @@ import { ConversationSelector } from './ConversationSelector';
 import { ChatDrawerErrorBoundary } from './ErrorBoundary';
 import { UsageBar } from './UsageBar';
 import { LimitBanner } from './LimitBanner';
+import { isRenderedLimitError } from '../../utils/limitError';
 import { QueueNotice } from './QueueNotice';
 import { CoreMemoryModal, DEFAULT_CORE_MEMORY_LABELS } from '../CoreMemoryModal';
 import {
@@ -1075,7 +1076,7 @@ function ChatDrawerInner({
         </div>
 
         {/* Error display */}
-        {chat.error && (
+        {chat.error && !isRenderedLimitError(chat.error, chat.limitExceeded, !!limitBannerNode) && (
           <div className="devic-error">
             {chat.error.message}
           </div>

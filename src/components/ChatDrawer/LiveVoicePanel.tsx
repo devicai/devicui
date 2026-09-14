@@ -81,6 +81,7 @@ export default function LiveVoicePanel({ voice, canStart, recordSessions, onDism
     </div>
     {voice.error && <div className="devic-voice-error" role="alert">{t(voice.error.message)}</div>}
     {!voice.error && voice.endReason === 'idle' && <div className="devic-voice-note" role="status">{t('The call ended after a while without anyone speaking.')}</div>}
+    {!voice.error && voice.endReason === 'tenant_limit_exceeded' && <div className="devic-voice-note" role="alert">{t('The tenant or subtenant spending limit was reached.')}</div>}
   </section>;
 }
 

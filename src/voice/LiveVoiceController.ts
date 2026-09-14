@@ -144,6 +144,10 @@ export class LiveVoiceController {
         for (let i = 0; i < 35 && ticket === this.generation && !this.disposed; i++) {
           const state = await this.client.getLiveSessionStatus(this.assistantId, sessionId);
           if (state.status === 'closed') {
+            if (state.endReason === 'tenant_limit_exceeded') {
+              this.update({ state: 'idle', sessionId: undefined, endReason: state.endReason });
+              return;
+            }
             if (ticket === this.generation && !this.disposed) await this.start(this.snapshot.chatUid, true);
             return;
           }
@@ -241,6 +245,9 @@ export class LiveVoiceController {
             const endsAt = this.lastActivity + idle * 1000;
             const warn = Date.now() >= endsAt - Math.min(30000, idle * 500);
             if (warn ? this.snapshot.idleEndsAt !== endsAt : !!this.snapshot.idleEndsAt) this.update({ idleEndsAt: warn ? endsAt : undefined });
+          }
+          if (state.endReason === 'tenant_limit_exceeded') {
+            this.update({ endReason: state.endReason }); void this.stop(); return;
           }
           if (state.interrupted || state.restartRequested || (connectionLostAt && Date.now() - connectionLostAt > 5000)) { void recover(); return; }
           if (state.status === 'closed') { void this.stop(); return; }
