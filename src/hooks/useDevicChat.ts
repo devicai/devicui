@@ -758,7 +758,6 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       stopStatuses: [
         'completed',
         'error',
-        'waiting_for_tool_response',
         'handed_off',
         'limit_exceeded',
       ],
@@ -946,7 +945,9 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
             setHandedOffSubThreadId(subThreadId);
           }
         }
-        // Note: waiting_for_tool_response is handled in onUpdate to avoid double execution
+        // MIT waits are not terminal: onUpdate may already have submitted the
+        // response. Stopping here would overwrite that continuation. Widgets
+        // explicitly pause observation while waiting for user input.
       },
       onError: (err) => {
         logRef.current.error('[useDevicChat] onError called:', err);
@@ -1009,6 +1010,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
         setError(error);
+        setShouldPoll(false);
+        setIsLoading(false);
         onErrorRef.current?.(error);
       }
     },
