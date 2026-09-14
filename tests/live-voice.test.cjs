@@ -100,6 +100,23 @@ test('cancel while microphone permission is pending stops the late track without
     assert.equal(track.stopped, true); assert.equal(api.creates.length, 0);
   } finally { voice.dispose(); media.restore(); }
 });
+test('tenant cost limit closes voice without automatic recovery and preserves the reason', async () => {
+  for (const trigger of ['closed', 'failed']) {
+    const media = fakeVoice(); const api = client(); let state;
+    api.getLiveSessionStatus = async () => ({ status: 'closed', endReason: 'tenant_limit_exceeded' });
+    const voice = new LiveVoiceController(api, 'a', {}, value => { state = value; }, () => {});
+    try {
+      await voice.start();
+      if (trigger === 'closed') media.peers[0].event({ type: 'session.closed' });
+      else { media.peers[0].connectionState = 'failed'; media.peers[0].onconnectionstatechange(); }
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(api.creates.length, 1);
+      assert.equal(state.state, 'idle');
+      assert.equal(state.endReason, 'tenant_limit_exceeded');
+      assert.equal(media.tracks[0].stopped, true);
+    } finally { await voice.stop(); media.restore(); }
+  }
+});
 test('warns before the server ends a silent call, clears on speech or "I\'m here", and reports the idle end', async () => {
   const media = fakeVoice(); const api = client(); let state; const statusCalls = [];
   api.createLiveSession = async () => ({ sessionId: 's1', chatUid: 'c1', sdp: 'answer', maxDurationSeconds: 60, idleTimeoutSeconds: 4 });
