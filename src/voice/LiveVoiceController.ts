@@ -220,8 +220,10 @@ export class LiveVoiceController {
       sessionId = result.sessionId;
       if (!current()) { void this.client.closeLiveSession(this.assistantId, sessionId).catch(() => {}); return; }
       this.update({ sessionId, chatUid: result.chatUid, idleTimeoutSeconds: result.idleTimeoutSeconds || 0 }); this.created(result.chatUid);
+      if (!current()) return;
       deadline = setTimeout(() => { void this.stop(); }, Math.max(1, Math.min(6000, result.maxDurationSeconds || 6000)) * 1000);
       await peer.setRemoteDescription({ type: 'answer', sdp: result.sdp });
+      if (!current()) return;
       let busy = false;
       health = setInterval(async () => {
         if (!current() || busy) return;

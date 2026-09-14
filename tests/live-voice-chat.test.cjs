@@ -7,6 +7,42 @@ const { fakeVoice } = require('./helpers/fakeVoice.cjs');
 const { useDevicChat } = loadTs(require('node:path').join(__dirname, '../src/hooks/useDevicChat.ts'));
 global.IS_REACT_ACT_ENVIRONMENT = true;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+test('parent adopting the newly created voice chat keeps the first call alive; selecting another chat closes it', async () => {
+  const media = fakeVoice(); const original = global.fetch;
+  const requests = []; let chat; let select; let renderer;
+  const json = body => new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } });
+  global.fetch = async (url, init = {}) => {
+    const path = new URL(url).pathname; requests.push({ path, method: init.method || 'GET' });
+    if (path.endsWith('/live/sessions')) return json({ sessionId: 's1', chatUid: 'c1', sdp: 'answer', maxDurationSeconds: 60 });
+    if (path.endsWith('/live/sessions/s1')) return json({ status: 'active', connected: true, seconds: 1 });
+    if (path.endsWith('/stream')) return new Response(new ReadableStream({ start(controller) {
+      init.signal.addEventListener('abort', () => { try { controller.close(); } catch {} });
+    } }), { headers: { 'Content-Type': 'text/event-stream' } });
+    if (path.endsWith('/realtime')) return json({ status: 'completed', chatHistory: [] });
+    if (/\/chats\/c[12]$/.test(path)) return json({ chatContent: [] });
+    return json({ identifier: 'a', messageQueueEnabled: false, liveVoice: { enabled: true } });
+  };
+  function Probe() {
+    const [uid, setUid] = React.useState(); select = setUid;
+    chat = useDevicChat({ assistantId: 'a', apiKey: 'test', baseUrl: 'http://api.test',
+      liveVoice: { enabled: true }, chatUid: uid, onChatCreated: setUid });
+    return null;
+  }
+  try {
+    await act(async () => { renderer = create(React.createElement(Probe)); });
+    await act(async () => { await chat.voice.start(); await sleep(15); });
+    assert.equal(chat.chatUid, 'c1');
+    assert.equal(chat.voice.state, 'connected');
+    assert.equal(requests.filter(r => r.method === 'DELETE').length, 0);
+    assert.equal(requests.filter(r => r.path.endsWith('/chats/c1')).length, 0, 'adoption must not reload/overwrite the live history');
+    assert.equal(media.tracks[0].stopped, false);
+    await act(async () => { select('c2'); await sleep(15); });
+    assert.equal(chat.chatUid, 'c2');
+    assert.equal(chat.voice.active, false);
+    assert.equal(requests.filter(r => r.method === 'DELETE').length, 1);
+    assert.equal(media.tracks[0].stopped, true);
+  } finally { await act(async () => { await chat?.voice.stop(); renderer?.unmount(); }); global.fetch = original; media.restore(); }
+});
 test('voice reuses one SSE across completed turns, renders partials and executes client tools once', async () => {
   const media = fakeVoice(); const original = global.fetch;
   const requests = []; let stream; let chat; let calls = 0; let created = 0; let received = 0;

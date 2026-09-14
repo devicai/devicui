@@ -9,6 +9,25 @@ function client() {
   return { creates: [], closes: [], async createLiveSession(id, body) { this.creates.push(body); return { sessionId: 's1', chatUid: 'c1', sdp: 'answer', maxDurationSeconds: 60 }; },
     async closeLiveSession(id, session) { this.closes.push(session); }, async getLiveSessionStatus() { return { status: 'active', connected: true, seconds: 2 }; } };
 }
+test('cancellation during chat adoption or SDP setup does not install a late health timer', async () => {
+  for (const phase of ['adoption', 'sdp']) {
+    const media = fakeVoice(); const api = client(); let intervals = 0; let state;
+    const original = global.setInterval;
+    global.setInterval = (...args) => { intervals++; return original(...args); };
+    let voice;
+    voice = new LiveVoiceController(api, 'a', {}, value => { state = value; }, () => {
+      if (phase === 'adoption') void voice.stop();
+      else media.peers[0].setRemoteDescription = async () => { await voice.stop(); };
+    });
+    try {
+      await voice.start(); await new Promise(resolve => setImmediate(resolve));
+      assert.equal(state.state, 'idle');
+      assert.equal(intervals, 0);
+      assert.deepEqual(api.closes, ['s1']);
+      assert.equal(media.tracks[0].stopped, true);
+    } finally { await voice.stop(); global.setInterval = original; media.restore(); }
+  }
+});
 test('SSR construction does not access media; permission denial creates no session', async () => {
   const media = fakeVoice(); const api = client(); let state;
   media.navigator.mediaDevices.getUserMedia = async () => { throw new Error('Permission denied'); };
