@@ -1106,8 +1106,9 @@ Hook for implementing the Model Interface Protocol.
 const {
   toolSchemas,           // Tool schemas to send to API
   isClientTool,          // (name: string) => boolean
-  handleToolCalls,       // (toolCalls: ToolCall[]) => Promise<ToolCallResponse[]>
+  handleToolCalls,       // (toolCalls: ToolCall[]) => Promise<{ responses, widgetCalls, toolSchemas }>
   extractPendingToolCalls, // (messages: ChatMessage[]) => ToolCall[]
+  resolvePendingToolCalls, // (realtime: RealtimeChatHistory) => ToolCall[] — includes calls to tools no longer loaded
 } = useModelInterface({
   tools: [
     {
@@ -1425,6 +1426,18 @@ const locationTool: ModelInterfaceTool = {
   modelInterfaceTools={[locationTool]}
 />
 ```
+
+### Tools that are no longer loaded
+
+Tools often depend on the screen the user is on, so the model can call one that is gone by the time the call arrives — the user navigated away while the assistant was still working. The API keeps the conversation in `waiting_for_tool_response` until every client-side call is answered, so an unanswered call would block the conversation.
+
+When that happens the components wait up to 5 seconds (`unavailableToolGraceMs` on `useModelInterface`) for the tool to be registered — the screen the model just navigated to may still be mounting — and run it if it shows up. Otherwise the call is answered with an error the model can read, and the run continues:
+
+```json
+{ "error": "Tool \"go_to_study_step\" is not available: ...", "errorType": "TOOL_UNAVAILABLE" }
+```
+
+Backend tools that answer asynchronously (`pendingAsyncToolCalls` in the realtime state) are never answered by the client.
 
 ## TypeScript
 

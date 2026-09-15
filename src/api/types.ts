@@ -420,6 +420,17 @@ export interface CoreMemorySnapshot {
   timestampMs: number;
 }
 
+/** A backend tool call waiting on an external system for its result. */
+export interface PendingAsyncToolCall {
+  toolCallId: string;
+  toolName: string;
+  sentAt: number;
+  resolved: boolean;
+  resolvedAt?: number;
+  /** Where the external system posts the result. */
+  callbackUrl?: string;
+}
+
 /**
  * Real-time chat history response
  */
@@ -432,6 +443,12 @@ export interface RealtimeChatHistory {
   status: RealtimeStatus;
   lastUpdatedAt: number;
   pendingToolCalls?: ToolCall[];
+  /**
+   * Backend tools whose result an external system posts later. They hold the
+   * conversation in `waiting_for_tool_response` too, but they are not the
+   * client's to answer.
+   */
+  pendingAsyncToolCalls?: PendingAsyncToolCall[];
   handedOffSubThreadId?: string;
   /** Present only when status is `limit_exceeded`. */
   limitExceeded?: TenantLimitExceeded;

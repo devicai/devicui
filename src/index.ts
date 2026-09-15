@@ -211,6 +211,7 @@ export type {
   StopChatResponse,
   RealtimeChatHistory,
   RealtimeStatus,
+  PendingAsyncToolCall,
   ChatHistory,
   AssistantSpecialization,
   ModelInterfaceTool,

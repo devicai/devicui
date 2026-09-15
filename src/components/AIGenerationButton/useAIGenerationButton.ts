@@ -159,7 +159,7 @@ export function useAIGenerationButton(
   const {
     toolSchemas,
     handleToolCalls: executeToolCalls,
-    extractPendingToolCalls,
+    resolvePendingToolCalls,
   } = useModelInterface({
     tools: modelInterfaceTools,
   });
@@ -225,17 +225,18 @@ export function useAIGenerationButton(
     async (data: RealtimeChatHistory) => {
       if (!clientRef.current || !chatUid) return;
 
-      const pendingCalls = data.pendingToolCalls || extractPendingToolCalls(data.chatHistory);
+      const pendingCalls = resolvePendingToolCalls(data);
       if (pendingCalls.length === 0) return;
 
       try {
-        const { responses } = await executeToolCalls(pendingCalls);
+        const { responses, toolSchemas: schemas } =
+          await executeToolCalls(pendingCalls);
         if (responses.length > 0) {
           await clientRef.current.sendToolResponses(
             assistantId,
             chatUid,
             responses,
-            toolSchemas
+            schemas
           );
           setShouldPoll(true);
         }
@@ -245,7 +246,7 @@ export function useAIGenerationButton(
         onErrorRef.current?.(error);
       }
     },
-    [chatUid, assistantId, executeToolCalls, extractPendingToolCalls, toolSchemas]
+    [chatUid, assistantId, executeToolCalls, resolvePendingToolCalls]
   );
 
   // Polling
