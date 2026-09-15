@@ -699,7 +699,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   const {
     toolSchemas,
     handleToolCalls,
-    extractPendingToolCalls,
+    resolvePendingToolCalls,
   } = useModelInterface({
     tools: modelInterfaceTools,
     onToolExecute: onToolCall,
@@ -965,8 +965,9 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     async (data: RealtimeChatHistory) => {
       if (!clientRef.current || !chatUid) return;
 
-      // Get pending tool calls
-      const pendingCalls = (data.pendingToolCalls || extractPendingToolCalls(data.chatHistory))
+      // Get pending tool calls, including calls to tools no longer loaded here,
+      // which are answered as unavailable rather than left to block the chat
+      const pendingCalls = resolvePendingToolCalls(data)
         .filter(call => !handledClientCalls.current.has(call.id));
 
       if (pendingCalls.length === 0) return;
@@ -976,7 +977,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
 
       try {
         // Execute client-side tools (partitioned into immediate responses and widget-driven)
-        const { responses, widgetCalls } = await handleToolCalls(pendingCalls);
+        const { responses, widgetCalls, toolSchemas: schemas } =
+          await handleToolCalls(pendingCalls);
 
         // Queue widget-driven tool calls for user interaction
         if (widgetCalls.length > 0) {
@@ -998,7 +1000,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
             assistantId,
             chatUid,
             responses,
-            toolSchemas
+            schemas
           );
 
           // Only resume polling if no widgets are blocking
@@ -1015,7 +1017,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         onErrorRef.current?.(error);
       }
     },
-    [chatUid, assistantId, handleToolCalls, extractPendingToolCalls, toolSchemas]
+    [chatUid, assistantId, handleToolCalls, resolvePendingToolCalls]
   );
 
   // Send a message

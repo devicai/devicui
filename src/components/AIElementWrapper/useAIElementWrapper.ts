@@ -96,23 +96,24 @@ export function useAIElementWrapper(
   const {
     toolSchemas,
     handleToolCalls: executeToolCalls,
-    extractPendingToolCalls,
+    resolvePendingToolCalls,
   } = useModelInterface({ tools: modelInterfaceTools });
 
   const handlePendingToolCalls = useCallback(
     async (data: RealtimeChatHistory) => {
       if (!clientRef.current || !chatUid || !assistantId) return;
       const pendingCalls =
-        data.pendingToolCalls || extractPendingToolCalls(data.chatHistory);
+        resolvePendingToolCalls(data);
       if (pendingCalls.length === 0) return;
       try {
-        const { responses } = await executeToolCalls(pendingCalls);
+        const { responses, toolSchemas: schemas } =
+          await executeToolCalls(pendingCalls);
         if (responses.length > 0) {
           await clientRef.current.sendToolResponses(
             assistantId,
             chatUid,
             responses,
-            toolSchemas
+            schemas
           );
           setShouldPoll(true);
         }
@@ -122,7 +123,7 @@ export function useAIElementWrapper(
         onErrorRef.current?.(error);
       }
     },
-    [chatUid, assistantId, executeToolCalls, extractPendingToolCalls, toolSchemas]
+    [chatUid, assistantId, executeToolCalls, resolvePendingToolCalls]
   );
 
   usePolling(
