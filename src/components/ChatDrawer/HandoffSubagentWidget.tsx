@@ -27,6 +27,12 @@ export interface HandoffSubagentWidgetProps {
    */
   subThreadId: string;
 
+  /** Identity returned by the handoff acknowledgement, shown before polling. */
+  agentHint?: Pick<AgentDto, '_id' | 'name' | 'imgUrl' | 'avatarStyle'>;
+
+  /** Optional initial snapshot, useful while the first poll is pending. */
+  threadHint?: AgentThreadDto;
+
   /**
    * Called when the subthread reaches a terminal state
    */
@@ -69,6 +75,8 @@ function formatElapsed(seconds: number): string {
 
 export function HandoffSubagentWidget({
   subThreadId,
+  agentHint,
+  threadHint,
   onCompleted,
   apiKey,
   baseUrl,
@@ -87,8 +95,8 @@ export function HandoffSubagentWidget({
   const debug = context?.debug ?? false;
   const log = useMemo(() => createLogger(debug), [debug]);
 
-  const [thread, setThread] = useState<AgentThreadDto | null>(null);
-  const [agent, setAgent] = useState<AgentDto | null>(null);
+  const [thread, setThread] = useState<AgentThreadDto | null>(threadHint || null);
+  const [agent, setAgent] = useState<AgentDto | null>(agentHint as AgentDto | null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);

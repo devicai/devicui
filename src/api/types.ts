@@ -82,6 +82,12 @@ export interface ChatMessage {
   tool_calls?: ToolCall[];
   tool_call_id?: string;
   summary?: string;
+  /** Origin channel. `subagent` marks an internal synthetic user turn. */
+  source?: string;
+  /** True when the platform, rather than the end user, created the message. */
+  synthetic?: boolean;
+  eventType?: 'subagent_result' | 'subagent_results';
+  subagent?: SubagentMessageMetadata;
   /**
    * Where `content.message` came from, when the model did not write it.
    * `'finish_tool'`: the assistant is configured to require a tool call to
@@ -117,6 +123,16 @@ export interface ChatMessage {
    * it", which the timestamp is the only honest way to decide.
    */
   queuedAt?: number;
+}
+
+export interface SubagentMessageMetadata {
+  threadId: string;
+  parentToolCallId?: string;
+  agentId?: string;
+  agentName?: string;
+  agentImgUrl?: string;
+  agentAvatarStyle?: AvatarStyle | string;
+  executionMode: 'async';
 }
 
 /**
@@ -885,9 +901,17 @@ export interface AgentDto {
  */
 export interface HandOffToolResponse {
   response: string;
-  subthreadId: string;
+  subthreadId?: string;
+  subThreadId?: string;
   handedOff?: boolean;
   asynchronous?: boolean;
+  executionMode?: 'wait' | 'async';
+  agent?: {
+    id: string;
+    name?: string;
+    imgUrl?: string;
+    avatarStyle?: AvatarStyle | string;
+  };
 }
 
 /**

@@ -1775,6 +1775,65 @@
   color: var(--devic-text-muted);
 }
 
+/* Async subagent completion. It remains role=user in the protocol, but is an
+   execution event in the conversation rather than a human speech bubble. */
+.devic-subagent-results {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.devic-subagent-result {
+  width: min(100%, 520px);
+  border: 1px solid color-mix(in srgb, var(--devic-primary) 28%, var(--devic-border));
+  border-left: 3px solid var(--devic-primary);
+  border-radius: 10px;
+  background: var(--devic-bg-secondary);
+  overflow: hidden;
+  animation: devic-slideUp 0.24s ease-out;
+}
+
+.devic-subagent-result[data-status='error'] {
+  border-left-color: #ff4d4f;
+}
+
+.devic-subagent-result-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--devic-border);
+}
+
+.devic-subagent-result-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--devic-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devic-subagent-result-status {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--devic-text-muted);
+}
+
+.devic-subagent-result-body {
+  padding: 10px 12px;
+  color: var(--devic-text);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.devic-subagent-result-body > :first-child { margin-top: 0; }
+.devic-subagent-result-body > :last-child { margin-bottom: 0; }
+
 /* Reference chips inside a user message bubble (rendered above the bubble) */
 .devic-message[data-role='user'] .devic-message-references {
   display: flex;

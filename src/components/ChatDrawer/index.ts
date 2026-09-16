@@ -4,6 +4,8 @@ export { ChatInput } from './ChatInput';
 export { ToolTimeline } from './ToolTimeline';
 export { ConversationSelector } from './ConversationSelector';
 export { HandoffSubagentWidget } from './HandoffSubagentWidget';
+export { SubagentResultCard } from './SubagentResultCard';
+export type { SubagentResultCardProps } from './SubagentResultCard';
 export { ReferenceChip } from './ReferenceChip';
 export type { ReferenceChipProps, ReferenceChipVariant } from './ReferenceChip';
 export { UsageBar } from './UsageBar';

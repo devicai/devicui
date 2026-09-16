@@ -3,6 +3,7 @@ import { useOptionalDevicContext } from "../../provider";
 import Markdown from "markdown-to-jsx";
 import { MessageActions } from "../Feedback";
 import { HandoffSubagentWidget } from "./HandoffSubagentWidget";
+import { SubagentResultCard } from "./SubagentResultCard";
 import { ReferenceChip } from "./ReferenceChip";
 import { RecalledMemoriesWidget } from "./RecalledMemoriesWidget";
 import { CompactionWidget } from "./CompactionWidget";
@@ -289,10 +290,14 @@ function groupMessages(
         result.push({ type: "message", message: msg });
       }
       // Always accumulate the tool call
+      // A provider may return several parallel calls in one assistant message.
+      // Each call needs its own status card and correlation id.
       currentToolGroup.push(
-        visibleToolCalls.length === msg.tool_calls!.length
-          ? msg
-          : { ...msg, tool_calls: visibleToolCalls },
+        ...visibleToolCalls.map((toolCall) => ({
+          ...msg,
+          uid: `${msg.uid}:${toolCall.id}`,
+          tool_calls: [toolCall],
+        })),
       );
     } else {
       // Regular message → flush any accumulated tool group first
@@ -374,6 +379,7 @@ function ToolGroup({
 
     // Render HandoffSubagentWidget for hand_off_subagent tool calls
     if (toolName === "hand_off_subagent" && toolCall && allMessages) {
+      const handoffResponse = extractHandoffResponse(toolCall.id, allMessages);
       const subThreadId = extractSubThreadId(
         toolCall.id,
         allMessages,
@@ -383,6 +389,12 @@ function ToolGroup({
         return (
           <HandoffSubagentWidget
             subThreadId={subThreadId}
+            agentHint={handoffResponse?.agent ? {
+              _id: handoffResponse.agent.id,
+              name: handoffResponse.agent.name || t('Subagent'),
+              imgUrl: handoffResponse.agent.imgUrl,
+              avatarStyle: handoffResponse.agent.avatarStyle as any,
+            } : undefined}
             onCompleted={onHandoffCompleted}
             renderWidget={handoffWidgetRenderer}
             apiKey={apiKey}
@@ -591,6 +603,19 @@ function extractSubThreadId(
   }
   // Fall back to active handoff subthread ID
   return handedOffSubThreadId || null;
+}
+
+function extractHandoffResponse(
+  toolCallId: string,
+  allMessages: ChatMessage[],
+): import('../../api/types').HandOffToolResponse | null {
+  const toolResponse = allMessages.find(
+    (m) => m.role === 'tool' && m.tool_call_id === toolCallId,
+  );
+  const content = toolResponse?.content?.data || toolResponse?.content;
+  return content && typeof content === 'object'
+    ? (content as import('../../api/types').HandOffToolResponse)
+    : null;
 }
 
 export function ChatMessages({
@@ -820,6 +845,10 @@ export function ChatMessages({
               )}
             </React.Fragment>
           );
+        }
+
+        if (message.source === 'subagent' && message.synthetic) {
+          return <SubagentResultCard key={message.uid} message={message} />;
         }
 
         const rawText = readMessageText(message);
