@@ -602,7 +602,7 @@ function ChatDrawerInner({
   // Real-time voice: available when the host opted in and the assistant has
   // it on; startable when nothing else claims the composer.
   const voiceAvailable = !!mergedOptions.liveVoice?.enabled && assistantInfo.assistant?.liveVoice?.enabled === true;
-  const canStartVoice = voiceAvailable && isOpen && !chat.isLoading && !chat.handedOff && !chat.limitExceeded && !inputWidget && inlineWidgets.length === 0;
+  const canStartVoice = voiceAvailable && isOpen && !chat.isLoading && !chat.handedOff && chat.status !== 'paused_for_resume' && !chat.limitExceeded && !inputWidget && inlineWidgets.length === 0;
 
   // Active references from DevicProvider (created by AIElementWrapper)
   const references = context?.references ?? [];
@@ -1174,6 +1174,7 @@ function ChatDrawerInner({
               // one is the assistant waiting on this user, the other a refusal.
               (chat.isLoading && !canQueue) ||
               (chat.handedOff && !canQueue) ||
+              (chat.status === 'paused_for_resume' && !canQueue) ||
               inlineWidgets.length > 0 ||
               !!chat.limitExceeded
             }
@@ -1201,6 +1202,8 @@ function ChatDrawerInner({
             disabledMessage={
               chat.handedOff
                 ? t('Waiting for subagent to complete')
+                : chat.status === 'paused_for_resume'
+                  ? t('Assistant paused until its scheduled resume time')
                 : inlineWidgets.length > 0
                   ? t('Waiting for tool response')
                   : undefined

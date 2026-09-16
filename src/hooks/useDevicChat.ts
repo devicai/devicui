@@ -496,6 +496,23 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
 
   // Polling state
   const [shouldPoll, setShouldPoll] = useState(false);
+  const pauseResumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const schedulePauseResumeWatch = useCallback(
+    (pausedUntil?: number) => {
+      if (pauseResumeTimerRef.current) {
+        clearTimeout(pauseResumeTimerRef.current);
+      }
+      const delay = Math.min(
+        Math.max((pausedUntil || Date.now()) - Date.now() + 5_000, 5_000),
+        2_147_000_000
+      );
+      pauseResumeTimerRef.current = setTimeout(() => {
+        setIsLoading(true);
+        setShouldPoll(true);
+      }, delay);
+    },
+    []
+  );
 
   // Keep a ref to chatUid so async callbacks always read the latest value
   const chatUidRef = useRef(chatUid);
@@ -627,6 +644,11 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           if (subThreadId) {
             setHandedOffSubThreadId(subThreadId);
           }
+        } else if (realtime.status === 'paused_for_resume') {
+          // The scheduler, not the browser, owns this continuation.
+          setIsLoading(false);
+          setShouldPoll(false);
+          schedulePauseResumeWatch(realtime.pausedUntil);
         } else if ((realtime.queuedMessages ?? 0) > 0) {
           // The run settled, but the conversation still owes an answer to
           // something queued — reopened on a conversation whose follow-up run
@@ -643,7 +665,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         setIsLoading(false);
       }
     },
-    [assistantId, mergeRecalledMemories, mergeCompactions]
+    [assistantId, mergeRecalledMemories, mergeCompactions, schedulePauseResumeWatch]
   );
 
   // Load initial chat history if chatUid prop is provided
@@ -759,6 +781,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         'completed',
         'error',
         'handed_off',
+        'paused_for_resume',
         'limit_exceeded',
       ],
       onUpdate: async (data: RealtimeChatHistory) => {
@@ -944,6 +967,9 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           if (subThreadId) {
             setHandedOffSubThreadId(subThreadId);
           }
+        } else if (data?.status === 'paused_for_resume') {
+          setIsLoading(false);
+          schedulePauseResumeWatch(data.pausedUntil);
         }
         // MIT waits are not terminal: onUpdate may already have submitted the
         // response. Stopping here would overwrite that continuation. Widgets
@@ -959,6 +985,15 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       debug,
     }
   );
+
+  useEffect(() => {
+    return () => {
+      if (pauseResumeTimerRef.current) {
+        clearTimeout(pauseResumeTimerRef.current);
+        pauseResumeTimerRef.current = null;
+      }
+    };
+  }, [assistantId, chatUid]);
 
   // Handle pending tool calls from model interface
   const handlePendingToolCalls = useCallback(

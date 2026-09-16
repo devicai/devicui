@@ -322,6 +322,7 @@ export type RealtimeStatus =
   | 'error'
   | 'waiting_for_tool_response'
   | 'handed_off'
+  | 'paused_for_resume'
   | 'limit_exceeded'
   /** Collecting messages during the assistant's input delay, before any run. */
   | 'buffering';
@@ -450,6 +451,9 @@ export interface RealtimeChatHistory {
    */
   pendingAsyncToolCalls?: PendingAsyncToolCall[];
   handedOffSubThreadId?: string;
+  /** Present while the assistant has paused itself until a future time. */
+  pausedUntil?: number;
+  pausedReason?: string;
   /** Present only when status is `limit_exceeded`. */
   limitExceeded?: TenantLimitExceeded;
   /**
@@ -651,6 +655,9 @@ export interface ChatHistory {
   handedOff?: boolean;
   handedOffSubThreadId?: string;
   handedOffToolCallId?: string;
+  pausedUntil?: number;
+  pausedReason?: string;
+  pausedToolCallId?: string;
   /** Structured long-term-memory recall events of the conversation. */
   recalledMemories?: RecalledMemoryRecord[];
   /** Audit trail of the core-memory blocks the conversation saw. */
@@ -856,6 +863,8 @@ export interface AgentThreadDto {
   parentThreadId?: string;
   subThreadToolCallId?: string;
   parentAgentId?: string;
+  parentChatUID?: string;
+  parentHandoffMode?: 'wait' | 'async';
 }
 
 /**
@@ -877,6 +886,8 @@ export interface AgentDto {
 export interface HandOffToolResponse {
   response: string;
   subthreadId: string;
+  handedOff?: boolean;
+  asynchronous?: boolean;
 }
 
 /**

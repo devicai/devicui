@@ -39,6 +39,7 @@ here:
 - `Search conversations...`
 - `The assistant is not taking messages while it works. Your message is back in the box.`
 - `Waiting for subagent to complete`
+- `Assistant paused until its scheduled resume time`
 - `Waiting for tool response`
 - `Your message is back in the box.`
 - `{count} queued messages were not sent — the text is back in the box.`
