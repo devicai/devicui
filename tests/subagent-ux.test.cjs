@@ -2,6 +2,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const React = require('react');
 const { renderToStaticMarkup } = require('react-dom/server');
+const { act, create } = require('react-test-renderer');
+
+global.IS_REACT_ACT_ENVIRONMENT = true;
 
 test('renders a synthetic subagent result as an execution card', async () => {
   const { SubagentResultCard } = await import('../dist/esm/index.js');
@@ -68,4 +71,45 @@ test('renders every parallel handoff call and its acknowledged agent name', asyn
   assert.equal((html.match(/devic-handoff-widget/g) || []).length, 2);
   assert.match(html, /Researcher/);
   assert.match(html, /Critic/);
+});
+
+test('polls subagent state without task or directory enrichment', async () => {
+  const { HandoffSubagentWidget } = await import('../dist/esm/index.js');
+  const originalFetch = global.fetch;
+  const requests = [];
+  let observedThread = null;
+  let renderer;
+
+  global.fetch = async (url) => {
+    requests.push(String(url));
+    return new Response(JSON.stringify({
+      _id: 'thread-1',
+      agentId: 'agent-1',
+      state: 'completed',
+      threadContent: [],
+    }), { headers: { 'Content-Type': 'application/json' } });
+  };
+
+  try {
+    await act(async () => {
+      renderer = create(React.createElement(HandoffSubagentWidget, {
+        subThreadId: 'thread-1',
+        agentHint: { _id: 'agent-1', name: 'Researcher' },
+        apiKey: 'test',
+        baseUrl: 'http://api.test',
+        renderWidget: ({ thread }) => {
+          observedThread = thread;
+          return null;
+        },
+      }));
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0], 'http://api.test/api/v1/agents/threads/thread-1');
+    assert.equal(observedThread?.state, 'completed');
+  } finally {
+    await act(async () => renderer?.unmount());
+    global.fetch = originalFetch;
+  }
 });

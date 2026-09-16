@@ -121,7 +121,10 @@ export function HandoffSubagentWidget({
     if (!client) return;
 
     try {
-      const data = await client.getThreadById(subThreadId, true);
+      // Keep lifecycle polling on the lightweight thread read. `withTasks`
+      // also calls Task and Template services server-side; if either one is
+      // unavailable the status would never reach the card.
+      const data = await client.getThreadById(subThreadId, false);
       log.log('[HandoffSubagentWidget] Thread loaded:', {
         id: data._id,
         agentId: data.agentId,
