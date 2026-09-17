@@ -13,6 +13,7 @@ import type { AgentDto, ChatMessage, CompactionCheckpoint, RecalledMemoryRecord,
 import { AgentThreadState, normalizeMessageFile } from "../../api/types";
 import type { FeedbackState } from "../Feedback";
 import { segmentToolCalls } from "../../utils/toolGroups";
+import { subagentHandoffLaunches } from "../../utils/subagentHandoffs";
 import { useTranslations } from "../../i18n";
 import { DevicApiClient } from "../../api/client";
 import {
@@ -350,6 +351,7 @@ const MAX_OVERFLOW_INDICATORS = 4;
 
 interface ResolvedHandoff {
   key: string;
+  toolCallId: string;
   subThreadId: string;
   agentHint?: Pick<AgentDto, '_id' | 'name' | 'imgUrl' | 'avatarStyle'>;
 }
@@ -487,31 +489,37 @@ function ToolGroup({
 
   const lastIndex = toolMessages.length - 1;
 
-  const resolveHandoff = (msg: ChatMessage): ResolvedHandoff | null => {
+  const resolveHandoffs = (msg: ChatMessage): ResolvedHandoff[] => {
     const toolCall = msg.tool_calls?.[0];
     if (
       toolCall?.function?.name !== "hand_off_subagent" ||
       !allMessages
     ) {
-      return null;
+      return [];
     }
     const response = extractHandoffResponse(toolCall.id, allMessages);
-    const subThreadId = extractSubThreadId(
-      toolCall.id,
-      allMessages,
-      toolMessages.length === 1 ? handedOffSubThreadId : undefined,
-    );
-    if (!subThreadId) return null;
-    return {
-      key: toolCall.id,
-      subThreadId,
-      agentHint: response?.agent ? {
-        _id: response.agent.id,
-        name: response.agent.name || t('Subagent'),
-        imgUrl: response.agent.imgUrl,
-        avatarStyle: response.agent.avatarStyle as any,
+    const launches = subagentHandoffLaunches(response);
+    if (
+      launches.length === 0 &&
+      toolMessages.length === 1 &&
+      handedOffSubThreadId
+    ) {
+      launches.push({
+        threadId: handedOffSubThreadId,
+        agent: response?.agent,
+      });
+    }
+    return launches.map((launch) => ({
+      key: `${toolCall.id}:${launch.threadId}`,
+      toolCallId: toolCall.id,
+      subThreadId: launch.threadId,
+      agentHint: launch.agent ? {
+        _id: launch.agent.id,
+        name: launch.agent.name || t('Subagent'),
+        imgUrl: launch.agent.imgUrl,
+        avatarStyle: launch.agent.avatarStyle as any,
       } : undefined,
-    };
+    }));
   };
 
   const renderHandoffGroup = (handoffs: ResolvedHandoff[]) => (
@@ -538,8 +546,12 @@ function ToolGroup({
 
     // Render HandoffSubagentWidget for hand_off_subagent tool calls
     if (toolName === "hand_off_subagent") {
-      const handoff = resolveHandoff(msg);
-      if (handoff) {
+      const handoffs = resolveHandoffs(msg);
+      if (handoffs.length > 1) {
+        return renderHandoffGroup(handoffs);
+      }
+      if (handoffs.length === 1) {
+        const [handoff] = handoffs;
         return (
           <HandoffSubagentWidget
             subThreadId={handoff.subThreadId}
@@ -677,7 +689,7 @@ function ToolGroup({
       if (handoffs.length === 0) return;
       if (handoffs.length === 1) {
         const handoff = handoffs[0];
-        const msg = msgs.find((candidate) => candidate.tool_calls?.[0]?.id === handoff.key);
+        const msg = msgs.find((candidate) => candidate.tool_calls?.[0]?.id === handoff.toolCallId);
         if (msg) {
           elements.push(
             <div key={msg.uid} className="devic-tool-activity">
@@ -696,10 +708,10 @@ function ToolGroup({
     };
 
     for (const msg of msgs) {
-      const handoff = resolveHandoff(msg);
-      if (handoff) {
+      const resolvedHandoffs = resolveHandoffs(msg);
+      if (resolvedHandoffs.length > 0) {
         flushRegular();
-        handoffs.push(handoff);
+        handoffs.push(...resolvedHandoffs);
       } else {
         flushHandoffs();
         regularMessages.push(msg);
@@ -713,14 +725,14 @@ function ToolGroup({
   // Parallel handoffs can already have acknowledgement responses while the
   // parent assistant is still producing text. Group them before the generic
   // active-tool path so the final call is not split into a second card.
-  const activeHandoffs = toolMessages.map(resolveHandoff);
+  const activeHandoffs = toolMessages.flatMap(resolveHandoffs);
   if (
-    toolMessages.length > 1 &&
-    activeHandoffs.every((handoff) => handoff !== null)
+    activeHandoffs.length > 1 &&
+    toolMessages.every((message) => resolveHandoffs(message).length > 0)
   ) {
     return (
       <div className="devic-tool-group">
-        {renderHandoffGroup(activeHandoffs as ResolvedHandoff[])}
+        {renderHandoffGroup(activeHandoffs)}
       </div>
     );
   }
@@ -793,32 +805,6 @@ const markdownOverrides = {
       ),
   },
 };
-
-/**
- * Extract subthread ID from a hand_off_subagent tool call.
- * Checks the tool response in allMessages first, then falls back to handedOffSubThreadId.
- */
-function extractSubThreadId(
-  toolCallId: string,
-  allMessages: ChatMessage[],
-  handedOffSubThreadId?: string,
-): string | null {
-  // Look for the tool response message
-  const toolResponse = allMessages.find(
-    (m) => m.role === "tool" && m.tool_call_id === toolCallId,
-  );
-  if (toolResponse) {
-    const content = toolResponse.content?.data || toolResponse.content;
-    if (content && typeof content === "object" && "subthreadId" in content) {
-      return (content as any).subthreadId;
-    }
-    if (content && typeof content === "object" && "subThreadId" in content) {
-      return (content as any).subThreadId;
-    }
-  }
-  // Fall back to active handoff subthread ID
-  return handedOffSubThreadId || null;
-}
 
 function extractHandoffResponse(
   toolCallId: string,

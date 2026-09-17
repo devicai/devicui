@@ -1,4 +1,5 @@
-import type { ChatMessage } from '../api/types';
+import type { ChatMessage, HandOffToolResponse } from '../api/types';
+import { subagentHandoffLaunches } from './subagentHandoffs';
 
 /**
  * Async handoffs can outlive the parent turn. Their launch acknowledgement and
@@ -17,8 +18,11 @@ export function pendingAsyncSubagentIds(
       message.role === 'tool' &&
       (content?.asynchronous === true || content?.executionMode === 'async')
     ) {
-      const threadId = content?.subThreadId || content?.subthreadId;
-      if (threadId) launched.add(String(threadId));
+      for (const launch of subagentHandoffLaunches(
+        content as HandOffToolResponse
+      )) {
+        launched.add(launch.threadId);
+      }
     }
 
     if (message.subagent?.threadId) {

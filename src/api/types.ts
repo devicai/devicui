@@ -902,18 +902,32 @@ export interface AgentDto {
  * Hand-off tool response content
  */
 export interface HandOffToolResponse {
-  response: string;
+  response?: string;
   subthreadId?: string;
   subThreadId?: string;
+  subThreadIds?: string[];
   handedOff?: boolean;
   asynchronous?: boolean;
   executionMode?: 'wait' | 'async';
+  launched?: number;
+  failed?: number;
   agent?: {
     id: string;
     name?: string;
     imgUrl?: string;
     avatarStyle?: AvatarStyle | string;
   };
+  executions?: Array<{
+    subthreadId?: string;
+    subThreadId?: string;
+    error?: string;
+    agent: {
+      id: string;
+      name?: string;
+      imgUrl?: string;
+      avatarStyle?: AvatarStyle | string;
+    };
+  }>;
 }
 
 /**

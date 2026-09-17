@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const React = require('react');
 const { renderToStaticMarkup } = require('react-dom/server');
 const { act, create } = require('react-test-renderer');
+const path = require('node:path');
+const { loadTs } = require('./helpers/loadTs.cjs');
 
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -280,6 +282,80 @@ test('aggregates consecutive parallel handoffs into one compact widget', async (
   assert.doesNotMatch(html, /devic-handoff-group-footer/);
   assert.match(html, /Researcher/);
   assert.match(html, /Critic/);
+});
+
+test('renders a batched handoff tool response as multiple parallel executions', async () => {
+  const { ChatMessages, collectSubagentActivities } = await import('../dist/esm/index.js');
+  const executions = Array.from({ length: 5 }, (_, index) => ({
+    subThreadId: `batch-thread-${index + 1}`,
+    agent: {
+      id: index < 3 ? 'agent-researcher' : 'agent-critic',
+      name: index < 3 ? 'Researcher' : 'Critic',
+    },
+  }));
+  const messages = [{
+    uid: 'batch-assistant', role: 'assistant', timestamp: 1, content: {},
+    tool_calls: [{
+      id: 'batch-call', type: 'function',
+      function: { name: 'hand_off_subagent', arguments: JSON.stringify({
+        executionMode: 'async',
+        executions: executions.map((execution, index) => ({
+          agentId: execution.agent.id,
+          input: `Task ${index + 1}`,
+        })),
+      }) },
+    }],
+  }, {
+    uid: 'batch-tool', role: 'tool', timestamp: 2, tool_call_id: 'batch-call',
+    content: { data: {
+      asynchronous: true,
+      executionMode: 'async',
+      launched: 5,
+      executions,
+    } },
+  }];
+
+  const html = renderToStaticMarkup(React.createElement(ChatMessages, {
+    messages,
+    allMessages: messages,
+    isLoading: true,
+  }));
+
+  assert.equal(collectSubagentActivities(messages).length, 5);
+  assert.match(html, /data-subagent-count="5"/);
+  assert.match(html, /data-visible-count="3"/);
+  assert.equal((html.match(/class="devic-handoff-compact"/g) || []).length, 5);
+  assert.match(html, />2 more</);
+  assert.match(html, /Researcher/);
+  assert.match(html, /Critic/);
+});
+
+test('keeps every unfinished execution from one batched handoff under SSE observation', () => {
+  const { pendingAsyncSubagentIds } = loadTs(path.join(
+    __dirname,
+    '../src/utils/asyncSubagents.ts',
+  ));
+  const messages = [{
+    uid: 'batch-tool', role: 'tool', timestamp: 1, tool_call_id: 'batch-call',
+    content: {
+      asynchronous: true,
+      executionMode: 'async',
+      executions: [1, 2, 3].map((index) => ({
+        subThreadId: `batch-thread-${index}`,
+        agent: { id: `agent-${index}`, name: `Agent ${index}` },
+      })),
+    },
+  }, {
+    uid: 'batch-result', role: 'user', timestamp: 2,
+    source: 'subagent', synthetic: true, eventType: 'subagent_result',
+    subagent: { threadId: 'batch-thread-2' },
+    content: { data: { status: 'completed', result: 'Done' } },
+  }];
+
+  assert.deepEqual(pendingAsyncSubagentIds(messages), [
+    'batch-thread-1',
+    'batch-thread-3',
+  ]);
 });
 
 test('shows at most three handoffs and summarizes hidden children in the group footer', async () => {

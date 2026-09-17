@@ -6,6 +6,7 @@ import type {
 } from '../../api/types';
 import { avatarUri, type AvatarStyle } from '../../utils/avatar';
 import { useTranslations } from '../../i18n';
+import { subagentHandoffLaunches } from '../../utils/subagentHandoffs';
 
 export type SubagentActivityStatus = 'running' | 'completed' | 'failed';
 
@@ -93,22 +94,23 @@ export function collectSubagentActivities(messages: ChatMessage[]): SubagentActi
       if (call.function?.name !== 'hand_off_subagent') continue;
       const responseMessage = toolResponses.get(call.id);
       const response = responseMessage ? handoffResponse(responseMessage) : null;
-      const threadId = response?.subThreadId ?? response?.subthreadId;
       const isAsync = response?.asynchronous === true
         || response?.executionMode === 'async'
         || response?.handedOff === false;
-      if (!threadId || !isAsync) continue;
+      if (!isAsync) continue;
 
-      byThread.set(threadId, {
-        threadId,
-        toolCallId: call.id,
-        agentId: response?.agent?.id,
-        agentName: response?.agent?.name,
-        agentImgUrl: response?.agent?.imgUrl,
-        agentAvatarStyle: response?.agent?.avatarStyle,
-        status: 'running',
-        launchIndex: index,
-      });
+      for (const launch of subagentHandoffLaunches(response)) {
+        byThread.set(launch.threadId, {
+          threadId: launch.threadId,
+          toolCallId: call.id,
+          agentId: launch.agent?.id,
+          agentName: launch.agent?.name,
+          agentImgUrl: launch.agent?.imgUrl,
+          agentAvatarStyle: launch.agent?.avatarStyle,
+          status: 'running',
+          launchIndex: index,
+        });
+      }
     }
 
     if (!(message.synthetic && message.source === 'subagent')) return;
