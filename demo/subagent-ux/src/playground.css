@@ -19,7 +19,7 @@ body::before {
   pointer-events: none;
   background: radial-gradient(circle at 80% 0%, rgba(124, 92, 255, .13), transparent 36%);
 }
-.playground { width: min(1040px, calc(100% - 40px)); margin: 0 auto; padding: 64px 0 48px; }
+.playground { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 64px 0 48px; }
 .hero { max-width: 700px; margin-bottom: 58px; }
 .eyebrow { color: #a78bfa; font: 600 11px/1.4 ui-monospace, monospace; letter-spacing: .14em; }
 h1 { margin: 12px 0 10px; font-size: clamp(36px, 6vw, 64px); letter-spacing: -.055em; }
@@ -28,10 +28,25 @@ section { padding: 30px 0 42px; border-top: 1px solid #2c2c31; }
 .section-title { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
 .section-title span { color: #77727f; font: 12px ui-monospace, monospace; }
 .section-title h2 { margin: 0; font-size: 18px; letter-spacing: -.02em; }
+.live-lab { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); gap: 20px; align-items: stretch; }
+.live-guide { padding: 22px; border: 1px solid #2c2c31; border-radius: 14px; background: rgba(24, 24, 27, .72); }
+.live-guide h3 { margin: 20px 0 8px; font-size: 20px; letter-spacing: -.03em; }
+.live-guide p, .live-guide li { color: #a1a1aa; font-size: 13px; line-height: 1.6; }
+.live-guide ol { margin: 18px 0 24px; padding-left: 20px; }
+.live-guide li + li { margin-top: 8px; }
+.live-guide code { display: block; overflow-wrap: anywhere; color: #77727f; font-size: 10px; line-height: 1.5; }
+.live-badge { display: inline-flex; align-items: center; gap: 7px; color: #c4b5fd; font: 600 11px/1 ui-monospace, monospace; text-transform: uppercase; letter-spacing: .08em; }
+.live-badge i { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 4px rgba(74, 222, 128, .1); }
+.live-chat-shell { height: 720px; min-width: 0; }
+.live-chat-shell .devic-chat-drawer { overflow: hidden; }
 .execution-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .execution-grid .devic-handoff-widget { max-width: none; min-height: 148px; border-radius: 12px; padding: 16px; }
 .results-stack { display: grid; gap: 12px; }
 .results-stack .devic-subagent-result { width: 100%; max-width: none; }
 footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding-top: 10px; color: #77727f; font-size: 12px; }
 code { color: #c4b5fd; }
-@media (max-width: 700px) { .execution-grid { grid-template-columns: 1fr; } .playground { padding-top: 36px; } }
+@media (max-width: 800px) {
+  .live-lab, .execution-grid { grid-template-columns: 1fr; }
+  .live-chat-shell { height: 680px; }
+  .playground { padding-top: 36px; }
+}

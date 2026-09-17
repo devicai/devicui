@@ -2,6 +2,8 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   AgentThreadState,
+  ChatDrawer,
+  DevicProvider,
   HandoffSubagentWidget,
   SubagentResultCard,
 } from '../../../dist/esm/index.js';
@@ -9,6 +11,10 @@ import '../../../dist/esm/styles.css';
 import './playground.css';
 
 const now = Date.now();
+const assistantId = '02833776-0e30-4b7e-8586-664c1ac446a1';
+const apiBaseUrl = '/devic-api';
+const playgroundCredential = 'local-playground-proxy';
+const parallelPrompt = 'Lanza los dos subagentes disponibles en paralelo y en modo asíncrono. Continúa tu ejecución mientras trabajan, indica qué agente has lanzado y espera a incorporar sus dos resultados al hilo.';
 const agents = [
   { id: 'agent-research', name: 'Analista', thread: 'thread-research' },
   { id: 'agent-critic', name: 'Crítico', thread: 'thread-critic' },
@@ -39,11 +45,67 @@ function App() {
       <header className="hero">
         <span className="eyebrow">DEVIC UI · LOCAL UX LAB</span>
         <h1>Subagentes asíncronos</h1>
-        <p>Estados deterministas para revisar jerarquía, nombres, progreso y resultados sin esperar al scheduler.</p>
+        <p>Un chat conectado al asistente local para probar dos subagentes en paralelo, más estados deterministas para comparar la UI sin esperar al scheduler.</p>
       </header>
 
       <section>
-        <div className="section-title"><span>01</span><h2>En progreso, en paralelo</h2></div>
+        <div className="section-title"><span>01</span><h2>Chat real · ejecución en paralelo</h2></div>
+        <div className="live-lab">
+          <aside className="live-guide">
+            <span className="live-badge"><i /> Backend local</span>
+            <h3>Async Coordinator</h3>
+            <p>El mensaje sugerido pide lanzar al Analista y al Crítico sin bloquear el turno principal.</p>
+            <ol>
+              <li>Envía el mensaje sugerido.</li>
+              <li>Comprueba que aparecen dos tarjetas activas.</li>
+              <li>Déjalo abierto: el chat usa SSE y debe incorporar cada resultado sin recargar.</li>
+            </ol>
+            <code>{assistantId}</code>
+          </aside>
+          <div className="live-chat-shell">
+            <DevicProvider
+              apiKey={playgroundCredential}
+              baseUrl={apiBaseUrl}
+              streaming
+            >
+              <ChatDrawer
+                mode="inline"
+                assistantId={assistantId}
+                streaming
+                tags={['local-playground', 'async-subagents']}
+                options={{
+                  width: '100%',
+                  borderRadius: 14,
+                  title: 'Async Coordinator',
+                  welcomeMessage: 'Prueba la ejecución paralela de los dos subagentes locales.',
+                  suggestedMessages: [{
+                    content: <>↗ Lanzar Analista + Crítico en paralelo</>,
+                    message: parallelPrompt,
+                  }],
+                  inputPlaceholder: 'Pide una ejecución asíncrona en paralelo…',
+                  showToolTimeline: true,
+                  showFeedback: false,
+                  showIntegrationsButton: false,
+                  messageQueue: true,
+                  persistConversation: false,
+                  backgroundColor: '#18181b',
+                  secondaryBackgroundColor: '#202024',
+                  textColor: '#f5f3ff',
+                  borderColor: '#34343a',
+                  userBubbleColor: '#6d4be8',
+                  userBubbleTextColor: '#ffffff',
+                  assistantBubbleColor: '#25242a',
+                  assistantBubbleTextColor: '#f5f3ff',
+                  sendButtonColor: '#8b6df6',
+                }}
+              />
+            </DevicProvider>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div className="section-title"><span>02</span><h2>Estados deterministas en paralelo</h2></div>
         <div className="execution-grid">
           {agents.map((agent, index) => (
             <HandoffSubagentWidget
@@ -66,7 +128,7 @@ function App() {
       </section>
 
       <section>
-        <div className="section-title"><span>02</span><h2>Resultados incorporados al hilo</h2></div>
+        <div className="section-title"><span>03</span><h2>Resultados incorporados al hilo</h2></div>
         <div className="results-stack">
           <SubagentResultCard message={result(agents[0], 'completed', 'He verificado la continuidad del contexto. **Las MIT siguen disponibles** tras reanudar la ejecución.')} />
           <SubagentResultCard message={result(agents[1], 'failed', 'No pude completar la comprobación: el recurso de prueba no estaba disponible.')} />
