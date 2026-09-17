@@ -8,6 +8,7 @@ import { createLogger } from '../utils/logger';
 import { useAssistantInfo } from '../api/assistantInfo';
 import { useTranslations } from '../i18n';
 import { useDevicLiveVoice, type UseDevicLiveVoiceResult } from './useDevicLiveVoice';
+import { pendingAsyncSubagentIds } from '../utils/asyncSubagents';
 import type {
   ChatMessage,
   ChatFile,
@@ -618,16 +619,18 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           ...m,
           queued: true,
         }));
-        if (realtime.chatHistory?.length || queuedOnServer.length) {
-          setMessages([...(realtime.chatHistory ?? []), ...queuedOnServer]);
-        }
+        const realtimeMessages = [
+          ...(realtime.chatHistory ?? []),
+          ...queuedOnServer,
+        ];
+        if (realtimeMessages.length) setMessages(realtimeMessages);
         mergeRecalledMemories(realtime.recalledMemories);
         mergeCompactions(realtime.compactions);
         setCompaction(realtime.compaction ?? null);
         setStatus(realtime.status);
         setQueuedCount(realtime.queuedMessages ?? 0);
 
-        if (realtime.status === 'processing') {
+        if (realtime.status === 'processing' || realtime.status === 'buffering') {
           // Chat is still processing — resume polling
           setIsLoading(true);
           setShouldPoll(true);
@@ -654,6 +657,14 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           // something queued — reopened on a conversation whose follow-up run
           // has not started yet. Watch it until the queue is served.
           setIsLoading(true);
+          setShouldPoll(true);
+        } else if (
+          realtime.status === 'completed' &&
+          pendingAsyncSubagentIds(realtimeMessages).length > 0
+        ) {
+          // The parent turn is done, but async children still owe results.
+          // Keep the SSE attached without presenting the parent as busy.
+          setIsLoading(false);
           setShouldPoll(true);
         } else {
           // completed or error — just stop
@@ -785,11 +796,21 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         'limit_exceeded',
       ],
       onUpdate: async (data: RealtimeChatHistory) => {
+        const pendingSubagentResults = pendingAsyncSubagentIds([
+          ...(data.chatHistory ?? []),
+          ...(data.pendingUserMessages ?? []),
+        ]).length > 0;
         if (observingVoice) {
           setIsLoading(data.status === 'processing' || data.status === 'buffering');
           setHandedOff(data.status === 'handed_off');
           setHandedOffSubThreadId(data.status === 'handed_off' ? data.handedOffSubThreadId || null : null);
           if (data.status === 'error' || data.status === 'limit_exceeded') void voiceRef.current.stop();
+        } else if (data.status === 'completed' && pendingSubagentResults) {
+          // Async handoffs do not make the parent assistant busy. Observation
+          // continues in the background until their synthetic results arrive.
+          setIsLoading(false);
+        } else if (data.status === 'processing' || data.status === 'buffering') {
+          setIsLoading(true);
         }
         setStreamingMessage(data.status === 'processing' ? data.streamingMessage || null : null);
         logRef.current.log('[useDevicChat] onUpdate called, status:', data.status);
@@ -911,6 +932,14 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       },
       holdOpen: (data) => {
         if (observingVoice && ['completed', 'waiting_for_tool_response', 'handed_off'].includes(data.status)) return true;
+        const hasPendingSubagentResults = pendingAsyncSubagentIds([
+          ...(data.chatHistory ?? []),
+          ...(data.pendingUserMessages ?? []),
+        ]).length > 0;
+        if (data.status === 'completed' && hasPendingSubagentResults) {
+          queueGraceTicksRef.current = 0;
+          return true;
+        }
         // Only `completed` is worth waiting on. An error, a usage limit or a
         // gate mean something else is going on, and holding the poll open would
         // just be watching a conversation that is not coming back.
