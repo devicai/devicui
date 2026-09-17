@@ -4,11 +4,9 @@ import type { ChatMessage, SubagentMessageMetadata } from '../../api/types';
 import { avatarUri } from '../../utils/avatar';
 import { useTranslations } from '../../i18n';
 
-export interface SubagentResultCardProps {
-  message: ChatMessage;
-  /** Results from the same parallel launch, even when delivered in separate turns. */
-  messages?: ChatMessage[];
-}
+export type SubagentResultCardProps =
+  | { message: ChatMessage; messages?: ChatMessage[] }
+  | { message?: ChatMessage; messages: ChatMessage[] };
 
 type ResultEntry = {
   subagent?: SubagentMessageMetadata;
@@ -54,23 +52,28 @@ function entriesFor(message: ChatMessage): ResultEntry[] {
   }];
 }
 
-export function SubagentResultCard({ message, messages }: SubagentResultCardProps): JSX.Element {
+export function SubagentResultCard({ message, messages }: SubagentResultCardProps): JSX.Element | null {
   const t = useTranslations();
-  const sourceMessages = messages?.length ? messages : [message];
-  const entries = sourceMessages.flatMap(entriesFor);
+  const sourceMessages = messages?.length ? messages : message ? [message] : [];
+  const primaryMessage = message ?? sourceMessages[0];
+  if (!primaryMessage) return null;
+  const entries = sourceMessages.flatMap((sourceMessage) =>
+    entriesFor(sourceMessage).map((entry) => ({ entry, sourceMessage })),
+  );
   return (
     <div
       className="devic-subagent-results"
-      data-event-type={message.eventType}
+      data-event-type={primaryMessage.eventType}
+      data-message-count={sourceMessages.length}
       data-result-count={entries.length}
       data-stacked={entries.length > 1 ? 'true' : 'false'}
     >
-      {entries.map((entry, index) => {
+      {entries.map(({ entry, sourceMessage }, index) => {
         const agent = entry.subagent;
         const failed = ['failed', 'terminated', 'error'].includes(
           String(entry.status || '').toLowerCase(),
         );
-        const content = resultText(entry.error ?? entry.result ?? message.content?.message);
+        const content = resultText(entry.error ?? entry.result ?? sourceMessage.content?.message);
         const preview = resultPreview(content);
         return (
           <details

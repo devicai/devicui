@@ -179,15 +179,8 @@ test('stacks compact results delivered by the same parallel run', async () => {
   assert.match(html, /A{140}…/);
 });
 
-test('stacks results from one parallel launch when they arrive in separate turns', async () => {
+test('groups consecutive subagent results into one aggregate widget receiving an array', async () => {
   const { ChatMessages } = await import('../dist/esm/index.js');
-  const launch = {
-    uid: 'parallel-launch', role: 'assistant', timestamp: 1, content: {},
-    tool_calls: [
-      { id: 'parallel-call-1', type: 'function', function: { name: 'hand_off_subagent', arguments: '{}' } },
-      { id: 'parallel-call-2', type: 'function', function: { name: 'hand_off_subagent', arguments: '{}' } },
-    ],
-  };
   const resultMessage = (uid, callId, threadId, agentName, timestamp) => ({
     uid,
     role: 'user',
@@ -207,10 +200,10 @@ test('stacks results from one parallel launch when they arrive in separate turns
     },
   });
   const messages = [
-    launch,
     resultMessage('separate-result-1', 'parallel-call-1', 'thread-1', 'Researcher', 2),
-    { uid: 'intermediate-answer', role: 'assistant', timestamp: 3, content: { message: 'First result received.' } },
+    { uid: 'hidden-tool-message', role: 'tool', timestamp: 3, tool_call_id: 'ignored', content: {} },
     resultMessage('separate-result-2', 'parallel-call-2', 'thread-2', 'Critic', 4),
+    { uid: 'final-answer', role: 'assistant', timestamp: 5, content: { message: 'Both results received.' } },
   ];
   const html = renderToStaticMarkup(React.createElement(ChatMessages, {
     messages,
@@ -221,8 +214,32 @@ test('stacks results from one parallel launch when they arrive in separate turns
   assert.equal((html.match(/class="devic-subagent-results"/g) || []).length, 1);
   assert.equal((html.match(/<details/g) || []).length, 2);
   assert.match(html, /data-stacked="true"/);
+  assert.match(html, /data-message-count="2"/);
   assert.match(html, /Researcher/);
   assert.match(html, /Critic/);
+});
+
+test('a visible conversation message splits consecutive subagent result groups', async () => {
+  const { ChatMessages } = await import('../dist/esm/index.js');
+  const result = (uid, name, timestamp) => ({
+    uid, role: 'user', source: 'subagent', synthetic: true,
+    eventType: 'subagent_result', timestamp,
+    subagent: { threadId: uid, agentName: name, executionMode: 'async' },
+    content: { message: name, data: { status: 'completed', result: `${name} finished` } },
+  });
+  const messages = [
+    result('result-a', 'Researcher', 1),
+    { uid: 'answer-between-runs', role: 'assistant', timestamp: 2, content: { message: 'Run complete.' } },
+    result('result-b', 'Critic', 3),
+  ];
+  const html = renderToStaticMarkup(React.createElement(ChatMessages, {
+    messages,
+    allMessages: messages,
+    isLoading: false,
+  }));
+
+  assert.equal((html.match(/class="devic-subagent-results"/g) || []).length, 2);
+  assert.equal((html.match(/data-message-count="1"/g) || []).length, 2);
 });
 
 test('renders every parallel handoff call and its acknowledged agent name', async () => {

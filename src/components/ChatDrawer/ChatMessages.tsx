@@ -52,64 +52,6 @@ function guardrailPayload(message: ChatMessage): GuardrailPayload | undefined {
   return raw && typeof raw === "object" ? (raw as GuardrailPayload) : undefined;
 }
 
-function subagentParentToolCallIds(message: ChatMessage): string[] {
-  const batched = message.content?.data?.subagentResults;
-  if (Array.isArray(batched)) {
-    return batched
-      .map((entry) => entry?.subagent?.parentToolCallId)
-      .filter((id): id is string => typeof id === 'string' && id.length > 0);
-  }
-  return message.subagent?.parentToolCallId
-    ? [message.subagent.parentToolCallId]
-    : [];
-}
-
-/**
- * Correlate synthetic results with the assistant message that launched their
- * parallel handoff calls. A child may finish in a later turn than its siblings,
- * but the UI keeps one stable stack anchored at the first result.
- */
-function parallelSubagentResultGroups(
-  visibleMessages: ChatMessage[],
-  allMessages: ChatMessage[],
-): {
-  byAnchor: Map<string, ChatMessage[]>;
-  hidden: Set<string>;
-} {
-  const parallelLaunchByToolCall = new Map<string, string>();
-  for (const message of allMessages) {
-    const handoffs = (message.tool_calls ?? []).filter(
-      (call) => call.function?.name === 'hand_off_subagent',
-    );
-    if (handoffs.length < 2) continue;
-    for (const call of handoffs) parallelLaunchByToolCall.set(call.id, message.uid);
-  }
-
-  const groupedByLaunch = new Map<string, ChatMessage[]>();
-  for (const message of visibleMessages) {
-    if (!(message.synthetic && message.source === 'subagent')) continue;
-    const launches = new Set(
-      subagentParentToolCallIds(message)
-        .map((id) => parallelLaunchByToolCall.get(id))
-        .filter((uid): uid is string => !!uid),
-    );
-    if (launches.size !== 1) continue;
-    const launchUid = [...launches][0];
-    const group = groupedByLaunch.get(launchUid);
-    if (group) group.push(message);
-    else groupedByLaunch.set(launchUid, [message]);
-  }
-
-  const byAnchor = new Map<string, ChatMessage[]>();
-  const hidden = new Set<string>();
-  for (const group of groupedByLaunch.values()) {
-    if (group.length < 2) continue;
-    byAnchor.set(group[0].uid, group);
-    group.slice(1).forEach((message) => hidden.add(message.uid));
-  }
-  return { byAnchor, hidden };
-}
-
 /**
  * Format timestamp to readable time
  */
@@ -281,8 +223,9 @@ function TranscriptPlayback({
 }
 
 /**
- * Groups consecutive tool-call assistant messages (no text content)
- * into { toolMessages, isActive } groups, interleaved with regular messages.
+ * Groups consecutive tool-call assistant messages and consecutive synthetic
+ * subagent results into aggregate render items, interleaved with regular
+ * messages.
  */
 function groupMessages(
   messages: ChatMessage[],
@@ -290,13 +233,16 @@ function groupMessages(
 ): Array<
   | { type: "message"; message: ChatMessage }
   | { type: "toolGroup"; toolMessages: ChatMessage[]; isActive: boolean }
+  | { type: "subagentResultGroup"; messages: ChatMessage[] }
 > {
   const result: Array<
     | { type: "message"; message: ChatMessage }
     | { type: "toolGroup"; toolMessages: ChatMessage[]; isActive: boolean }
+    | { type: "subagentResultGroup"; messages: ChatMessage[] }
   > = [];
 
   let currentToolGroup: ChatMessage[] = [];
+  let currentSubagentResultGroup: ChatMessage[] = [];
 
   const flushToolGroup = (isActive: boolean) => {
     if (currentToolGroup.length > 0) {
@@ -309,6 +255,16 @@ function groupMessages(
     }
   };
 
+  const flushSubagentResultGroup = () => {
+    if (currentSubagentResultGroup.length > 0) {
+      result.push({
+        type: "subagentResultGroup",
+        messages: [...currentSubagentResultGroup],
+      });
+      currentSubagentResultGroup = [];
+    }
+  };
+
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
 
@@ -316,6 +272,15 @@ function groupMessages(
     if (msg.role === "developer" || msg.role === "system" || msg.role === "tool") {
       continue;
     }
+
+    if (msg.source === 'subagent' && msg.synthetic) {
+      flushToolGroup(false);
+      currentSubagentResultGroup.push(msg);
+      continue;
+    }
+
+    // Any other visible message ends the consecutive result group.
+    flushSubagentResultGroup();
 
     // `finish_execution` is not an action the assistant took, it is how the
     // backend delivers the final answer when the assistant is configured with
@@ -375,6 +340,7 @@ function groupMessages(
 
   // Flush remaining tool group (is active if still loading)
   flushToolGroup(isLoading);
+  flushSubagentResultGroup();
 
   return result;
 }
@@ -811,10 +777,6 @@ export function ChatMessages({
   }, [messages.length, isLoading]);
 
   const grouped = groupMessages(messages, isLoading);
-  const parallelResults = useMemo(
-    () => parallelSubagentResultGroups(messages, allMessages ?? messages),
-    [messages, allMessages],
-  );
 
   // Show loading dots only if there's no active tool group at the end
   const lastGroup = grouped[grouped.length - 1];
@@ -853,6 +815,15 @@ export function ChatMessages({
         )}
 
       {grouped.map((item) => {
+        if (item.type === "subagentResultGroup") {
+          return (
+            <SubagentResultCard
+              key={`srg-${item.messages[0].uid}`}
+              messages={item.messages}
+            />
+          );
+        }
+
         if (item.type === "toolGroup") {
           const groupRecalls = recallsFor(
             item.toolMessages.map((m) => m.uid)
@@ -906,17 +877,6 @@ export function ChatMessages({
                 <GuardrailNotice {...noticeProps} />
               )}
             </React.Fragment>
-          );
-        }
-
-        if (message.source === 'subagent' && message.synthetic) {
-          if (parallelResults.hidden.has(message.uid)) return null;
-          return (
-            <SubagentResultCard
-              key={message.uid}
-              message={message}
-              messages={parallelResults.byAnchor.get(message.uid)}
-            />
           );
         }
 
