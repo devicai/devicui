@@ -275,6 +275,7 @@ test('aggregates consecutive parallel handoffs into one compact widget', async (
 
   assert.equal((html.match(/class="devic-handoff-group"/g) || []).length, 1);
   assert.equal((html.match(/class="devic-handoff-compact"/g) || []).length, 2);
+  assert.match(html, /class="devic-handoff-group" role="group"/);
   assert.match(html, /data-subagent-count="2"/);
   assert.match(html, /Researcher/);
   assert.match(html, /Critic/);

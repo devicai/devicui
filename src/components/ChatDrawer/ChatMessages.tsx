@@ -420,8 +420,9 @@ function ToolGroup({
   const renderHandoffGroup = (
     handoffs: Array<NonNullable<ReturnType<typeof resolveHandoff>>>,
   ) => (
-    <section
+    <div
       className="devic-handoff-group"
+      role="group"
       data-subagent-count={handoffs.length}
       aria-label={t('{count} subagents', { count: handoffs.length })}
     >
@@ -446,7 +447,7 @@ function ToolGroup({
           />
         ))}
       </div>
-    </section>
+    </div>
   );
 
   const renderToolItem = (
