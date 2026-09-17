@@ -281,6 +281,51 @@ test('aggregates consecutive parallel handoffs into one compact widget', async (
   assert.match(html, /Critic/);
 });
 
+test('shows at most four handoffs and summarizes overflow in the group footer', async () => {
+  const { ChatMessages } = await import('../dist/esm/index.js');
+  const calls = Array.from({ length: 6 }, (_, index) => ({
+    id: `limit-call-${index + 1}`,
+    type: 'function',
+    function: { name: 'hand_off_subagent', arguments: '{}' },
+  }));
+  const assistant = {
+    uid: 'limit-assistant',
+    role: 'assistant',
+    timestamp: Date.now(),
+    content: {},
+    tool_calls: calls,
+  };
+  const messages = [
+    assistant,
+    ...calls.map((call, index) => ({
+      uid: `limit-tool-${index + 1}`,
+      role: 'tool',
+      timestamp: Date.now() + index + 1,
+      tool_call_id: call.id,
+      content: {
+        data: {
+          subThreadId: `limit-thread-${index + 1}`,
+          agent: { id: `limit-agent-${index + 1}`, name: `Agent ${index + 1}` },
+        },
+      },
+    })),
+  ];
+  const html = renderToStaticMarkup(React.createElement(ChatMessages, {
+    messages,
+    allMessages: messages,
+    isLoading: true,
+  }));
+
+  assert.match(html, /data-subagent-count="6"/);
+  assert.match(html, /data-visible-count="4"/);
+  assert.match(html, /class="devic-handoff-monitor-only" hidden="" aria-hidden="true"/);
+  assert.equal((html.match(/class="devic-handoff-compact"/g) || []).length, 6);
+  assert.equal((html.match(/data-state="loading"/g) || []).length, 4);
+  assert.match(html, /\+2 more/);
+  assert.match(html, />4 max</);
+  assert.match(html, /Agent 6/);
+});
+
 test('polls subagent state without task or directory enrichment', async () => {
   const { HandoffSubagentWidget } = await import('../dist/esm/index.js');
   const originalFetch = global.fetch;

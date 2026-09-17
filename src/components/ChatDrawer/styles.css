@@ -1814,6 +1814,85 @@
   flex-direction: column;
 }
 
+.devic-handoff-monitor-only {
+  display: none !important;
+}
+
+.devic-handoff-group-footer {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 12px;
+  border-top: 1px solid var(--devic-border);
+  background: color-mix(in srgb, var(--devic-bg-secondary) 55%, var(--devic-bg));
+  color: var(--devic-text-muted);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.devic-handoff-group-indicators {
+  display: grid;
+  grid-template-columns: repeat(4, 22px);
+  gap: 4px;
+  align-items: center;
+}
+
+.devic-handoff-group-indicators i {
+  display: block;
+  width: 22px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--devic-border);
+  transition: background var(--devic-transition), opacity var(--devic-transition);
+}
+
+.devic-handoff-group-indicators i[data-state='loading'] {
+  background: color-mix(in srgb, var(--devic-primary) 55%, var(--devic-border));
+}
+
+.devic-handoff-group-indicators i[data-state='queued'] {
+  background: #d89614;
+}
+
+.devic-handoff-group-indicators i[data-state='processing'],
+.devic-handoff-group-indicators i[data-state='handed_off'] {
+  background: var(--devic-primary);
+  animation: devic-handoff-blink 1.2s ease-in-out infinite;
+}
+
+.devic-handoff-group-indicators i[data-state='completed'] {
+  background: #52c41a;
+}
+
+.devic-handoff-group-indicators i[data-state='paused'],
+.devic-handoff-group-indicators i[data-state='paused_for_approval'],
+.devic-handoff-group-indicators i[data-state='paused_for_resume'],
+.devic-handoff-group-indicators i[data-state='waiting_for_response'] {
+  background: #9254de;
+}
+
+.devic-handoff-group-indicators i[data-state='failed'],
+.devic-handoff-group-indicators i[data-state='terminated'],
+.devic-handoff-group-indicators i[data-state='approval_rejected'],
+.devic-handoff-group-indicators i[data-state='guardrail_trigger'],
+.devic-handoff-group-indicators i[data-state='limit_exceeded'] {
+  background: #ff4d4f;
+}
+
+.devic-handoff-group-overflow {
+  white-space: nowrap;
+}
+
+.devic-handoff-group-limit {
+  margin-left: auto;
+  padding: 3px 6px;
+  border: 1px solid var(--devic-border);
+  border-radius: 999px;
+  color: var(--devic-text-secondary);
+  white-space: nowrap;
+}
+
 .devic-handoff-compact {
   color: var(--devic-text);
 }

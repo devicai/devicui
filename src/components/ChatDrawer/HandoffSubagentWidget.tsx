@@ -45,6 +45,9 @@ export interface HandoffSubagentWidgetProps {
    */
   onCompleted?: () => void;
 
+  /** Called whenever a fresh lifecycle snapshot changes the thread state. */
+  onStateChange?: (state: AgentThreadState) => void;
+
   /**
    * API key (overrides provider context)
    */
@@ -98,6 +101,7 @@ export function HandoffSubagentWidget({
   agentHint,
   threadHint,
   onCompleted,
+  onStateChange,
   apiKey,
   baseUrl,
   pollingInterval,
@@ -156,6 +160,7 @@ export function HandoffSubagentWidget({
       state: data.state,
     });
     setThread(data);
+    if (data.state) onStateChange?.(data.state);
     if (
       data.state &&
       TERMINAL_STATES.includes(data.state) &&
@@ -164,7 +169,7 @@ export function HandoffSubagentWidget({
       hasCalledCompleted.current = true;
       onCompleted?.();
     }
-  }, [log, onCompleted]);
+  }, [log, onCompleted, onStateChange]);
 
   const streamThread = useCallback((
     onSnapshot: (data: AgentThreadDto) => Promise<void>,

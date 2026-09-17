@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useOptionalDevicContext } from "../../provider";
 import Markdown from "markdown-to-jsx";
 import { MessageActions } from "../Feedback";
@@ -9,8 +9,8 @@ import { RecalledMemoriesWidget } from "./RecalledMemoriesWidget";
 import { CompactionWidget } from "./CompactionWidget";
 import { GuardrailNotice, type GuardrailPayload } from "./GuardrailNotice";
 import type { ChatMessagesProps, SuggestedMessage } from "./ChatDrawer.types";
-import type { ChatMessage, CompactionCheckpoint, RecalledMemoryRecord, ToolGroupConfig, ToolGroupCall } from "../../api/types";
-import { normalizeMessageFile } from "../../api/types";
+import type { AgentDto, ChatMessage, CompactionCheckpoint, RecalledMemoryRecord, ToolGroupConfig, ToolGroupCall } from "../../api/types";
+import { AgentThreadState, normalizeMessageFile } from "../../api/types";
 import type { FeedbackState } from "../Feedback";
 import { segmentToolCalls } from "../../utils/toolGroups";
 import { useTranslations } from "../../i18n";
@@ -345,6 +345,108 @@ function groupMessages(
   return result;
 }
 
+const MAX_VISIBLE_HANDOFFS = 4;
+
+interface ResolvedHandoff {
+  key: string;
+  subThreadId: string;
+  agentHint?: Pick<AgentDto, '_id' | 'name' | 'imgUrl' | 'avatarStyle'>;
+}
+
+interface HandoffSubagentGroupProps {
+  handoffs: ResolvedHandoff[];
+  onCompleted?: () => void;
+  renderWidget?: ChatMessagesProps["handoffWidgetRenderer"];
+  apiKey?: string;
+  baseUrl?: string;
+  pollingInterval?: number;
+}
+
+function HandoffSubagentGroup({
+  handoffs,
+  onCompleted,
+  renderWidget,
+  apiKey,
+  baseUrl,
+  pollingInterval,
+}: HandoffSubagentGroupProps): JSX.Element {
+  const t = useTranslations();
+  const [states, setStates] = useState<Record<string, AgentThreadState>>({});
+  const visibleHandoffs = handoffs.slice(0, MAX_VISIBLE_HANDOFFS);
+  const hiddenHandoffs = handoffs.slice(MAX_VISIBLE_HANDOFFS);
+
+  const updateState = useCallback((key: string, state: AgentThreadState) => {
+    setStates((current) => current[key] === state
+      ? current
+      : { ...current, [key]: state });
+  }, []);
+
+  const renderHandoff = (handoff: ResolvedHandoff) => (
+    <HandoffSubagentWidget
+      key={handoff.key}
+      subThreadId={handoff.subThreadId}
+      agentHint={handoff.agentHint}
+      onCompleted={onCompleted}
+      onStateChange={(state) => updateState(handoff.key, state)}
+      renderWidget={renderWidget}
+      apiKey={apiKey}
+      baseUrl={baseUrl}
+      pollingInterval={pollingInterval}
+      compact
+    />
+  );
+
+  return (
+    <div
+      className="devic-handoff-group"
+      role="group"
+      data-subagent-count={handoffs.length}
+      data-visible-count={visibleHandoffs.length}
+      aria-label={t('{count} subagents', { count: handoffs.length })}
+    >
+      <div className="devic-handoff-group-header">
+        <span className="devic-handoff-group-icon" aria-hidden="true">
+          <HandoffGroupIcon />
+        </span>
+        <strong>{t('{count} subagents', { count: handoffs.length })}</strong>
+      </div>
+
+      <div className="devic-handoff-group-items">
+        {visibleHandoffs.map(renderHandoff)}
+      </div>
+
+      {hiddenHandoffs.length > 0 && (
+        <div className="devic-handoff-monitor-only" hidden aria-hidden="true">
+          {hiddenHandoffs.map(renderHandoff)}
+        </div>
+      )}
+
+      <div className="devic-handoff-group-footer">
+        <span className="devic-handoff-group-indicators" aria-label={t('Subagent progress')}>
+          {Array.from({ length: MAX_VISIBLE_HANDOFFS }, (_, index) => {
+            const handoff = visibleHandoffs[index];
+            return (
+              <i
+                key={handoff?.key || `empty-${index}`}
+                data-state={handoff ? states[handoff.key] || 'loading' : 'empty'}
+                title={handoff?.agentHint?.name}
+              />
+            );
+          })}
+        </span>
+        {hiddenHandoffs.length > 0 && (
+          <span className="devic-handoff-group-overflow">
+            {t('+{count} more', { count: hiddenHandoffs.length })}
+          </span>
+        )}
+        <span className="devic-handoff-group-limit">
+          {t('{count} max', { count: MAX_VISIBLE_HANDOFFS })}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Collapsible tool actions group
  */
@@ -390,7 +492,7 @@ function ToolGroup({
 
   const lastIndex = toolMessages.length - 1;
 
-  const resolveHandoff = (msg: ChatMessage) => {
+  const resolveHandoff = (msg: ChatMessage): ResolvedHandoff | null => {
     const toolCall = msg.tool_calls?.[0];
     if (
       toolCall?.function?.name !== "hand_off_subagent" ||
@@ -417,37 +519,15 @@ function ToolGroup({
     };
   };
 
-  const renderHandoffGroup = (
-    handoffs: Array<NonNullable<ReturnType<typeof resolveHandoff>>>,
-  ) => (
-    <div
-      className="devic-handoff-group"
-      role="group"
-      data-subagent-count={handoffs.length}
-      aria-label={t('{count} subagents', { count: handoffs.length })}
-    >
-      <header className="devic-handoff-group-header">
-        <span className="devic-handoff-group-icon" aria-hidden="true">
-          <HandoffGroupIcon />
-        </span>
-        <strong>{t('{count} subagents', { count: handoffs.length })}</strong>
-      </header>
-      <div className="devic-handoff-group-items">
-        {handoffs.map((handoff) => (
-          <HandoffSubagentWidget
-            key={handoff.key}
-            subThreadId={handoff.subThreadId}
-            agentHint={handoff.agentHint}
-            onCompleted={onHandoffCompleted}
-            renderWidget={handoffWidgetRenderer}
-            apiKey={apiKey}
-            baseUrl={baseUrl}
-            pollingInterval={pollingInterval}
-            compact
-          />
-        ))}
-      </div>
-    </div>
+  const renderHandoffGroup = (handoffs: ResolvedHandoff[]) => (
+    <HandoffSubagentGroup
+      handoffs={handoffs}
+      onCompleted={onHandoffCompleted}
+      renderWidget={handoffWidgetRenderer}
+      apiKey={apiKey}
+      baseUrl={baseUrl}
+      pollingInterval={pollingInterval}
+    />
   );
 
   const renderToolItem = (
@@ -591,7 +671,7 @@ function ToolGroup({
   const renderCompletedItems = (msgs: ChatMessage[]) => {
     const elements: React.ReactNode[] = [];
     let regularMessages: ChatMessage[] = [];
-    let handoffs: Array<NonNullable<ReturnType<typeof resolveHandoff>>> = [];
+    let handoffs: ResolvedHandoff[] = [];
 
     const flushRegular = () => {
       if (regularMessages.length === 0) return;
@@ -645,7 +725,7 @@ function ToolGroup({
   ) {
     return (
       <div className="devic-tool-group">
-        {renderHandoffGroup(activeHandoffs as Array<NonNullable<typeof activeHandoffs[number]>>)}
+        {renderHandoffGroup(activeHandoffs as ResolvedHandoff[])}
       </div>
     );
   }
