@@ -60,6 +60,10 @@ export function SubagentResultCard({ message, messages }: SubagentResultCardProp
   const entries = sourceMessages.flatMap((sourceMessage) =>
     entriesFor(sourceMessage).map((entry) => ({ entry, sourceMessage })),
   );
+  // An empty batch is an acknowledgement, not a visible execution result.
+  // Rendering an empty aggregate used to leave a lone one-pixel accent line
+  // between messages in the timeline.
+  if (entries.length === 0) return null;
   return (
     <div
       className="devic-subagent-results"

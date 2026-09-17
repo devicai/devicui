@@ -1,12 +1,17 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type {
   ChatMessage,
   HandOffToolResponse,
   SubagentMessageMetadata,
 } from '../../api/types';
+import { AgentThreadState } from '../../api/types';
 import { avatarUri, type AvatarStyle } from '../../utils/avatar';
 import { useTranslations } from '../../i18n';
 import { subagentHandoffLaunches } from '../../utils/subagentHandoffs';
+import {
+  readSubagentLifecycle,
+  subscribeSubagentLifecycle,
+} from '../../utils/subagentLifecycle';
 
 export type SubagentActivityStatus = 'running' | 'completed' | 'failed';
 
@@ -65,6 +70,47 @@ function resultStatus(status: unknown): SubagentActivityStatus {
   return FAILED_STATES.has(String(status ?? '').toLowerCase())
     ? 'failed'
     : 'completed';
+}
+
+function lifecycleStatus(state?: AgentThreadState): SubagentActivityStatus | undefined {
+  switch (state) {
+    case AgentThreadState.COMPLETED:
+      return 'completed';
+    case AgentThreadState.FAILED:
+    case AgentThreadState.TERMINATED:
+    case AgentThreadState.APPROVAL_REJECTED:
+    case AgentThreadState.GUARDRAIL_TRIGGER:
+    case AgentThreadState.LIMIT_EXCEEDED:
+      return 'failed';
+    case AgentThreadState.QUEUED:
+    case AgentThreadState.PROCESSING:
+    case AgentThreadState.PAUSED:
+    case AgentThreadState.PAUSED_FOR_APPROVAL:
+    case AgentThreadState.WAITING_FOR_RESPONSE:
+    case AgentThreadState.PAUSED_FOR_RESUME:
+    case AgentThreadState.HANDED_OFF:
+    case AgentThreadState.UNDER_CONSTRUCTION:
+      return 'running';
+    default:
+      return undefined;
+  }
+}
+
+function withLiveLifecycle(activities: SubagentActivity[]): SubagentActivity[] {
+  return activities.map((activity) => {
+    const liveStatus = lifecycleStatus(readSubagentLifecycle(activity.threadId));
+    if (!liveStatus) return activity;
+
+    // A synthetic terminal result is durable conversation history. Do not let
+    // an older in-memory active snapshot regress it back to running.
+    if (activity.status !== 'running' && liveStatus === 'running') return activity;
+    return liveStatus === activity.status
+      ? activity
+      : { ...activity, status: liveStatus };
+  }).sort((a, b) => {
+    const statusOrder = Number(b.status === 'running') - Number(a.status === 'running');
+    return statusOrder || a.launchIndex - b.launchIndex;
+  });
 }
 
 /**
@@ -182,7 +228,19 @@ export function SubagentActivityTray({
   className,
 }: SubagentActivityTrayProps): JSX.Element | null {
   const t = useTranslations();
-  const activities = useMemo(() => collectSubagentActivities(messages), [messages]);
+  const [lifecycleVersion, setLifecycleVersion] = useState(0);
+  useEffect(() => {
+    const unsubscribe = subscribeSubagentLifecycle(() => {
+      setLifecycleVersion((version) => version + 1);
+    });
+    // Cover a sibling widget publishing between this render and effect setup.
+    setLifecycleVersion((version) => version + 1);
+    return unsubscribe;
+  }, []);
+  const activities = useMemo(
+    () => withLiveLifecycle(collectSubagentActivities(messages)),
+    [messages, lifecycleVersion],
+  );
   const signature = activities.map((activity) => activity.threadId).join('|');
   const [dismissedSignature, setDismissedSignature] = useState<string | null>(null);
 

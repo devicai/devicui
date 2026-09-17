@@ -11,6 +11,7 @@ import {
 } from '../../hooks/usePolling';
 import { createLogger } from '../../utils/logger';
 import { avatarUri } from '../../utils/avatar';
+import { publishSubagentLifecycle } from '../../utils/subagentLifecycle';
 import { useTranslations } from '../../i18n';
 
 const TERMINAL_STATES: AgentThreadState[] = [
@@ -160,7 +161,10 @@ export function HandoffSubagentWidget({
       state: data.state,
     });
     setThread(data);
-    if (data.state) onStateChange?.(data.state);
+    if (data.state) {
+      publishSubagentLifecycle(subThreadId, data.state);
+      onStateChange?.(data.state);
+    }
     if (
       data.state &&
       TERMINAL_STATES.includes(data.state) &&
@@ -169,7 +173,15 @@ export function HandoffSubagentWidget({
       hasCalledCompleted.current = true;
       onCompleted?.();
     }
-  }, [log, onCompleted, onStateChange]);
+  }, [log, onCompleted, onStateChange, subThreadId]);
+
+  // An initial snapshot is already authoritative. Publish it immediately so
+  // sibling prompt UI does not briefly regress to the launch-derived state.
+  useEffect(() => {
+    if (!threadHint?.state) return;
+    publishSubagentLifecycle(subThreadId, threadHint.state);
+    onStateChange?.(threadHint.state);
+  }, [onStateChange, subThreadId, threadHint?.state]);
 
   const streamThread = useCallback((
     onSnapshot: (data: AgentThreadDto) => Promise<void>,

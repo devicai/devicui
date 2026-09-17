@@ -2018,12 +2018,14 @@
 .devic-subagent-results[data-stacked='true'] {
   width: min(100%, 460px);
   gap: 0;
-  border: 1px solid color-mix(in srgb, var(--devic-primary) 28%, var(--devic-border));
-  border-left: 2px solid var(--devic-primary);
-  border-radius: 9px;
-  background: var(--devic-bg-secondary);
-  overflow: hidden;
-  animation: devic-slideUp 0.24s ease-out;
+  /* The border belongs to real result rows. Keeping it on this aggregate
+     shell exposed a lone horizontal line during an SSE reconciliation frame
+     where the batch message existed but its entries had not landed yet. */
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+  animation: none;
 }
 
 .devic-subagent-result {
@@ -2039,17 +2041,34 @@
 
 .devic-subagent-results[data-stacked='true'] .devic-subagent-result {
   width: 100%;
-  border: 0;
+  border: 1px solid color-mix(in srgb, var(--devic-primary) 28%, var(--devic-border));
+  border-left: 2px solid var(--devic-primary);
   border-radius: 0;
-  background: transparent;
+  background: var(--devic-bg-secondary);
   animation: none;
 }
 
 .devic-subagent-results[data-stacked='true'] .devic-subagent-result + .devic-subagent-result {
-  border-top: 1px solid var(--devic-border);
+  border-top: 0;
+}
+
+.devic-subagent-results[data-stacked='true'] .devic-subagent-result:first-child {
+  border-radius: 9px 9px 0 0;
+}
+
+.devic-subagent-results[data-stacked='true'] .devic-subagent-result:last-child {
+  border-radius: 0 0 9px 9px;
+}
+
+.devic-subagent-results[data-stacked='true'] .devic-subagent-result:only-child {
+  border-radius: 9px;
 }
 
 .devic-subagent-result[data-status='error'] {
+  border-left-color: #ff4d4f;
+}
+
+.devic-subagent-results[data-stacked='true'] .devic-subagent-result[data-status='error'] {
   border-left-color: #ff4d4f;
 }
 

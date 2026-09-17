@@ -115,6 +115,56 @@ test('compact subagent tray stays closed for the same group and reopens for a ne
   await act(async () => renderer.unmount());
 });
 
+test('prompt tray adopts the detailed widget SSE state before the parent result message arrives', async () => {
+  const {
+    AgentThreadState,
+    HandoffSubagentWidget,
+    SubagentActivityTray,
+  } = await import('../dist/esm/index.js');
+  const threadId = 'activity-thread-live-completed';
+  const messages = [{
+    uid: 'live-launch', role: 'assistant', timestamp: 1, content: {},
+    tool_calls: [{
+      id: 'live-call', type: 'function',
+      function: { name: 'hand_off_subagent', arguments: '{}' },
+    }],
+  }, {
+    uid: 'live-tool', role: 'tool', timestamp: 2, tool_call_id: 'live-call',
+    content: {
+      data: {
+        subThreadId: threadId,
+        asynchronous: true,
+        agent: { id: 'live-agent', name: 'Live verifier' },
+      },
+    },
+  }];
+  let renderer;
+
+  await act(async () => {
+    renderer = create(React.createElement(React.Fragment, null,
+      React.createElement(HandoffSubagentWidget, {
+        subThreadId: threadId,
+        threadHint: {
+          _id: threadId,
+          agentId: 'live-agent',
+          name: 'Live verifier',
+          state: AgentThreadState.COMPLETED,
+          threadContent: [],
+          tasks: [],
+        },
+        streaming: false,
+      }),
+      React.createElement(SubagentActivityTray, { messages }),
+    ));
+  });
+
+  const tray = renderer.root.findByProps({ className: 'devic-subagent-activity' });
+  assert.equal(tray.findAllByProps({ 'data-status': 'running' }).length, 0);
+  assert.equal(tray.findAllByProps({ 'data-status': 'completed' }).length, 1);
+  assert.match(JSON.stringify(renderer.toJSON()), /All completed/);
+  await act(async () => renderer.unmount());
+});
+
 test('renders a synthetic subagent result as an execution card', async () => {
   const { SubagentResultCard } = await import('../dist/esm/index.js');
   const html = renderToStaticMarkup(
@@ -146,6 +196,23 @@ test('renders a synthetic subagent result as an execution card', async () => {
   assert.match(html, /devic-subagent-result-preview/);
   assert.match(html, /<details/);
   assert.doesNotMatch(html, /devic-message-bubble/);
+});
+
+test('does not render an accent line for an empty synthetic result batch', async () => {
+  const { SubagentResultCard } = await import('../dist/esm/index.js');
+  const html = renderToStaticMarkup(React.createElement(SubagentResultCard, {
+    message: {
+      uid: 'empty-result-batch',
+      role: 'user',
+      source: 'subagent',
+      synthetic: true,
+      eventType: 'subagent_results',
+      timestamp: Date.now(),
+      content: { data: { subagentResults: [] } },
+    },
+  }));
+
+  assert.equal(html, '');
 });
 
 test('stacks compact results delivered by the same parallel run', async () => {
