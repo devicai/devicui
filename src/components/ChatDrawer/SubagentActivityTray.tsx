@@ -135,7 +135,10 @@ export function collectSubagentActivities(messages: ChatMessage[]): SubagentActi
       activity.status === 'running'
       || activity.launchIndex >= lastHumanUserIndex
       || (activity.resultIndex ?? -1) >= lastHumanUserIndex)
-    .sort((a, b) => a.launchIndex - b.launchIndex);
+    .sort((a, b) => {
+      const statusOrder = Number(b.status === 'running') - Number(a.status === 'running');
+      return statusOrder || a.launchIndex - b.launchIndex;
+    });
 }
 
 function ActivityIcon({ activity }: { activity: SubagentActivity }): JSX.Element {

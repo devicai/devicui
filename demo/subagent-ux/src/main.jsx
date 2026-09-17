@@ -53,6 +53,21 @@ const compactActivityMessages = [
       },
     },
   })),
+  {
+    uid: 'compact-result-agent-research',
+    role: 'user',
+    source: 'subagent',
+    synthetic: true,
+    eventType: 'subagent_result',
+    timestamp: now + 4,
+    subagent: {
+      threadId: agents[0].thread,
+      agentId: agents[0].id,
+      agentName: agents[0].name,
+      executionMode: 'async',
+    },
+    content: { data: { status: 'completed', result: 'Análisis completado.' } },
+  },
 ];
 
 const result = (agent, status, text) => ({

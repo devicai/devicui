@@ -32,7 +32,7 @@ function parallelActivityMessages(extra = []) {
 }
 
 test('renders multiple async subagents in the compact prompt tray', async () => {
-  const { SubagentActivityTray } = await import('../dist/esm/index.js');
+  const { SubagentActivityTray, collectSubagentActivities } = await import('../dist/esm/index.js');
   const messages = parallelActivityMessages([{
     uid: 'activity-result-1',
     role: 'user',
@@ -65,6 +65,10 @@ test('renders multiple async subagents in the compact prompt tray', async () => 
   assert.match(html, /data-status="running"/);
   assert.match(html, /Dismiss subagent activity/);
   assert.doesNotMatch(html, /Blocking agent/);
+  assert.deepEqual(
+    collectSubagentActivities(messages).map((activity) => activity.agentName),
+    ['Critic', 'Researcher'],
+  );
 });
 
 test('compact subagent tray stays closed for the same group and reopens for a new child', async () => {
