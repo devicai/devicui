@@ -1,10 +1,9 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import {
-  AgentThreadState,
   ChatDrawer,
+  ChatMessages,
   DevicProvider,
-  HandoffSubagentWidget,
   SubagentActivityTray,
   SubagentResultCard,
 } from '../../../dist/esm/index.js';
@@ -70,6 +69,8 @@ const compactActivityMessages = [
   },
 ];
 
+const deterministicHandoffMessages = compactActivityMessages.slice(1, 4);
+
 const parallelResults = {
   uid: 'parallel-results',
   role: 'user',
@@ -113,7 +114,7 @@ function App() {
             <p>El mensaje sugerido pide lanzar al Analista y al Crítico sin bloquear el turno principal.</p>
             <ol>
               <li>Envía el mensaje sugerido.</li>
-              <li>Comprueba que aparecen dos tarjetas activas.</li>
+              <li>Comprueba que ambos aparecen dentro de un único widget compacto.</li>
               <li>Déjalo abierto: el chat usa SSE y debe incorporar cada resultado sin recargar.</li>
             </ol>
             <code>{assistantId}</code>
@@ -174,23 +175,14 @@ function App() {
       <section>
         <div className="section-title"><span>03</span><h2>Estados deterministas en paralelo</h2></div>
         <div className="execution-grid">
-          {agents.map((agent, index) => (
-            <HandoffSubagentWidget
-              key={agent.id}
-              subThreadId={agent.thread}
-              agentHint={{ _id: agent.id, name: agent.name }}
-              threadHint={{
-                _id: agent.thread,
-                agentId: agent.id,
-                name: agent.name,
-                state: index ? AgentThreadState.QUEUED : AgentThreadState.PROCESSING,
-                tasks: index ? [] : [
-                  { completed: true, name: 'Revisar contexto' },
-                  { completed: false, name: 'Validar respuesta' },
-                ],
-              }}
+          <DevicProvider apiKey={playgroundCredential} baseUrl={apiBaseUrl} streaming>
+            <ChatMessages
+              messages={deterministicHandoffMessages}
+              allMessages={deterministicHandoffMessages}
+              isLoading={false}
+              showFeedback={false}
             />
-          ))}
+          </DevicProvider>
         </div>
       </section>
 

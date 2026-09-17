@@ -390,6 +390,65 @@ function ToolGroup({
 
   const lastIndex = toolMessages.length - 1;
 
+  const resolveHandoff = (msg: ChatMessage) => {
+    const toolCall = msg.tool_calls?.[0];
+    if (
+      toolCall?.function?.name !== "hand_off_subagent" ||
+      !allMessages
+    ) {
+      return null;
+    }
+    const response = extractHandoffResponse(toolCall.id, allMessages);
+    const subThreadId = extractSubThreadId(
+      toolCall.id,
+      allMessages,
+      toolMessages.length === 1 ? handedOffSubThreadId : undefined,
+    );
+    if (!subThreadId) return null;
+    return {
+      key: toolCall.id,
+      subThreadId,
+      agentHint: response?.agent ? {
+        _id: response.agent.id,
+        name: response.agent.name || t('Subagent'),
+        imgUrl: response.agent.imgUrl,
+        avatarStyle: response.agent.avatarStyle as any,
+      } : undefined,
+    };
+  };
+
+  const renderHandoffGroup = (
+    handoffs: Array<NonNullable<ReturnType<typeof resolveHandoff>>>,
+  ) => (
+    <section
+      className="devic-handoff-group"
+      data-subagent-count={handoffs.length}
+      aria-label={t('{count} subagents', { count: handoffs.length })}
+    >
+      <header className="devic-handoff-group-header">
+        <span className="devic-handoff-group-icon" aria-hidden="true">
+          <HandoffGroupIcon />
+        </span>
+        <strong>{t('{count} subagents', { count: handoffs.length })}</strong>
+      </header>
+      <div className="devic-handoff-group-items">
+        {handoffs.map((handoff) => (
+          <HandoffSubagentWidget
+            key={handoff.key}
+            subThreadId={handoff.subThreadId}
+            agentHint={handoff.agentHint}
+            onCompleted={onHandoffCompleted}
+            renderWidget={handoffWidgetRenderer}
+            apiKey={apiKey}
+            baseUrl={baseUrl}
+            pollingInterval={pollingInterval}
+            compact
+          />
+        ))}
+      </div>
+    </section>
+  );
+
   const renderToolItem = (
     msg: ChatMessage,
     opts: { active?: boolean; showSpinner?: boolean },
@@ -402,23 +461,13 @@ function ToolGroup({
       (opts.active ? t("Processing...") : t("Completed"));
 
     // Render HandoffSubagentWidget for hand_off_subagent tool calls
-    if (toolName === "hand_off_subagent" && toolCall && allMessages) {
-      const handoffResponse = extractHandoffResponse(toolCall.id, allMessages);
-      const subThreadId = extractSubThreadId(
-        toolCall.id,
-        allMessages,
-        handedOffSubThreadId,
-      );
-      if (subThreadId) {
+    if (toolName === "hand_off_subagent") {
+      const handoff = resolveHandoff(msg);
+      if (handoff) {
         return (
           <HandoffSubagentWidget
-            subThreadId={subThreadId}
-            agentHint={handoffResponse?.agent ? {
-              _id: handoffResponse.agent.id,
-              name: handoffResponse.agent.name || t('Subagent'),
-              imgUrl: handoffResponse.agent.imgUrl,
-              avatarStyle: handoffResponse.agent.avatarStyle as any,
-            } : undefined}
+            subThreadId={handoff.subThreadId}
+            agentHint={handoff.agentHint}
             onCompleted={onHandoffCompleted}
             renderWidget={handoffWidgetRenderer}
             apiKey={apiKey}
@@ -482,8 +531,8 @@ function ToolGroup({
     return { name: toolName, input, output, toolCallId: toolCall.id };
   };
 
-  /** Render completed tool messages, applying toolGroups segmentation when configured */
-  const renderCompletedItems = (msgs: ChatMessage[]) => {
+  /** Render non-handoff tool messages, applying host toolGroups when configured. */
+  const renderConfiguredItems = (msgs: ChatMessage[]) => {
     if (!toolGroups || toolGroups.length === 0) {
       return msgs.map((msg) => (
         <div key={msg.uid} className="devic-tool-activity">
@@ -533,6 +582,72 @@ function ToolGroup({
 
     return elements;
   };
+
+  /**
+   * Aggregate each consecutive handoff run into one compact widget. Each row
+   * remains its own HandoffSubagentWidget so its SSE lifecycle stays isolated.
+   */
+  const renderCompletedItems = (msgs: ChatMessage[]) => {
+    const elements: React.ReactNode[] = [];
+    let regularMessages: ChatMessage[] = [];
+    let handoffs: Array<NonNullable<ReturnType<typeof resolveHandoff>>> = [];
+
+    const flushRegular = () => {
+      if (regularMessages.length === 0) return;
+      elements.push(...renderConfiguredItems(regularMessages));
+      regularMessages = [];
+    };
+    const flushHandoffs = () => {
+      if (handoffs.length === 0) return;
+      if (handoffs.length === 1) {
+        const handoff = handoffs[0];
+        const msg = msgs.find((candidate) => candidate.tool_calls?.[0]?.id === handoff.key);
+        if (msg) {
+          elements.push(
+            <div key={msg.uid} className="devic-tool-activity">
+              {renderToolItem(msg, {})}
+            </div>,
+          );
+        }
+      } else {
+        elements.push(
+          <React.Fragment key={`handoff-group-${handoffs.map((handoff) => handoff.key).join('-')}`}>
+            {renderHandoffGroup(handoffs)}
+          </React.Fragment>,
+        );
+      }
+      handoffs = [];
+    };
+
+    for (const msg of msgs) {
+      const handoff = resolveHandoff(msg);
+      if (handoff) {
+        flushRegular();
+        handoffs.push(handoff);
+      } else {
+        flushHandoffs();
+        regularMessages.push(msg);
+      }
+    }
+    flushHandoffs();
+    flushRegular();
+    return elements;
+  };
+
+  // Parallel handoffs can already have acknowledgement responses while the
+  // parent assistant is still producing text. Group them before the generic
+  // active-tool path so the final call is not split into a second card.
+  const activeHandoffs = toolMessages.map(resolveHandoff);
+  if (
+    toolMessages.length > 1 &&
+    activeHandoffs.every((handoff) => handoff !== null)
+  ) {
+    return (
+      <div className="devic-tool-group">
+        {renderHandoffGroup(activeHandoffs as Array<NonNullable<typeof activeHandoffs[number]>>)}
+      </div>
+    );
+  }
 
   // If active, show all items; last one gets the glow treatment
   if (isActive) {
@@ -1115,6 +1230,28 @@ function ToolDoneIcon(): JSX.Element {
       strokeLinejoin="round"
     >
       <polyline points="20,6 9,17 4,12" />
+    </svg>
+  );
+}
+
+function HandoffGroupIcon(): JSX.Element {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="6" cy="5" r="2" />
+      <circle cx="18" cy="8" r="2" />
+      <circle cx="18" cy="18" r="2" />
+      <path d="M8 5h3a3 3 0 0 1 3 3v7a3 3 0 0 0 3 3" />
+      <path d="M14 10a3 3 0 0 1 3-2" />
     </svg>
   );
 }

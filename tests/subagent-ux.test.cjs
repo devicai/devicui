@@ -242,7 +242,7 @@ test('a visible conversation message splits consecutive subagent result groups',
   assert.equal((html.match(/data-message-count="1"/g) || []).length, 2);
 });
 
-test('renders every parallel handoff call and its acknowledged agent name', async () => {
+test('aggregates consecutive parallel handoffs into one compact widget', async () => {
   const { ChatMessages } = await import('../dist/esm/index.js');
   const assistant = {
     uid: 'assistant-1',
@@ -269,11 +269,13 @@ test('renders every parallel handoff call and its acknowledged agent name', asyn
     React.createElement(ChatMessages, {
       messages,
       allMessages: messages,
-      isLoading: false,
+      isLoading: true,
     }),
   );
 
-  assert.equal((html.match(/devic-handoff-widget/g) || []).length, 2);
+  assert.equal((html.match(/class="devic-handoff-group"/g) || []).length, 1);
+  assert.equal((html.match(/class="devic-handoff-compact"/g) || []).length, 2);
+  assert.match(html, /data-subagent-count="2"/);
   assert.match(html, /Researcher/);
   assert.match(html, /Critic/);
 });

@@ -43,14 +43,16 @@ section { padding: 30px 0 42px; border-top: 1px solid #2c2c31; }
 .compact-prompt { min-height: 46px; display: flex; align-items: center; gap: 12px; padding: 9px 10px 9px 14px; border-radius: 9px; background: #202024; color: #77727f; font-size: 13px; }
 .compact-prompt span { flex: 1; }
 .compact-prompt button { width: 29px; height: 29px; border: 0; border-radius: 6px; background: #6d4be8; color: #fff; }
-.execution-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.execution-grid .devic-handoff-widget { max-width: none; min-height: 148px; border-radius: 12px; padding: 16px; }
+.execution-grid { max-width: 720px; }
+.execution-grid .devic-messages-container { padding: 0; overflow: visible; }
+.execution-grid .devic-tool-group { width: 100%; max-width: none; }
+.execution-grid .devic-handoff-group { width: 100%; }
 .results-stack { display: grid; gap: 12px; }
 .results-stack .devic-subagent-result { width: 100%; max-width: none; }
 footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding-top: 10px; color: #77727f; font-size: 12px; }
 code { color: #c4b5fd; }
 @media (max-width: 800px) {
-  .live-lab, .execution-grid { grid-template-columns: 1fr; }
+  .live-lab { grid-template-columns: 1fr; }
   .live-chat-shell { height: 680px; }
   .playground { padding-top: 36px; }
 }

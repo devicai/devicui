@@ -69,6 +69,13 @@ export interface HandoffSubagentWidgetProps {
   streaming?: boolean;
 
   /**
+   * Render as a collapsible row inside an aggregate handoff widget.
+   * Polling/SSE and completion callbacks remain independent per subthread.
+   * @default false
+   */
+  compact?: boolean;
+
+  /**
    * Custom renderer to replace the entire widget content.
    * Receives the thread and agent data.
    */
@@ -95,6 +102,7 @@ export function HandoffSubagentWidget({
   baseUrl,
   pollingInterval,
   streaming,
+  compact = false,
   renderWidget,
 }: HandoffSubagentWidgetProps): JSX.Element {
   const t = useTranslations();
@@ -234,6 +242,92 @@ export function HandoffSubagentWidget({
     return <>{renderWidget({ thread, agent, elapsedSeconds, isTerminal })}</>;
   }
 
+  const agentName = agent?.name || thread?.name || t('Subagent');
+
+  if (compact) {
+    const state = thread?.state;
+    const status = compactStateStatus(state);
+
+    return (
+      <details className="devic-handoff-compact" data-status={status}>
+        <summary className="devic-handoff-compact-summary">
+          <span className="devic-handoff-agent-avatar">
+            {agent?.imgUrl || agent?._id ? (
+              <img
+                src={agent.imgUrl || avatarUri(agent._id!, agent.avatarStyle)}
+                alt=""
+                className="devic-handoff-avatar-img"
+              />
+            ) : (
+              <RobotFallbackIcon />
+            )}
+          </span>
+          <span className="devic-handoff-compact-copy">
+            <span className="devic-handoff-agent-name">{agentName}</span>
+            {lastSummary && (
+              <span className="devic-handoff-compact-preview">{lastSummary}</span>
+            )}
+          </span>
+          <span className="devic-handoff-compact-state">
+            <i aria-hidden="true" />
+            {compactStateLabel(t, state)}
+          </span>
+          <CompactChevronIcon />
+        </summary>
+
+        <div className="devic-handoff-compact-body">
+          {state && (
+            <div className="devic-handoff-state-row">
+              <ThreadStateTag
+                state={state}
+                threadId={thread._id || subThreadId}
+                agentName={agentName}
+                pausedReason={thread.pausedReason}
+                finishReason={thread.finishReason}
+                pauseUntil={thread.pauseUntil}
+                interactive={true}
+                apiKey={resolvedApiKey}
+                baseUrl={resolvedBaseUrl}
+              />
+            </div>
+          )}
+
+          {totalTasks > 0 && (
+            <div className="devic-handoff-progress">
+              <div className="devic-handoff-progress-bar">
+                <div
+                  className="devic-handoff-progress-fill"
+                  data-status={state === AgentThreadState.FAILED ? 'error' : isTerminal ? 'success' : 'active'}
+                  style={{ width: `${taskPercentage}%` }}
+                />
+              </div>
+              <span className="devic-handoff-progress-text">
+                {completedTasks}/{totalTasks}
+              </span>
+            </div>
+          )}
+
+          {totalTasks === 0 && isProcessing && (
+            <div className="devic-handoff-progress">
+              <div className="devic-handoff-progress-bar">
+                <div className="devic-handoff-progress-indeterminate" />
+              </div>
+            </div>
+          )}
+
+          {lastSummary && <div className="devic-handoff-summary">{lastSummary}</div>}
+
+          {isProcessing && (
+            <div className="devic-handoff-elapsed">
+              <ClockSmallIcon />
+              <span>{formatElapsed(elapsedSeconds)}</span>
+            </div>
+          )}
+        </div>
+      </details>
+    );
+  }
+
   return (
     <div className="devic-handoff-widget">
       {/* Header: Agent avatar + name */}
@@ -253,7 +347,7 @@ export function HandoffSubagentWidget({
           )}
         </div>
         <span className="devic-handoff-agent-name">
-          {agent?.name || thread?.name || t('Subagent')}
+          {agentName}
         </span>
       </div>
 
@@ -263,7 +357,7 @@ export function HandoffSubagentWidget({
           <ThreadStateTag
             state={thread.state}
             threadId={thread._id || subThreadId}
-            agentName={agent?.name || thread?.name || t('Subagent')}
+            agentName={agentName}
             pausedReason={thread.pausedReason}
             finishReason={thread.finishReason}
             pauseUntil={thread.pauseUntil}
@@ -317,6 +411,55 @@ export function HandoffSubagentWidget({
   );
 }
 
+type CompactStateStatus = 'loading' | 'queued' | 'running' | 'completed' | 'paused' | 'failed';
+
+function compactStateStatus(state?: AgentThreadState): CompactStateStatus {
+  switch (state) {
+    case AgentThreadState.COMPLETED:
+      return 'completed';
+    case AgentThreadState.FAILED:
+    case AgentThreadState.TERMINATED:
+    case AgentThreadState.APPROVAL_REJECTED:
+    case AgentThreadState.GUARDRAIL_TRIGGER:
+    case AgentThreadState.LIMIT_EXCEEDED:
+      return 'failed';
+    case AgentThreadState.PROCESSING:
+    case AgentThreadState.HANDED_OFF:
+      return 'running';
+    case AgentThreadState.PAUSED:
+    case AgentThreadState.PAUSED_FOR_APPROVAL:
+    case AgentThreadState.PAUSED_FOR_RESUME:
+    case AgentThreadState.WAITING_FOR_RESPONSE:
+      return 'paused';
+    case AgentThreadState.QUEUED:
+      return 'queued';
+    default:
+      return 'loading';
+  }
+}
+
+function compactStateLabel(
+  t: ReturnType<typeof useTranslations>,
+  state?: AgentThreadState,
+): string {
+  switch (state) {
+    case AgentThreadState.QUEUED: return t('Queued');
+    case AgentThreadState.PROCESSING: return t('Processing');
+    case AgentThreadState.COMPLETED: return t('Completed');
+    case AgentThreadState.FAILED: return t('Failed');
+    case AgentThreadState.TERMINATED: return t('Terminated');
+    case AgentThreadState.GUARDRAIL_TRIGGER: return t('Guardrail Triggered');
+    case AgentThreadState.PAUSED: return t('Paused');
+    case AgentThreadState.PAUSED_FOR_APPROVAL: return t('Waiting for approval');
+    case AgentThreadState.APPROVAL_REJECTED: return t('Approval rejected');
+    case AgentThreadState.WAITING_FOR_RESPONSE: return t('Waiting for response');
+    case AgentThreadState.PAUSED_FOR_RESUME: return t('Resume scheduled');
+    case AgentThreadState.HANDED_OFF: return t('Handed off');
+    case AgentThreadState.LIMIT_EXCEEDED: return t('Limit exceeded');
+    default: return t('Starting...');
+  }
+}
+
 /* ── Icons ── */
 
 function RobotFallbackIcon(): JSX.Element {
@@ -336,6 +479,14 @@ function ClockSmallIcon(): JSX.Element {
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />
       <polyline points="12,6 12,12 16,14" />
+    </svg>
+  );
+}
+
+function CompactChevronIcon(): JSX.Element {
+  return (
+    <svg className="devic-handoff-compact-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="6 9 12 15 18 9" />
     </svg>
   );
 }
