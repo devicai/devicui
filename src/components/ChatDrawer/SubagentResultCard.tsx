@@ -30,6 +30,17 @@ function resultText(value: unknown): string {
   return value == null ? '' : String(value);
 }
 
+function resultPreview(content: string, maxLength = 140): string {
+  const plainText = content
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/[`*_~>#]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (plainText.length <= maxLength) return plainText;
+  return `${plainText.slice(0, maxLength).trimEnd()}…`;
+}
+
 function entriesFor(message: ChatMessage): ResultEntry[] {
   const data = message.content?.data;
   if (Array.isArray(data?.subagentResults)) return data.subagentResults;
@@ -43,46 +54,60 @@ function entriesFor(message: ChatMessage): ResultEntry[] {
 
 export function SubagentResultCard({ message }: SubagentResultCardProps): JSX.Element {
   const t = useTranslations();
+  const entries = entriesFor(message);
   return (
-    <div className="devic-subagent-results" data-event-type={message.eventType}>
-      {entriesFor(message).map((entry, index) => {
+    <div
+      className="devic-subagent-results"
+      data-event-type={message.eventType}
+      data-result-count={entries.length}
+      data-stacked={entries.length > 1 ? 'true' : 'false'}
+    >
+      {entries.map((entry, index) => {
         const agent = entry.subagent;
         const failed = ['failed', 'terminated', 'error'].includes(
           String(entry.status || '').toLowerCase(),
         );
         const content = resultText(entry.error ?? entry.result ?? message.content?.message);
+        const preview = resultPreview(content);
         return (
-          <article
+          <details
             className="devic-subagent-result"
             data-status={failed ? 'error' : 'completed'}
             data-thread-id={agent?.threadId}
             key={agent?.threadId || index}
           >
-            <header className="devic-subagent-result-header">
-              <span className="devic-handoff-agent-avatar">
-                {agent?.agentImgUrl || agent?.agentId ? (
-                  <img
-                    className="devic-handoff-avatar-img"
-                    src={agent.agentImgUrl || avatarUri(agent.agentId!, agent.agentAvatarStyle as any)}
-                    alt=""
-                  />
-                ) : (
-                  <span aria-hidden="true">↳</span>
-                )}
+            <summary
+              className="devic-subagent-result-summary"
+              title={t('Show full subagent result')}
+            >
+              <span className="devic-subagent-result-header">
+                <span className="devic-handoff-agent-avatar">
+                  {agent?.agentImgUrl || agent?.agentId ? (
+                    <img
+                      className="devic-handoff-avatar-img"
+                      src={agent.agentImgUrl || avatarUri(agent.agentId!, agent.agentAvatarStyle as any)}
+                      alt=""
+                    />
+                  ) : (
+                    <span aria-hidden="true">↳</span>
+                  )}
+                </span>
+                <span className="devic-subagent-result-title">
+                  {agent?.agentName || t('Subagent')}
+                </span>
+                <span className="devic-subagent-result-status">
+                  {failed ? t('Failed') : t('Completed')}
+                </span>
+                <span className="devic-subagent-result-chevron" aria-hidden="true">⌄</span>
               </span>
-              <span className="devic-subagent-result-title">
-                {agent?.agentName || t('Subagent')}
-              </span>
-              <span className="devic-subagent-result-status">
-                {failed ? t('Failed') : t('Completed')}
-              </span>
-            </header>
+              {preview && <span className="devic-subagent-result-preview">{preview}</span>}
+            </summary>
             {content && (
               <div className="devic-subagent-result-body">
                 <Markdown>{content}</Markdown>
               </div>
             )}
-          </article>
+          </details>
         );
       })}
     </div>

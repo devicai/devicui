@@ -141,7 +141,42 @@ test('renders a synthetic subagent result as an execution card', async () => {
   assert.match(html, /devic-subagent-result/);
   assert.match(html, /Researcher/);
   assert.match(html, /Verified/);
+  assert.match(html, /devic-subagent-result-preview/);
+  assert.match(html, /<details/);
   assert.doesNotMatch(html, /devic-message-bubble/);
+});
+
+test('stacks compact results delivered by the same parallel run', async () => {
+  const { SubagentResultCard } = await import('../dist/esm/index.js');
+  const message = {
+    uid: 'parallel-results',
+    role: 'user',
+    source: 'subagent',
+    synthetic: true,
+    eventType: 'subagent_results',
+    timestamp: Date.now(),
+    content: {
+      data: {
+        subagentResults: [{
+          subagent: { threadId: 'thread-1', agentName: 'Researcher', executionMode: 'async' },
+          status: 'completed',
+          result: 'A'.repeat(180),
+        }, {
+          subagent: { threadId: 'thread-2', agentName: 'Critic', executionMode: 'async' },
+          status: 'failed',
+          error: 'Could not verify the result',
+        }],
+      },
+    },
+  };
+  const html = renderToStaticMarkup(React.createElement(SubagentResultCard, { message }));
+
+  assert.match(html, /data-stacked="true"/);
+  assert.match(html, /data-result-count="2"/);
+  assert.equal((html.match(/<details/g) || []).length, 2);
+  assert.match(html, /Researcher/);
+  assert.match(html, /Critic/);
+  assert.match(html, /A{140}…/);
 });
 
 test('renders every parallel handoff call and its acknowledged agent name', async () => {

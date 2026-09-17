@@ -70,24 +70,30 @@ const compactActivityMessages = [
   },
 ];
 
-const result = (agent, status, text) => ({
-  uid: `result-${agent.id}`,
+const parallelResults = {
+  uid: 'parallel-results',
   role: 'user',
   source: 'subagent',
   synthetic: true,
-  eventType: 'subagent_result',
+  eventType: 'subagent_results',
   timestamp: now,
-  subagent: {
-    threadId: agent.thread,
-    agentId: agent.id,
-    agentName: agent.name,
-    executionMode: 'async',
-  },
   content: {
-    message: '[Async subagent result]',
-    data: { status, result: text },
+    data: {
+      subagentResults: [
+        {
+          subagent: { threadId: agents[0].thread, agentId: agents[0].id, agentName: agents[0].name, executionMode: 'async' },
+          status: 'completed',
+          result: 'He verificado la continuidad del contexto. **Las MIT siguen disponibles** tras reanudar la ejecución y el turno mantiene las herramientas inyectadas originalmente.',
+        },
+        {
+          subagent: { threadId: agents[1].thread, agentId: agents[1].id, agentName: agents[1].name, executionMode: 'async' },
+          status: 'failed',
+          error: 'No pude completar la comprobación: el recurso de prueba no estaba disponible.',
+        },
+      ],
+    },
   },
-});
+};
 
 function App() {
   return (
@@ -191,8 +197,7 @@ function App() {
       <section>
         <div className="section-title"><span>04</span><h2>Resultados incorporados al hilo</h2></div>
         <div className="results-stack">
-          <SubagentResultCard message={result(agents[0], 'completed', 'He verificado la continuidad del contexto. **Las MIT siguen disponibles** tras reanudar la ejecución.')} />
-          <SubagentResultCard message={result(agents[1], 'failed', 'No pude completar la comprobación: el recurso de prueba no estaba disponible.')} />
+          <SubagentResultCard message={parallelResults} />
         </div>
       </section>
 
