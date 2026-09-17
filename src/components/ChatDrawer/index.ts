@@ -6,6 +6,12 @@ export { ConversationSelector } from './ConversationSelector';
 export { HandoffSubagentWidget } from './HandoffSubagentWidget';
 export { SubagentResultCard } from './SubagentResultCard';
 export type { SubagentResultCardProps } from './SubagentResultCard';
+export { SubagentActivityTray, collectSubagentActivities } from './SubagentActivityTray';
+export type {
+  SubagentActivity,
+  SubagentActivityStatus,
+  SubagentActivityTrayProps,
+} from './SubagentActivityTray';
 export { ReferenceChip } from './ReferenceChip';
 export type { ReferenceChipProps, ReferenceChipVariant } from './ReferenceChip';
 export { UsageBar } from './UsageBar';

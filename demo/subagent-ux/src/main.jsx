@@ -5,6 +5,7 @@ import {
   ChatDrawer,
   DevicProvider,
   HandoffSubagentWidget,
+  SubagentActivityTray,
   SubagentResultCard,
 } from '../../../dist/esm/index.js';
 import '../../../dist/esm/styles.css';
@@ -18,6 +19,40 @@ const parallelPrompt = 'Lanza los dos subagentes disponibles en paralelo y en mo
 const agents = [
   { id: 'agent-research', name: 'Analista', thread: 'thread-research' },
   { id: 'agent-critic', name: 'Crítico', thread: 'thread-critic' },
+];
+
+const compactActivityMessages = [
+  {
+    uid: 'compact-user',
+    role: 'user',
+    timestamp: now,
+    content: { message: 'Lanza ambos agentes en paralelo.' },
+  },
+  {
+    uid: 'compact-launch',
+    role: 'assistant',
+    timestamp: now + 1,
+    content: {},
+    tool_calls: agents.map((agent) => ({
+      id: `compact-call-${agent.id}`,
+      type: 'function',
+      function: { name: 'hand_off_subagent', arguments: JSON.stringify({ agentId: agent.id, executionMode: 'async' }) },
+    })),
+  },
+  ...agents.map((agent, index) => ({
+    uid: `compact-tool-${agent.id}`,
+    role: 'tool',
+    timestamp: now + 2 + index,
+    tool_call_id: `compact-call-${agent.id}`,
+    content: {
+      data: {
+        subThreadId: agent.thread,
+        executionMode: 'async',
+        asynchronous: true,
+        agent: { id: agent.id, name: agent.name },
+      },
+    },
+  })),
 ];
 
 const result = (agent, status, text) => ({
@@ -105,7 +140,18 @@ function App() {
       </section>
 
       <section>
-        <div className="section-title"><span>02</span><h2>Estados deterministas en paralelo</h2></div>
+        <div className="section-title"><span>02</span><h2>Bandeja compacta sobre el prompt</h2></div>
+        <div className="compact-preview">
+          <SubagentActivityTray messages={compactActivityMessages} />
+          <div className="compact-prompt">
+            <span>Escribe mientras los subagentes trabajan…</span>
+            <button type="button" aria-label="Enviar">➤</button>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div className="section-title"><span>03</span><h2>Estados deterministas en paralelo</h2></div>
         <div className="execution-grid">
           {agents.map((agent, index) => (
             <HandoffSubagentWidget
@@ -128,7 +174,7 @@ function App() {
       </section>
 
       <section>
-        <div className="section-title"><span>03</span><h2>Resultados incorporados al hilo</h2></div>
+        <div className="section-title"><span>04</span><h2>Resultados incorporados al hilo</h2></div>
         <div className="results-stack">
           <SubagentResultCard message={result(agents[0], 'completed', 'He verificado la continuidad del contexto. **Las MIT siguen disponibles** tras reanudar la ejecución.')} />
           <SubagentResultCard message={result(agents[1], 'failed', 'No pude completar la comprobación: el recurso de prueba no estaba disponible.')} />

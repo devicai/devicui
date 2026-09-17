@@ -11,6 +11,7 @@ import { UsageBar } from './UsageBar';
 import { LimitBanner } from './LimitBanner';
 import { isRenderedLimitError } from '../../utils/limitError';
 import { QueueNotice } from './QueueNotice';
+import { SubagentActivityTray } from './SubagentActivityTray';
 import { CoreMemoryModal, DEFAULT_CORE_MEMORY_LABELS } from '../CoreMemoryModal';
 import {
   IntegrationsHint,
@@ -84,6 +85,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   toolRenderers: undefined as any,
   toolIcons: undefined as any,
   showFeedback: true,
+  showSubagentActivity: true,
   handoffWidgetRenderer: undefined as any,
   toolGroups: undefined as any,
   stopButtonContent: undefined as any,
@@ -726,6 +728,10 @@ function ChatDrawerInner({
           )
       : null;
 
+  const subagentActivityNode = mergedOptions.showSubagentActivity ? (
+    <SubagentActivityTray messages={chat.messages} />
+  ) : null;
+
   // Handle conversation selection
   const handleConversationSelect = useCallback(
     (chatUid: string) => {
@@ -1148,6 +1154,7 @@ function ChatDrawerInner({
             {usageBarNode}
             {integrationsHintNode}
             {queueNoticeNode}
+            {subagentActivityNode}
             {mergedOptions.customPromptBox({
               voice: chat.voice,
               sendMessage: handleSend,
@@ -1212,6 +1219,7 @@ function ChatDrawerInner({
             onStop={handleStopChat}
             allowQueueing={canQueue}
             queueNotice={queueNoticeNode}
+            subagentActivity={subagentActivityNode}
             stopButtonContent={mergedOptions.stopButtonContent}
             pendingInputWidget={inputWidget}
             onSubmitWidget={chat.submitWidgetResponse}

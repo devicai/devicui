@@ -6,6 +6,109 @@ const { act, create } = require('react-test-renderer');
 
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
+function parallelActivityMessages(extra = []) {
+  return [
+    {
+      uid: 'user-activity', role: 'user', timestamp: 1,
+      content: { message: 'Run both in parallel' },
+    },
+    {
+      uid: 'assistant-activity', role: 'assistant', timestamp: 2, content: {},
+      tool_calls: [
+        { id: 'activity-call-1', type: 'function', function: { name: 'hand_off_subagent', arguments: '{}' } },
+        { id: 'activity-call-2', type: 'function', function: { name: 'hand_off_subagent', arguments: '{}' } },
+      ],
+    },
+    {
+      uid: 'activity-tool-1', role: 'tool', timestamp: 3, tool_call_id: 'activity-call-1',
+      content: { data: { subThreadId: 'activity-thread-1', asynchronous: true, agent: { id: 'agent-1', name: 'Researcher' } } },
+    },
+    {
+      uid: 'activity-tool-2', role: 'tool', timestamp: 4, tool_call_id: 'activity-call-2',
+      content: { data: { subThreadId: 'activity-thread-2', executionMode: 'async', agent: { id: 'agent-2', name: 'Critic' } } },
+    },
+    ...extra,
+  ];
+}
+
+test('renders multiple async subagents in the compact prompt tray', async () => {
+  const { SubagentActivityTray } = await import('../dist/esm/index.js');
+  const messages = parallelActivityMessages([{
+    uid: 'activity-result-1',
+    role: 'user',
+    source: 'subagent',
+    synthetic: true,
+    eventType: 'subagent_result',
+    timestamp: 5,
+    subagent: {
+      threadId: 'activity-thread-1',
+      agentId: 'agent-1',
+      agentName: 'Researcher',
+      executionMode: 'async',
+    },
+    content: { data: { status: 'completed', result: 'Done' } },
+  }, {
+    uid: 'blocking-launch', role: 'assistant', timestamp: 6, content: {},
+    tool_calls: [{ id: 'blocking-call', type: 'function', function: { name: 'hand_off_subagent', arguments: '{}' } }],
+  }, {
+    uid: 'blocking-tool', role: 'tool', timestamp: 7, tool_call_id: 'blocking-call',
+    content: { data: { subThreadId: 'blocking-thread', executionMode: 'wait', handedOff: true, agent: { id: 'agent-wait', name: 'Blocking agent' } } },
+  }]);
+  const html = renderToStaticMarkup(
+    React.createElement(SubagentActivityTray, { messages }),
+  );
+
+  assert.equal((html.match(/devic-subagent-activity-item/g) || []).length, 2);
+  assert.match(html, /Researcher/);
+  assert.match(html, /Critic/);
+  assert.match(html, /data-status="completed"/);
+  assert.match(html, /data-status="running"/);
+  assert.match(html, /Dismiss subagent activity/);
+  assert.doesNotMatch(html, /Blocking agent/);
+});
+
+test('compact subagent tray stays closed for the same group and reopens for a new child', async () => {
+  const { SubagentActivityTray } = await import('../dist/esm/index.js');
+  const initial = parallelActivityMessages();
+  let closed = 0;
+  let renderer;
+
+  await act(async () => {
+    renderer = create(React.createElement(SubagentActivityTray, {
+      messages: initial,
+      onClose: () => { closed += 1; },
+    }));
+  });
+
+  await act(async () => {
+    renderer.root.findByProps({ className: 'devic-subagent-activity-close' }).props.onClick();
+  });
+  assert.equal(closed, 1);
+  assert.equal(renderer.root.findAllByProps({ className: 'devic-subagent-activity' }).length, 0);
+
+  const withNewChild = [
+    ...initial,
+    {
+      uid: 'assistant-activity-2', role: 'assistant', timestamp: 6, content: {},
+      tool_calls: [{ id: 'activity-call-3', type: 'function', function: { name: 'hand_off_subagent', arguments: '{}' } }],
+    },
+    {
+      uid: 'activity-tool-3', role: 'tool', timestamp: 7, tool_call_id: 'activity-call-3',
+      content: { data: { subThreadId: 'activity-thread-3', asynchronous: true, agent: { id: 'agent-3', name: 'Verifier' } } },
+    },
+  ];
+  await act(async () => {
+    renderer.update(React.createElement(SubagentActivityTray, {
+      messages: withNewChild,
+      onClose: () => { closed += 1; },
+    }));
+  });
+
+  assert.equal(renderer.root.findAllByProps({ className: 'devic-subagent-activity' }).length, 1);
+  assert.equal(renderer.root.findAllByProps({ className: 'devic-subagent-activity-item' }).length, 3);
+  await act(async () => renderer.unmount());
+});
+
 test('renders a synthetic subagent result as an execution card', async () => {
   const { SubagentResultCard } = await import('../dist/esm/index.js');
   const html = renderToStaticMarkup(

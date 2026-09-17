@@ -64,12 +64,13 @@ const HANDOFF_HOLD_MS = 3000; // press-and-hold duration on the mic to arm hands
  * swap, same as before.
  */
 export function ChatInput(props: ChatInputProps): JSX.Element {
-  const { pendingInputWidget, onSubmitWidget, onCancelWidget } = props;
+  const { pendingInputWidget, onSubmitWidget, onCancelWidget, subagentActivity } = props;
 
   if (pendingInputWidget) {
     const WidgetComponent = pendingInputWidget.widget.component;
     return (
       <div className="devic-input-area" data-widget-mode="input">
+        {subagentActivity}
         <div className="devic-input-widget" data-tool-name={pendingInputWidget.toolName}>
           <WidgetComponent
             toolCall={pendingInputWidget.toolCall}
@@ -114,6 +115,7 @@ function ChatInputBox({
   onStop,
   allowQueueing = false,
   queueNotice,
+  subagentActivity,
   stopButtonContent,
   references,
   onRemoveReference,
@@ -753,6 +755,7 @@ function ChatInputBox({
       {usageBar}
       {integrationsHint}
       {queueNotice}
+      {subagentActivity}
       {disabledMessage && disabled && (
         <div className="devic-input-disabled-notice">
           <WaitingIcon />

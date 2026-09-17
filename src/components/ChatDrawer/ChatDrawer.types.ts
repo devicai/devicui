@@ -459,6 +459,13 @@ export interface ChatDrawerOptions {
   showFeedback?: boolean;
 
   /**
+   * Show a closable, compact list of async subagents immediately above the
+   * prompt box. Detailed cards in the message timeline remain unchanged.
+   * @default true
+   */
+  showSubagentActivity?: boolean;
+
+  /**
    * Custom renderer for the HandoffSubagentWidget.
    * Receives thread/agent data and returns a React node.
    */
@@ -1106,6 +1113,8 @@ export interface ChatInputProps {
   allowQueueing?: boolean;
   /** Notice rendered above the textarea while messages can be, or are, queued. */
   queueNotice?: React.ReactNode;
+  /** Compact async-subagent activity rendered immediately above the prompt. */
+  subagentActivity?: React.ReactNode;
   /** Custom stop button content */
   stopButtonContent?: React.ReactNode;
   /** Pending widget tool call to render replacing the input (render: 'input') */

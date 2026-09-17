@@ -33,7 +33,7 @@ export type {
 } from './i18n';
 
 // Components
-export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, SubagentResultCard, ReferenceChip, UsageBar, LimitBanner, QueueNotice, RecalledMemoriesWidget, CompactionWidget, GuardrailNotice } from './components/ChatDrawer';
+export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, SubagentResultCard, SubagentActivityTray, collectSubagentActivities, ReferenceChip, UsageBar, LimitBanner, QueueNotice, RecalledMemoriesWidget, CompactionWidget, GuardrailNotice } from './components/ChatDrawer';
 export type {
   ChatDrawerProps,
   ChatDrawerOptions,
@@ -48,6 +48,9 @@ export type {
   ConversationSelectorProps,
   HandoffSubagentWidgetProps,
   SubagentResultCardProps,
+  SubagentActivity,
+  SubagentActivityStatus,
+  SubagentActivityTrayProps,
   ReferenceChipProps,
   ReferenceChipVariant,
   SuggestedMessage,

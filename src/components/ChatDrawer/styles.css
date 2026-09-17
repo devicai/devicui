@@ -1834,6 +1834,155 @@
 .devic-subagent-result-body > :first-child { margin-top: 0; }
 .devic-subagent-result-body > :last-child { margin-bottom: 0; }
 
+/* Compact companion to the detailed timeline cards. It reads the parent
+   conversation, so it does not open another lifecycle stream per child. */
+.devic-subagent-activity {
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--devic-primary) 22%, var(--devic-border));
+  border-radius: calc(var(--devic-radius) + 2px);
+  background: color-mix(in srgb, var(--devic-primary) 5%, var(--devic-bg));
+  animation: devic-slideUp 0.2s ease-out;
+}
+
+.devic-subagent-activity-header {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 2px 6px;
+  color: var(--devic-text);
+}
+
+.devic-subagent-activity-header strong {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.devic-subagent-activity-branch {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  color: var(--devic-primary);
+  background: color-mix(in srgb, var(--devic-primary) 12%, transparent);
+  font-size: 13px;
+  flex: none;
+}
+
+.devic-subagent-activity-summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--devic-text-muted);
+  font-size: 11px;
+}
+
+.devic-subagent-activity-close {
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--devic-text-muted);
+  cursor: pointer;
+  flex: none;
+}
+
+.devic-subagent-activity-close:hover {
+  color: var(--devic-text);
+  background: var(--devic-bg-secondary);
+}
+
+.devic-subagent-activity-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: 5px;
+  max-height: 118px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.devic-subagent-activity-item {
+  min-width: 0;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  border: 1px solid var(--devic-border);
+  border-radius: 8px;
+  background: var(--devic-bg);
+}
+
+.devic-subagent-activity-avatar {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--devic-bg-secondary);
+  color: var(--devic-text-muted);
+  font-size: 11px;
+  flex: none;
+}
+
+.devic-subagent-activity-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.devic-subagent-activity-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--devic-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.devic-subagent-activity-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--devic-text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+  flex: none;
+}
+
+.devic-subagent-activity-state i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #52c41a;
+}
+
+.devic-subagent-activity-item[data-status='running'] .devic-subagent-activity-state i {
+  background: var(--devic-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--devic-primary) 14%, transparent);
+  animation: devic-pulse 1.6s ease-in-out infinite;
+}
+
+.devic-subagent-activity-item[data-status='failed'] .devic-subagent-activity-state i {
+  background: #ff4d4f;
+}
+
 /* Reference chips inside a user message bubble (rendered above the bubble) */
 .devic-message[data-role='user'] .devic-message-references {
   display: flex;

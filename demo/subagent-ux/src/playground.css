@@ -39,6 +39,10 @@ section { padding: 30px 0 42px; border-top: 1px solid #2c2c31; }
 .live-badge i { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 4px rgba(74, 222, 128, .1); }
 .live-chat-shell { height: 720px; min-width: 0; }
 .live-chat-shell .devic-chat-drawer { overflow: hidden; }
+.compact-preview { max-width: 720px; padding: 14px; border: 1px solid #34343a; border-radius: 14px; background: #18181b; }
+.compact-prompt { min-height: 46px; display: flex; align-items: center; gap: 12px; padding: 9px 10px 9px 14px; border-radius: 9px; background: #202024; color: #77727f; font-size: 13px; }
+.compact-prompt span { flex: 1; }
+.compact-prompt button { width: 29px; height: 29px; border: 0; border-radius: 6px; background: #6d4be8; color: #fff; }
 .execution-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .execution-grid .devic-handoff-widget { max-width: none; min-height: 148px; border-radius: 12px; padding: 16px; }
 .results-stack { display: grid; gap: 12px; }

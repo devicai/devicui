@@ -331,6 +331,7 @@ A complete chat drawer component.
     showAvatar: true,           // Assistant's face next to the title
     avatarUrl: '/alexandria.png', // ...this one instead of the assistant's own
     showToolTimeline: true,
+    showSubagentActivity: true, // Compact, closable async-subagent tray above the prompt
   }}
   enabledTools={['tool1', 'tool2']}
   modelInterfaceTools={[
@@ -368,6 +369,25 @@ A complete chat drawer component.
   // Controlled mode
   isOpen={true}
 />
+```
+
+#### Compact async-subagent activity
+
+Async handoffs keep their detailed cards in the tool timeline. The drawer also
+shows a compact, closable tray immediately above the prompt, with one row per
+parallel subagent and its running/completed/failed state. Closing it dismisses
+the current group; launching another child makes it visible again. Set
+`showSubagentActivity: false` to hide it.
+
+The compact view reads the handoff acknowledgements and synthetic results from
+the parent conversation, so it shares the chat's SSE update and does not open a
+second lifecycle stream for every child. It is also exported for custom chat
+layouts:
+
+```tsx
+import { SubagentActivityTray } from '@devicai/ui';
+
+<SubagentActivityTray messages={messages} />
 ```
 
 #### Long-term memory
@@ -1450,6 +1470,9 @@ import type {
   ChatFile,
   ChatDrawerOptions,
   ChatDrawerHandle,
+  SubagentActivity,
+  SubagentActivityStatus,
+  SubagentActivityTrayProps,
 
   // AICommandBar types
   AICommandBarOptions,
