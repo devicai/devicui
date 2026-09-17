@@ -1822,6 +1822,7 @@
   min-height: 34px;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 9px;
   padding: 7px 12px;
   border-top: 1px solid var(--devic-border);
@@ -1832,8 +1833,7 @@
 }
 
 .devic-handoff-group-indicators {
-  display: grid;
-  grid-template-columns: repeat(4, 22px);
+  display: flex;
   gap: 4px;
   align-items: center;
 }
@@ -1881,15 +1881,8 @@
 }
 
 .devic-handoff-group-overflow {
-  white-space: nowrap;
-}
-
-.devic-handoff-group-limit {
-  margin-left: auto;
-  padding: 3px 6px;
-  border: 1px solid var(--devic-border);
-  border-radius: 999px;
   color: var(--devic-text-secondary);
+  font-size: 11px;
   white-space: nowrap;
 }
 

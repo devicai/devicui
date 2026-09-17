@@ -345,7 +345,8 @@ function groupMessages(
   return result;
 }
 
-const MAX_VISIBLE_HANDOFFS = 4;
+const MAX_VISIBLE_HANDOFFS = 3;
+const MAX_OVERFLOW_INDICATORS = 4;
 
 interface ResolvedHandoff {
   key: string;
@@ -421,28 +422,22 @@ function HandoffSubagentGroup({
         </div>
       )}
 
-      <div className="devic-handoff-group-footer">
-        <span className="devic-handoff-group-indicators" aria-label={t('Subagent progress')}>
-          {Array.from({ length: MAX_VISIBLE_HANDOFFS }, (_, index) => {
-            const handoff = visibleHandoffs[index];
-            return (
+      {hiddenHandoffs.length > 0 && (
+        <div className="devic-handoff-group-footer">
+          <span className="devic-handoff-group-indicators" aria-label={t('Hidden subagent progress')}>
+            {hiddenHandoffs.slice(0, MAX_OVERFLOW_INDICATORS).map((handoff) => (
               <i
-                key={handoff?.key || `empty-${index}`}
-                data-state={handoff ? states[handoff.key] || 'loading' : 'empty'}
-                title={handoff?.agentHint?.name}
+                key={handoff.key}
+                data-state={states[handoff.key] || 'loading'}
+                title={handoff.agentHint?.name}
               />
-            );
-          })}
-        </span>
-        {hiddenHandoffs.length > 0 && (
-          <span className="devic-handoff-group-overflow">
-            {t('+{count} more', { count: hiddenHandoffs.length })}
+            ))}
           </span>
-        )}
-        <span className="devic-handoff-group-limit">
-          {t('{count} max', { count: MAX_VISIBLE_HANDOFFS })}
-        </span>
-      </div>
+          <span className="devic-handoff-group-overflow">
+            {t('{count} more', { count: hiddenHandoffs.length })}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

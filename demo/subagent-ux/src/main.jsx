@@ -69,7 +69,39 @@ const compactActivityMessages = [
   },
 ];
 
-const deterministicHandoffMessages = compactActivityMessages.slice(1, 4);
+const deterministicAgents = [
+  ...agents,
+  { id: 'agent-planner', name: 'Planificador', thread: 'thread-planner' },
+  { id: 'agent-reviewer', name: 'Revisor', thread: 'thread-reviewer' },
+  { id: 'agent-security', name: 'Seguridad', thread: 'thread-security' },
+  { id: 'agent-data', name: 'Datos', thread: 'thread-data' },
+  { id: 'agent-writer', name: 'Redactor', thread: 'thread-writer' },
+];
+const deterministicHandoffMessages = [
+  {
+    uid: 'gallery-launch',
+    role: 'assistant',
+    timestamp: now,
+    content: {},
+    tool_calls: deterministicAgents.map((agent) => ({
+      id: `gallery-call-${agent.id}`,
+      type: 'function',
+      function: { name: 'hand_off_subagent', arguments: '{}' },
+    })),
+  },
+  ...deterministicAgents.map((agent, index) => ({
+    uid: `gallery-tool-${agent.id}`,
+    role: 'tool',
+    timestamp: now + index + 1,
+    tool_call_id: `gallery-call-${agent.id}`,
+    content: {
+      data: {
+        subThreadId: agent.thread,
+        agent: { id: agent.id, name: agent.name },
+      },
+    },
+  })),
+];
 
 const parallelResults = {
   uid: 'parallel-results',

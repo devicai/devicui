@@ -277,13 +277,14 @@ test('aggregates consecutive parallel handoffs into one compact widget', async (
   assert.equal((html.match(/class="devic-handoff-compact"/g) || []).length, 2);
   assert.match(html, /class="devic-handoff-group" role="group"/);
   assert.match(html, /data-subagent-count="2"/);
+  assert.doesNotMatch(html, /devic-handoff-group-footer/);
   assert.match(html, /Researcher/);
   assert.match(html, /Critic/);
 });
 
-test('shows at most four handoffs and summarizes overflow in the group footer', async () => {
+test('shows at most three handoffs and summarizes hidden children in the group footer', async () => {
   const { ChatMessages } = await import('../dist/esm/index.js');
-  const calls = Array.from({ length: 6 }, (_, index) => ({
+  const calls = Array.from({ length: 7 }, (_, index) => ({
     id: `limit-call-${index + 1}`,
     type: 'function',
     function: { name: 'hand_off_subagent', arguments: '{}' },
@@ -316,14 +317,14 @@ test('shows at most four handoffs and summarizes overflow in the group footer', 
     isLoading: true,
   }));
 
-  assert.match(html, /data-subagent-count="6"/);
-  assert.match(html, /data-visible-count="4"/);
+  assert.match(html, /data-subagent-count="7"/);
+  assert.match(html, /data-visible-count="3"/);
   assert.match(html, /class="devic-handoff-monitor-only" hidden="" aria-hidden="true"/);
-  assert.equal((html.match(/class="devic-handoff-compact"/g) || []).length, 6);
+  assert.equal((html.match(/class="devic-handoff-compact"/g) || []).length, 7);
   assert.equal((html.match(/data-state="loading"/g) || []).length, 4);
-  assert.match(html, /\+2 more/);
-  assert.match(html, />4 max</);
-  assert.match(html, /Agent 6/);
+  assert.match(html, />4 more</);
+  assert.doesNotMatch(html, / max</);
+  assert.match(html, /Agent 7/);
 });
 
 test('polls subagent state without task or directory enrichment', async () => {
