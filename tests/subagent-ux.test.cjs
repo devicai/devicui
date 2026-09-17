@@ -179,6 +179,52 @@ test('stacks compact results delivered by the same parallel run', async () => {
   assert.match(html, /A{140}…/);
 });
 
+test('stacks results from one parallel launch when they arrive in separate turns', async () => {
+  const { ChatMessages } = await import('../dist/esm/index.js');
+  const launch = {
+    uid: 'parallel-launch', role: 'assistant', timestamp: 1, content: {},
+    tool_calls: [
+      { id: 'parallel-call-1', type: 'function', function: { name: 'hand_off_subagent', arguments: '{}' } },
+      { id: 'parallel-call-2', type: 'function', function: { name: 'hand_off_subagent', arguments: '{}' } },
+    ],
+  };
+  const resultMessage = (uid, callId, threadId, agentName, timestamp) => ({
+    uid,
+    role: 'user',
+    source: 'subagent',
+    synthetic: true,
+    eventType: 'subagent_result',
+    timestamp,
+    subagent: {
+      threadId,
+      parentToolCallId: callId,
+      agentName,
+      executionMode: 'async',
+    },
+    content: {
+      message: `[Async subagent result] ${agentName}`,
+      data: { status: 'completed', result: `${agentName} finished` },
+    },
+  });
+  const messages = [
+    launch,
+    resultMessage('separate-result-1', 'parallel-call-1', 'thread-1', 'Researcher', 2),
+    { uid: 'intermediate-answer', role: 'assistant', timestamp: 3, content: { message: 'First result received.' } },
+    resultMessage('separate-result-2', 'parallel-call-2', 'thread-2', 'Critic', 4),
+  ];
+  const html = renderToStaticMarkup(React.createElement(ChatMessages, {
+    messages,
+    allMessages: messages,
+    isLoading: false,
+  }));
+
+  assert.equal((html.match(/class="devic-subagent-results"/g) || []).length, 1);
+  assert.equal((html.match(/<details/g) || []).length, 2);
+  assert.match(html, /data-stacked="true"/);
+  assert.match(html, /Researcher/);
+  assert.match(html, /Critic/);
+});
+
 test('renders every parallel handoff call and its acknowledged agent name', async () => {
   const { ChatMessages } = await import('../dist/esm/index.js');
   const assistant = {

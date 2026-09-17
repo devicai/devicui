@@ -6,6 +6,8 @@ import { useTranslations } from '../../i18n';
 
 export interface SubagentResultCardProps {
   message: ChatMessage;
+  /** Results from the same parallel launch, even when delivered in separate turns. */
+  messages?: ChatMessage[];
 }
 
 type ResultEntry = {
@@ -52,9 +54,10 @@ function entriesFor(message: ChatMessage): ResultEntry[] {
   }];
 }
 
-export function SubagentResultCard({ message }: SubagentResultCardProps): JSX.Element {
+export function SubagentResultCard({ message, messages }: SubagentResultCardProps): JSX.Element {
   const t = useTranslations();
-  const entries = entriesFor(message);
+  const sourceMessages = messages?.length ? messages : [message];
+  const entries = sourceMessages.flatMap(entriesFor);
   return (
     <div
       className="devic-subagent-results"
