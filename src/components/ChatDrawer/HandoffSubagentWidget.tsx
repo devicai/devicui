@@ -4,7 +4,11 @@ import { DevicApiClient } from '../../api/client';
 import { AgentThreadState } from '../../api/types';
 import type { AgentThreadDto, AgentDto } from '../../api/types';
 import { ThreadStateTag } from '../ThreadStateTag';
-import { resolvePollingInterval } from '../../hooks/usePolling';
+import {
+  resolvePollingInterval,
+  resolveStreaming,
+  usePolling,
+} from '../../hooks/usePolling';
 import { createLogger } from '../../utils/logger';
 import { avatarUri } from '../../utils/avatar';
 import { useTranslations } from '../../i18n';
@@ -13,6 +17,9 @@ const TERMINAL_STATES: AgentThreadState[] = [
   AgentThreadState.COMPLETED,
   AgentThreadState.FAILED,
   AgentThreadState.TERMINATED,
+  AgentThreadState.APPROVAL_REJECTED,
+  AgentThreadState.GUARDRAIL_TRIGGER,
+  AgentThreadState.LIMIT_EXCEEDED,
 ];
 
 /**
@@ -56,6 +63,12 @@ export interface HandoffSubagentWidgetProps {
   pollingInterval?: number;
 
   /**
+   * Follow lifecycle snapshots over SSE, with polling retained as fallback.
+   * Overrides the DevicProvider setting.
+   */
+  streaming?: boolean;
+
+  /**
    * Custom renderer to replace the entire widget content.
    * Receives the thread and agent data.
    */
@@ -81,6 +94,7 @@ export function HandoffSubagentWidget({
   apiKey,
   baseUrl,
   pollingInterval,
+  streaming,
   renderWidget,
 }: HandoffSubagentWidgetProps): JSX.Element {
   const t = useTranslations();
@@ -92,6 +106,7 @@ export function HandoffSubagentWidget({
     context?.pollingInterval,
     DEFAULT_POLL_INTERVAL_MS
   );
+  const resolvedStreaming = resolveStreaming(streaming, context?.streaming);
   const debug = context?.debug ?? false;
   const log = useMemo(() => createLogger(debug), [debug]);
 
@@ -99,7 +114,6 @@ export function HandoffSubagentWidget({
   const [agent, setAgent] = useState<AgentDto | null>(agentHint as AgentDto | null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasCalledCompleted = useRef(false);
   const startTimeRef = useRef(Date.now());
@@ -116,45 +130,54 @@ export function HandoffSubagentWidget({
     });
   }, [resolvedApiKey, resolvedTenantSession, resolvedBaseUrl]);
 
-  const fetchThread = useCallback(async () => {
+  const fetchThread = useCallback(async (): Promise<AgentThreadDto> => {
     const client = getClient();
-    if (!client) return;
+    if (!client) throw new Error('No API client available');
+    // Keep lifecycle polling on the lightweight thread read. `withTasks`
+    // also calls Task and Template services server-side; if either one is
+    // unavailable the status would never reach the card.
+    return client.getThreadById(subThreadId, false);
+  }, [subThreadId, getClient]);
 
-    try {
-      // Keep lifecycle polling on the lightweight thread read. `withTasks`
-      // also calls Task and Template services server-side; if either one is
-      // unavailable the status would never reach the card.
-      const data = await client.getThreadById(subThreadId, false);
-      log.log('[HandoffSubagentWidget] Thread loaded:', {
-        id: data._id,
-        agentId: data.agentId,
-        parentAgentId: data.parentAgentId,
-        name: data.name,
-        state: data.state,
-      });
-      setThread(data);
-
-      if (
-        data.state &&
-        TERMINAL_STATES.includes(data.state) &&
-        !hasCalledCompleted.current
-      ) {
-        hasCalledCompleted.current = true;
-        onCompleted?.();
-      }
-    } catch (err) {
-      log.error('[HandoffSubagentWidget] Error fetching thread:', err);
+  const acceptThread = useCallback((data: AgentThreadDto) => {
+    log.log('[HandoffSubagentWidget] Thread loaded:', {
+      id: data._id,
+      agentId: data.agentId,
+      parentAgentId: data.parentAgentId,
+      name: data.name,
+      state: data.state,
+    });
+    setThread(data);
+    if (
+      data.state &&
+      TERMINAL_STATES.includes(data.state) &&
+      !hasCalledCompleted.current
+    ) {
+      hasCalledCompleted.current = true;
+      onCompleted?.();
     }
-  }, [subThreadId, getClient, onCompleted]);
+  }, [log, onCompleted]);
 
-  // Initial fetch + polling
-  useEffect(() => {
-    fetchThread();
-    pollRef.current = setInterval(fetchThread, resolvedPollInterval);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [fetchThread, resolvedPollInterval]);
+  const streamThread = useCallback((
+    onSnapshot: (data: AgentThreadDto) => Promise<void>,
+    signal: AbortSignal,
+    onActivity?: () => void,
+  ) => {
+    const client = getClient();
+    if (!client) return Promise.reject(new Error('No API client available'));
+    return client.streamThread(subThreadId, onSnapshot, signal, onActivity);
+  }, [getClient, subThreadId]);
+
+  usePolling<AgentThreadDto>(subThreadId, fetchThread, {
+    interval: resolvedPollInterval,
+    streamFn: resolvedStreaming ? streamThread : undefined,
+    getStatus: (data) => data.state,
+    stopStatuses: TERMINAL_STATES,
+    onUpdate: acceptThread,
+    onError: (error) =>
+      log.error('[HandoffSubagentWidget] Error loading thread:', error),
+    debug,
+  });
 
   // Fetch agent details once we have a thread with an agent ID
   const agentIdToFetch = thread?.agentId || thread?.parentAgentId;
@@ -174,16 +197,6 @@ export function HandoffSubagentWidget({
       log.warn('[HandoffSubagentWidget] Could not fetch agent details:', err);
     });
   }, [agentIdToFetch, agent, getClient]);
-
-  // Stop polling on terminal state
-  useEffect(() => {
-    if (thread?.state && TERMINAL_STATES.includes(thread.state)) {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-    }
-  }, [thread?.state]);
 
   // Elapsed timer
   useEffect(() => {

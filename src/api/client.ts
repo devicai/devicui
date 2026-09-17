@@ -525,6 +525,35 @@ export class DevicApiClient {
     );
   }
 
+  /** Follow a thread lifecycle over SSE. The caller owns reconnection. */
+  async streamThread(
+    threadId: string,
+    onSnapshot: (snapshot: AgentThreadDto) => void | Promise<void>,
+    signal: AbortSignal,
+    onActivity?: () => void,
+  ): Promise<void> {
+    const url = `${this.config.baseUrl}/api/v1/agents/threads/${encodeURIComponent(threadId)}/stream`;
+    let credential = await this.authorization();
+    const open = () => fetch(url, {
+      signal,
+      headers: {
+        Authorization: `Bearer ${credential}`,
+        Accept: 'text/event-stream',
+        'devic-api-source': 'ui',
+      },
+    });
+    let response = await open();
+    if (
+      response.status === 401 &&
+      this.config.getTenantSession &&
+      await this.recoverSession(credential)
+    ) {
+      credential = await this.authorization();
+      response = await open();
+    }
+    await consumeChatStream(response, onSnapshot, onActivity);
+  }
+
   /**
    * Get agent details
    */

@@ -113,3 +113,60 @@ test('polls subagent state without task or directory enrichment', async () => {
     global.fetch = originalFetch;
   }
 });
+
+test('streams subagent lifecycle snapshots without polling', async () => {
+  const { HandoffSubagentWidget } = await import('../dist/esm/index.js');
+  const originalFetch = global.fetch;
+  const requests = [];
+  const states = [];
+  let completed = 0;
+  let renderer;
+
+  global.fetch = async (url) => {
+    requests.push(String(url));
+    const frames = ['queued', 'processing', 'completed'].map((state) =>
+      `event: snapshot\ndata: ${JSON.stringify({
+        _id: 'thread-streamed',
+        agentId: 'agent-1',
+        state,
+        threadContent: [],
+      })}\n\n`
+    );
+    return new Response(new ReadableStream({
+      async start(controller) {
+        for (const frame of frames) {
+          controller.enqueue(new TextEncoder().encode(frame));
+          await new Promise(resolve => setTimeout(resolve, 5));
+        }
+        controller.close();
+      },
+    }), { headers: { 'Content-Type': 'text/event-stream' } });
+  };
+
+  try {
+    await act(async () => {
+      renderer = create(React.createElement(HandoffSubagentWidget, {
+        subThreadId: 'thread-streamed',
+        agentHint: { _id: 'agent-1', name: 'Researcher' },
+        apiKey: 'test',
+        baseUrl: 'http://api.test',
+        streaming: true,
+        onCompleted: () => { completed += 1; },
+        renderWidget: ({ thread }) => {
+          if (thread?.state && states.at(-1) !== thread.state) states.push(thread.state);
+          return null;
+        },
+      }));
+      await new Promise(resolve => setTimeout(resolve, 40));
+    });
+
+    assert.deepEqual(states, ['queued', 'processing', 'completed']);
+    assert.equal(completed, 1);
+    assert.deepEqual(requests, [
+      'http://api.test/api/v1/agents/threads/thread-streamed/stream',
+    ]);
+  } finally {
+    await act(async () => renderer?.unmount());
+    global.fetch = originalFetch;
+  }
+});

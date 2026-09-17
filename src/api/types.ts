@@ -848,6 +848,8 @@ export enum AgentThreadState {
   PAUSED_FOR_RESUME = 'paused_for_resume',
   HANDED_OFF = 'handed_off',
   GUARDRAIL_TRIGGER = 'guardrail_trigger',
+  UNDER_CONSTRUCTION = 'under_construction',
+  LIMIT_EXCEEDED = 'limit_exceeded',
 }
 
 /**
