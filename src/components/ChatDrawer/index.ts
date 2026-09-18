@@ -20,6 +20,13 @@ export type {
 } from './CompactionWidget';
 export { CompactionWidget } from './CompactionWidget';
 export { GuardrailNotice } from './GuardrailNotice';
+export { PinnedMessagesBar, buildPinnedMessageViews } from './PinnedMessagesBar';
+export type {
+  PinnedMessagesRenderer,
+  PinnedMessagesRendererProps,
+  PinnedMessageView,
+} from './PinnedMessagesBar';
+export type { MessageThumbnail } from './messageText';
 export type {
   GuardrailNoticeProps,
   GuardrailRenderer,
@@ -35,6 +42,7 @@ export type {
   ChatDrawerOptions,
   ChatDrawerHandle,
   ChatMessagesProps,
+  ChatMessagesHandle,
   ChatInputProps,
   CustomPromptBoxProps,
   MessageBubbleRenderer,
