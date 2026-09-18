@@ -2443,10 +2443,6 @@
   border-radius: var(--devic-radius-sm);
 }
 
-.devic-pinned-list-item[data-active="true"] {
-  box-shadow: inset 2px 0 0 var(--devic-primary);
-}
-
 .devic-pinned-list-open {
   padding: 6px 8px;
 }
