@@ -86,7 +86,11 @@ here:
 - `1 fact`
 - `1 message`
 - `1 message is still in this conversation but no longer sent to the assistant`
+- `All pinned messages`
+- `Assistant`
+- `Attachment`
 - `Audio unavailable`
+- `Cannot pin a message before the conversation exists`
 - `collapse`
 - `Compacting context`
 - `Completed`
@@ -96,14 +100,21 @@ here:
 - `Dictated by voice`
 - `Done`
 - `expand`
+- `Go to pinned message`
 - `Goal`
+- `Image`
 - `In progress`
 - `Key data`
+- `Message`
 - `Notes`
 - `Open questions`
 - `PASTED`
 - `Pause recording`
 - `Pending`
+- `Pin message`
+- `Pinned message`
+- `Pinned message #{index}`
+- `Pinned messages`
 - `Play recording`
 - `Playback failed`
 - `Preserved exactly`
@@ -111,6 +122,7 @@ here:
 - `Processing...`
 - `Queued`
 - `Recalled memories`
+- `Scroll to the latest message`
 - `since {date}`
 - `Subagent`
 - `Summary`
@@ -120,7 +132,9 @@ here:
 - `This is what the assistant reads in place of the messages above. The messages themselves are still here.`
 - `This message was stopped by a guardrail.`
 - `Unavailable`
+- `Unpin message`
 - `Voice message`
+- `You`
 - `Your message was stopped by the “{name}” guardrail.`
 - `{before} → {after} tokens`
 - `{count} entities`
@@ -128,6 +142,7 @@ here:
 - `{count} lines`
 - `{count} messages`
 - `{count} messages are still in this conversation but no longer sent to the assistant`
+- `{count} pinned messages`
 - `{tokens} tokens`
 
 ## Chat drawer — usage and limits

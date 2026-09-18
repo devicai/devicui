@@ -6,6 +6,7 @@ import type { UsageBarDisplay, UsageBarData } from './UsageBar';
 import type { RecalledMemoriesRenderer } from './RecalledMemoriesWidget';
 import type { CompactionRenderer } from './CompactionWidget';
 import type { GuardrailRenderer } from './GuardrailNotice';
+import type { PinnedMessagesRenderer } from './PinnedMessagesBar';
 import type { CoreMemoryLabels } from '../CoreMemoryModal';
 import type { DevicTranslations } from '../../i18n';
 
@@ -40,6 +41,8 @@ export interface MessageBubbleRendererProps {
   role: 'user' | 'assistant';
   /** Reference labels parsed out of the message (user messages only). */
   references?: string[];
+  /** Whether the message is pinned in the conversation. */
+  pinned?: boolean;
 }
 
 /**
@@ -713,6 +716,48 @@ export interface ChatDrawerOptions {
   guardrailRenderer?: GuardrailRenderer;
 
   /**
+   * Let the reader pin messages of the conversation to keep them at hand: a
+   * pin button on every user and assistant message, and a bar above the
+   * conversation that shows the pinned ones and jumps to them. The pins are
+   * stored on the conversation, so they are the same wherever it is opened.
+   *
+   * Requires the API key (or tenant session) to reach
+   * `/api/v1/assistants/{id}/chats/{chatUid}/pins`. Set to `false` to turn the
+   * whole feature off.
+   * @default true
+   */
+  showPinnedMessages?: boolean;
+
+  /**
+   * Render your own pinned-messages bar instead of the built-in one. Called
+   * whenever the conversation has at least one pinned message, with the pins
+   * in conversation order (each with its message, a one-line preview and a
+   * thumbnail when it carries an image or a file) and the actions to jump to
+   * one and to unpin it. Return null to hide the bar and keep only the pin
+   * buttons on the messages.
+   *
+   * @example
+   * ```tsx
+   * pinnedMessagesRenderer: ({ pins, scrollToMessage, unpin }) => (
+   *   <MyPinnedStrip
+   *     items={pins.map((p) => ({ id: p.messageUid, text: p.preview }))}
+   *     onOpen={scrollToMessage}
+   *     onRemove={unpin}
+   *   />
+   * )
+   * ```
+   */
+  pinnedMessagesRenderer?: PinnedMessagesRenderer;
+
+  /**
+   * Show a floating arrow above the prompt box while the reader is scrolled
+   * away from the latest message — after jumping to a pinned one, for
+   * instance — that brings them back down.
+   * @default true
+   */
+  showScrollToBottomButton?: boolean;
+
+  /**
    * Show a brain button in the drawer header that opens the CoreMemoryModal:
    * the standing entries the assistant permanently remembers for the drawer's
    * tenant/subtenant, viewable and editable by the end user. Requires the API
@@ -1032,6 +1077,33 @@ export interface ChatMessagesProps {
   guardrailRenderer?: GuardrailRenderer;
   /** Let the reader open a checkpoint and read it (see ChatDrawerOptions) */
   expandableCompaction?: boolean;
+  /** Server uids of the pinned messages, drawn with their pin button active */
+  pinnedMessageUids?: string[];
+  /**
+   * Pin (`pinned: true`) or unpin a message by its server uid. When absent the
+   * messages carry no pin button.
+   */
+  onTogglePin?: (messageUid: string, pinned: boolean) => void;
+  /**
+   * Float an arrow back to the latest message while the list is scrolled up.
+   * @default true
+   */
+  showScrollToBottomButton?: boolean;
+  /** Handle to drive the list from outside: jump to a message, or to the end */
+  controlRef?: React.Ref<ChatMessagesHandle>;
+}
+
+/**
+ * Handle of the message list, to drive its scroll from outside.
+ */
+export interface ChatMessagesHandle {
+  /**
+   * Scroll to a message by its server uid and flash it. Returns false when the
+   * message is not in the list.
+   */
+  scrollToMessage: (messageUid: string) => boolean;
+  /** Scroll to the latest message. */
+  scrollToBottom: () => void;
 }
 
 /**
