@@ -56,7 +56,7 @@ function fakeApi({ quietMs = 20, streamUnavailable = false } = {}) {
     }
     return json({ identifier: 'asst', name: 'Assistant' });
   };
-  return { fetch, requests, streamed: () => requests.filter((r) => r.includes('/stream')), polled: () => requests.filter((r) => r.endsWith('/realtime')), partialAsked: () => requests.some((r) => r.endsWith('/stream?partial=1')) };
+  return { fetch, requests, streamed: () => requests.filter((r) => r.includes('/stream')), polled: () => requests.filter((r) => r.endsWith('/realtime')), partialAsked: () => requests.some((r) => r.endsWith('/stream?partial=1&follow=1')) };
 }
 
 /** Mounts the hook, sends one message and waits for the conversation to settle. */
@@ -92,7 +92,7 @@ test('without the flag the hook only polls: /stream is never requested', async (
 
 test('with streaming: true the conversation is followed over /stream and never polled', async () => {
   const api = await converse({ apiKey: 'key', streaming: true });
-  assert.deepEqual(api.streamed(), ['GET /api/v1/assistants/asst/chats/chat-1/stream?partial=1']);
+  assert.deepEqual(api.streamed(), ['GET /api/v1/assistants/asst/chats/chat-1/stream?partial=1&follow=1']);
   assert.deepEqual(api.polled(), []);
 });
 
@@ -152,6 +152,84 @@ test('the provider can opt every widget in, and a component can still refuse', a
 test('the client asks the API for partial frames', async () => {
   const api = await converse({ apiKey: 'key', streaming: true });
   assert.equal(api.partialAsked(), true);
+});
+
+test('one chat stream follows a completed parent until its async subagent result is answered', async () => {
+  const launch = {
+    uid: 'tool-async', role: 'tool', chatUid: 'chat-1', timestamp: 3,
+    content: {
+      response: 'Subagent launched asynchronously.',
+      subThreadId: 'sub-1', asynchronous: true, executionMode: 'async',
+    },
+  };
+  const subagentResult = {
+    uid: 'sub-result', role: 'user', chatUid: 'chat-1', timestamp: 4,
+    source: 'subagent', synthetic: true, eventType: 'subagent_result',
+    subagent: { threadId: 'sub-1', executionMode: 'async' },
+    content: { message: '[Async subagent result]\nSubthread: sub-1\nResult: done' },
+  };
+  const finalReply = {
+    uid: 'a2', role: 'assistant', chatUid: 'chat-1', timestamp: 5,
+    content: { message: 'Integrated the subagent result.' },
+  };
+  const frames = [
+    snapshot('processing', { chatHistory: [userTurn] }),
+    snapshot('completed', { chatHistory: [userTurn, launch] }),
+    snapshot('processing', { chatHistory: [userTurn, launch, subagentResult] }),
+    snapshot('completed', { chatHistory: [userTurn, launch, subagentResult, finalReply] }),
+  ];
+  const requests = [];
+  global.fetch = async (url, init = {}) => {
+    const parsed = new URL(url);
+    requests.push(`${init.method || 'GET'} ${parsed.pathname}${parsed.search}`);
+    if (init.method === 'POST' && parsed.pathname.endsWith('/messages')) {
+      return json({ chatUid: 'chat-1' });
+    }
+    if (parsed.pathname.endsWith('/stream')) {
+      return new Response(new ReadableStream({
+        async start(controller) {
+          for (const frame of frames) {
+            controller.enqueue(new TextEncoder().encode(
+              `event: snapshot\ndata: ${JSON.stringify(frame)}\n\n`
+            ));
+            await sleep(20);
+          }
+          controller.close();
+        },
+      }), { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+    }
+    if (parsed.pathname.endsWith('/realtime')) {
+      throw new Error('polling must remain disabled while SSE is healthy');
+    }
+    return json({ identifier: 'asst', name: 'Assistant' });
+  };
+
+  let chat;
+  function Probe() {
+    chat = useDevicChat({
+      assistantId: 'asst', apiKey: 'key', baseUrl: 'http://api.test',
+      streaming: true, pollingInterval: 250,
+    });
+    return null;
+  }
+  let renderer;
+  await act(async () => { renderer = create(React.createElement(Probe)); });
+  await act(async () => { await chat.sendMessage('hi'); });
+  const deadline = Date.now() + 3000;
+  while (
+    chat.messages.at(-1)?.content.message !== finalReply.content.message &&
+    Date.now() < deadline
+  ) {
+    await act(async () => { await sleep(20); });
+  }
+  assert.equal(chat.messages.at(-1)?.content.message, finalReply.content.message);
+  assert.equal(chat.isLoading, false);
+  assert.deepEqual(
+    requests.filter((request) => request.includes('/stream')),
+    ['GET /api/v1/assistants/asst/chats/chat-1/stream?partial=1&follow=1'],
+  );
+  assert.deepEqual(requests.filter((request) => request.includes('/realtime')), []);
+  await act(async () => { renderer.unmount(); });
 });
 
 test('partial frames are merged into the last snapshot; one before any snapshot is ignored', async () => {

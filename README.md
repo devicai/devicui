@@ -134,8 +134,8 @@ provider's:
 ```
 
 Values below 250 ms are clamped — below that the widget floods the API instead
-of answering sooner. The handoff widget, which only watches a subagent run,
-keeps its own 5 s default when nothing is configured.
+of answering sooner. The handoff widget keeps its own 5 s polling fallback
+when nothing is configured.
 
 #### Streaming instead of polling
 
@@ -155,8 +155,9 @@ field; a component can still refuse it with `streaming={false}`.
 The stream is `GET /api/v1/assistants/:id/chats/:chatUid/stream`, served by the
 same API with the same credential as the poll. Against an API that does not
 serve it the widgets notice and keep polling, so turning it on is safe before
-the API you talk to has caught up. The handoff widget, which watches a subagent
-run rather than a conversation, always polls.
+the API you talk to has caught up. With streaming enabled, handoff widgets also
+follow each agent thread over `GET /api/v1/agents/threads/:threadId/stream` and
+retain their 5 s poll only as fallback.
 
 Since 0.60.0 the library asks for `?partial=1`: while only the reply being
 written changes, the API sends just the text appended since the last frame
@@ -331,6 +332,15 @@ A complete chat drawer component.
     showAvatar: true,           // Assistant's face next to the title
     avatarUrl: '/alexandria.png', // ...this one instead of the assistant's own
     showToolTimeline: true,
+    showSubagentActivity: true, // Compact, closable async-subagent tray above the prompt
+    pauseWidgetRenderer: ({ pausedUntil, pausedReason, resumeNow, isResuming }) => (
+      <MyPauseNotice
+        deadline={pausedUntil}
+        reason={pausedReason}
+        busy={isResuming}
+        onResume={() => void resumeNow()}
+      />
+    ),
   }}
   enabledTools={['tool1', 'tool2']}
   modelInterfaceTools={[
@@ -368,6 +378,32 @@ A complete chat drawer component.
   // Controlled mode
   isOpen={true}
 />
+```
+
+#### Compact async-subagent activity
+
+Async handoffs keep a compact aggregate in the tool timeline: consecutive
+launches — including a single batched `executions[]` call — become one widget,
+with at most three expandable rows and an `N more` lifecycle footer. Synthetic
+subagent results use the same compact grouped presentation instead of appearing
+as human bubbles.
+
+The drawer also shows a closable tray immediately above the prompt, with one
+chip per parallel subagent and its queued/running/completed/failed state.
+Running children sort first, followed by queued children. Closing it dismisses
+the current group; launching another child makes it visible again. Set
+`showSubagentActivity: false` to hide it.
+
+The compact view reads handoff acknowledgements and synthetic results from the
+parent conversation and shares lifecycle snapshots already received by the
+detailed thread widgets. A terminal thread therefore updates the tray
+immediately, even before its synthetic result reaches the parent. It is also
+exported for custom chat layouts:
+
+```tsx
+import { SubagentActivityTray } from '@devicai/ui';
+
+<SubagentActivityTray messages={messages} />
 ```
 
 #### Long-term memory
@@ -973,7 +1009,7 @@ const {
   sendMessage,   // (message, options?) => Promise<SendMessageResult>
   clearChat,     // () => void
   loadChat,      // (chatUid: string) => Promise<void>
-  stopChat,      // () => Promise<StopResult>
+  stopChat,      // (scope?: 'turn' | 'conversation') => Promise<StopResult>
 } = useDevicChat({
   assistantId: 'my-assistant',
   chatUid: 'optional-existing-chat',
@@ -1372,12 +1408,26 @@ if ('rejected' in result) {
 }
 ```
 
-Stopping discards whatever was queued behind the run — answering it would be the
-opposite of what was asked — and hands the text back:
+There are two stop scopes. `turn` gracefully stops only the current assistant
+response and leaves asynchronous subagents running. `conversation` cancels the
+logical run, terminates its active subagents and suppresses late child results.
+Both discard anything queued behind the run — answering it would be the
+opposite of what was asked — and hand the text back:
 
 ```tsx
-const { discarded, restoredText } = await stopChat();
+const turn = await stopChat('turn');
+const cancelled = await stopChat('conversation');
+console.log(cancelled.cancelledSubagentIds);
 ```
+
+The hook and raw API client retain `turn` as their backward-compatible default.
+The built-in drawer makes **Cancel conversation and subagents** the primary stop
+button and exposes **Stop current response** in its adjacent menu. Conversation
+cancel remains available after the parent answer settles while asynchronous
+children are still running.
+
+A later real user message starts a new logical run in the same conversation;
+results from children belonging to the cancelled run remain fenced off.
 
 Queue bubbles are styled through three variables, so they can be made louder
 than the deliberately quiet default:
@@ -1439,6 +1489,31 @@ When that happens the components wait up to 5 seconds (`unavailableToolGraceMs` 
 
 Backend tools that answer asynchronously (`pendingAsyncToolCalls` in the realtime state) are never answered by the client.
 
+If the assistant has **Timed Pause & Resume** enabled and calls
+`pause_and_resume`, the backend stores the Model Interface schemas that were
+sent with that turn. When the scheduled continuation runs, those same tools are
+available without the browser resending them. The drawer renders the
+`paused_for_resume` state without polling continuously.
+
+The built-in pause card shows the deadline and reason and offers **Resume now**.
+That action atomically claims the pending pause, closes its original tool call
+with a provider-compatible tool response that tells the model the user ended
+the wait early. That response carries the original pause timestamp, actual
+resume timestamp, elapsed time, original deadline, requested duration, and
+remaining time so the model can determine whether enough time passed. The UI
+then follows the continuation over the existing realtime stream. It does not
+create a second user message and the saved Model Interface tools remain
+available on the resumed turn.
+
+Use `options.pauseWidgetRenderer` to replace only the presentation. Its props
+include `pausedUntil`, `pausedReason`, `isResuming`, `error`, and the working
+`resumeNow()` action. A fully custom composer receives the same fields through
+`CustomPromptBoxProps`; a headless integration can call `resumeNow()` and read
+the pause state directly from `useDevicChat`.
+
+Conversation-level cancel closes the pause and prevents either the scheduled or
+manual continuation from reviving it.
+
 ## TypeScript
 
 All types are exported:
@@ -1450,6 +1525,9 @@ import type {
   ChatFile,
   ChatDrawerOptions,
   ChatDrawerHandle,
+  SubagentActivity,
+  SubagentActivityStatus,
+  SubagentActivityTrayProps,
 
   // AICommandBar types
   AICommandBarOptions,
@@ -1472,6 +1550,8 @@ import type {
 
   // API types
   RealtimeChatHistory,
+  StopScope,
+  StopChatResponse,
   AssistantSpecialization,
   DevicApiClientConfig,
   TenantSessionToken,

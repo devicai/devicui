@@ -29,6 +29,8 @@ import type {
   IntegrationSetupRequired,
   ModelInterfaceToolSchema,
   StopChatResponse,
+  ResumePausedChatResponse,
+  StopScope,
 } from "./types";
 
 /**
@@ -384,7 +386,9 @@ export class DevicApiClient {
   ): Promise<void> {
     // `partial=1`: while only the reply being written changes, the API sends
     // `partial` frames with just that instead of the whole conversation.
-    const url = `${this.config.baseUrl}/api/v1/assistants/${encodeURIComponent(assistantId)}/chats/${encodeURIComponent(chatUid)}/stream?partial=1`;
+    // `follow=1`: remain attached after a settled parent turn while async
+    // subagents may still enqueue their synthetic results.
+    const url = `${this.config.baseUrl}/api/v1/assistants/${encodeURIComponent(assistantId)}/chats/${encodeURIComponent(chatUid)}/stream?partial=1&follow=1`;
     let credential = await this.authorization();
     const open = () => fetch(url, { signal, headers: { Authorization: `Bearer ${credential}`, Accept: 'text/event-stream', 'devic-api-source': 'ui' } });
     let response = await open();
@@ -525,6 +529,35 @@ export class DevicApiClient {
     );
   }
 
+  /** Follow a thread lifecycle over SSE. The caller owns reconnection. */
+  async streamThread(
+    threadId: string,
+    onSnapshot: (snapshot: AgentThreadDto) => void | Promise<void>,
+    signal: AbortSignal,
+    onActivity?: () => void,
+  ): Promise<void> {
+    const url = `${this.config.baseUrl}/api/v1/agents/threads/${encodeURIComponent(threadId)}/stream`;
+    let credential = await this.authorization();
+    const open = () => fetch(url, {
+      signal,
+      headers: {
+        Authorization: `Bearer ${credential}`,
+        Accept: 'text/event-stream',
+        'devic-api-source': 'ui',
+      },
+    });
+    let response = await open();
+    if (
+      response.status === 401 &&
+      this.config.getTenantSession &&
+      await this.recoverSession(credential)
+    ) {
+      credential = await this.authorization();
+      response = await open();
+    }
+    await consumeChatStream(response, onSnapshot, onActivity);
+  }
+
   /**
    * Get agent details
    */
@@ -615,17 +648,25 @@ export class DevicApiClient {
     );
   }
 
-  /**
-   * Stop an in-progress async chat.
-   * The current LLM call or tool execution will finish, then the chat
-   * will be marked as completed with the history accumulated so far.
-   */
+  /** Stop the current response, or cancel the logical run and its subagents. */
   async stopChat(
     assistantId: string,
     chatUid: string,
+    scope: StopScope = 'turn',
   ): Promise<StopChatResponse> {
     return this.request<StopChatResponse>(
       `/api/v1/assistants/${assistantId}/chats/${chatUid}/stop`,
+      { method: "POST", body: JSON.stringify({ scope }) },
+    );
+  }
+
+  /** End an assistant's timed pause now and continue the same turn. */
+  async resumePausedChat(
+    assistantId: string,
+    chatUid: string,
+  ): Promise<ResumePausedChatResponse> {
+    return this.request<ResumePausedChatResponse>(
+      `/api/v1/assistants/${assistantId}/chats/${chatUid}/resume`,
       { method: "POST" },
     );
   }
