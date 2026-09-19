@@ -315,16 +315,34 @@ export interface AsyncResponse {
  */
 export type QueueDisposition = 'after_delay' | 'next_turn' | 'on_resume';
 
+/** Which part of an assistant conversation a stop request closes. */
+export type StopScope = 'turn' | 'conversation';
+
 /** Response of the stop endpoint. */
 export interface StopChatResponse {
   chatUid: string;
   message: string;
+  outcome?: 'stop_requested' | 'tool_wait_closed' | 'conversation_cancelled';
+  /** Active assistant subthreads terminated by a conversation-level stop. */
+  cancelledSubagentIds?: string[];
+  /** Child callbacks fenced off so they cannot restart the cancelled run. */
+  suppressedSubagentResultIds?: string[];
   /**
    * Queued messages the stop threw away — answering them would be the opposite
    * of what was asked. Handed back so their text can be put where the user
    * wrote it. Absent on an API older than this, and when nothing was queued.
    */
   discardedMessages?: ChatMessage[];
+}
+
+/** Response returned once an early timed-pause continuation has been claimed. */
+export interface ResumePausedChatResponse {
+  chatUid: string;
+  outcome: 'resume_started';
+  /** True when the user resumed before the original deadline. */
+  resumedEarly: boolean;
+  /** Original pause deadline in epoch milliseconds. */
+  previousPausedUntil: number;
 }
 
 /**
@@ -674,6 +692,9 @@ export interface ChatHistory {
   pausedUntil?: number;
   pausedReason?: string;
   pausedToolCallId?: string;
+  /** Durable marker for the latest conversation-level cancellation. */
+  cancelledAt?: number;
+  cancelledByUserUID?: string;
   /** Structured long-term-memory recall events of the conversation. */
   recalledMemories?: RecalledMemoryRecord[];
   /** Audit trail of the core-memory blocks the conversation saw. */

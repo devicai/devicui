@@ -29,6 +29,8 @@ import type {
   IntegrationSetupRequired,
   ModelInterfaceToolSchema,
   StopChatResponse,
+  ResumePausedChatResponse,
+  StopScope,
 } from "./types";
 
 /**
@@ -646,17 +648,25 @@ export class DevicApiClient {
     );
   }
 
-  /**
-   * Stop an in-progress async chat.
-   * The current LLM call or tool execution will finish, then the chat
-   * will be marked as completed with the history accumulated so far.
-   */
+  /** Stop the current response, or cancel the logical run and its subagents. */
   async stopChat(
     assistantId: string,
     chatUid: string,
+    scope: StopScope = 'turn',
   ): Promise<StopChatResponse> {
     return this.request<StopChatResponse>(
       `/api/v1/assistants/${assistantId}/chats/${chatUid}/stop`,
+      { method: "POST", body: JSON.stringify({ scope }) },
+    );
+  }
+
+  /** End an assistant's timed pause now and continue the same turn. */
+  async resumePausedChat(
+    assistantId: string,
+    chatUid: string,
+  ): Promise<ResumePausedChatResponse> {
+    return this.request<ResumePausedChatResponse>(
+      `/api/v1/assistants/${assistantId}/chats/${chatUid}/resume`,
       { method: "POST" },
     );
   }

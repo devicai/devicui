@@ -1,4 +1,5 @@
-import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig, WhisperTranscriptionResponse, TenantLimitExceeded, RecalledMemoryRecord, QueueDisposition, CompactionCheckpoint, CompactionActivity } from '../../api/types';
+import type { ChatMessage, ModelInterfaceTool, ChatFile, AgentThreadDto, AgentDto, ToolGroupConfig, WhisperTranscriptionResponse, TenantLimitExceeded, RecalledMemoryRecord, QueueDisposition, CompactionCheckpoint, CompactionActivity, ResumePausedChatResponse, StopScope } from '../../api/types';
+import type { AssistantPauseWidgetProps } from './AssistantPauseWidget';
 import type { PendingWidgetCall } from '../../hooks/useModelInterface';
 import type { SendMessageResult } from '../../hooks/useDevicChat';
 import type { AIReference } from '../../provider/types';
@@ -82,8 +83,8 @@ export interface CustomPromptBoxProps {
       tenantId?: string;
     },
   ) => Promise<WhisperTranscriptionResponse>;
-  /** Stop the current assistant processing */
-  stop: () => void;
+  /** Stop only the current response, or cancel the conversation and its subagents. */
+  stop: (scope?: StopScope) => void;
   /** Whether the assistant is currently processing / polling for a response */
   isLoading: boolean;
   /** Clear the current conversation and start a new one */
@@ -107,6 +108,12 @@ export interface CustomPromptBoxProps {
   queueEnabled?: boolean;
   /** How many messages are waiting their turn on this conversation. */
   queuedCount?: number;
+  /** Timed-pause state and action for custom composers. */
+  pausedUntil?: number | null;
+  pausedReason?: string | null;
+  isResumingPause?: boolean;
+  resumePauseError?: Error | null;
+  resumeNow: () => Promise<ResumePausedChatResponse>;
 }
 
 /**
@@ -475,6 +482,13 @@ export interface ChatDrawerOptions {
     elapsedSeconds: number;
     isTerminal: boolean;
   }) => React.ReactNode;
+
+  /**
+   * Replace the timed-pause card shown above the composer. The renderer owns
+   * presentation only; `resumeNow` performs the API transition and restarts
+   * realtime observation.
+   */
+  pauseWidgetRenderer?: (props: AssistantPauseWidgetProps) => React.ReactNode;
 
   /**
    * Tool group configurations for rendering consecutive tool calls together.
@@ -1100,11 +1114,15 @@ export interface ChatInputProps {
   disabledMessage?: string;
   /** Whether the assistant is currently processing (shows stop button) */
   isProcessing?: boolean;
+  /** Whether the logical run still has anything that can be cancelled. */
+  canCancelConversation?: boolean;
   /**
    * Stops the current processing. May return the text of anything the stop
    * discarded, so it can be put back in the box rather than lost.
    */
-  onStop?: () => void | Promise<{ restoredText?: string } | void>;
+  onStop?: (
+    scope: StopScope,
+  ) => void | Promise<{ restoredText?: string } | void>;
   /**
    * Whether a message may be written while the assistant is working. With it
    * on, stop and send are shown together and the textarea stays live; with it
@@ -1115,6 +1133,8 @@ export interface ChatInputProps {
   queueNotice?: React.ReactNode;
   /** Compact async-subagent activity rendered immediately above the prompt. */
   subagentActivity?: React.ReactNode;
+  /** Timed-pause card rendered above the prompt. */
+  pauseWidget?: React.ReactNode;
   /** Custom stop button content */
   stopButtonContent?: React.ReactNode;
   /** Pending widget tool call to render replacing the input (render: 'input') */

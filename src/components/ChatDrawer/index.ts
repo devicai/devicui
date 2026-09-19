@@ -20,6 +20,8 @@ export { LimitBanner } from './LimitBanner';
 export type { LimitBannerProps } from './LimitBanner';
 export { QueueNotice } from './QueueNotice';
 export type { QueueNoticeProps } from './QueueNotice';
+export { AssistantPauseWidget } from './AssistantPauseWidget';
+export type { AssistantPauseWidgetProps } from './AssistantPauseWidget';
 export { RecalledMemoriesWidget } from './RecalledMemoriesWidget';
 export type {
   CompactionWidgetProps,

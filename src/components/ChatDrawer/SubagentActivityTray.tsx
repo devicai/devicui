@@ -13,7 +13,7 @@ import {
   subscribeSubagentLifecycle,
 } from '../../utils/subagentLifecycle';
 
-export type SubagentActivityStatus = 'running' | 'completed' | 'failed';
+export type SubagentActivityStatus = 'queued' | 'running' | 'completed' | 'failed';
 
 export interface SubagentActivity {
   threadId: string;
@@ -83,6 +83,7 @@ function lifecycleStatus(state?: AgentThreadState): SubagentActivityStatus | und
     case AgentThreadState.LIMIT_EXCEEDED:
       return 'failed';
     case AgentThreadState.QUEUED:
+      return 'queued';
     case AgentThreadState.PROCESSING:
     case AgentThreadState.PAUSED:
     case AgentThreadState.PAUSED_FOR_APPROVAL:
@@ -103,12 +104,21 @@ function withLiveLifecycle(activities: SubagentActivity[]): SubagentActivity[] {
 
     // A synthetic terminal result is durable conversation history. Do not let
     // an older in-memory active snapshot regress it back to running.
-    if (activity.status !== 'running' && liveStatus === 'running') return activity;
+    if (
+      (activity.status === 'completed' || activity.status === 'failed')
+      && (liveStatus === 'running' || liveStatus === 'queued')
+    ) return activity;
     return liveStatus === activity.status
       ? activity
       : { ...activity, status: liveStatus };
   }).sort((a, b) => {
-    const statusOrder = Number(b.status === 'running') - Number(a.status === 'running');
+    const order: Record<SubagentActivityStatus, number> = {
+      running: 0,
+      queued: 1,
+      completed: 2,
+      failed: 3,
+    };
+    const statusOrder = order[a.status] - order[b.status];
     return statusOrder || a.launchIndex - b.launchIndex;
   });
 }
@@ -181,10 +191,17 @@ export function collectSubagentActivities(messages: ChatMessage[]): SubagentActi
   return [...byThread.values()]
     .filter((activity) =>
       activity.status === 'running'
+      || activity.status === 'queued'
       || activity.launchIndex >= lastHumanUserIndex
       || (activity.resultIndex ?? -1) >= lastHumanUserIndex)
     .sort((a, b) => {
-      const statusOrder = Number(b.status === 'running') - Number(a.status === 'running');
+      const order: Record<SubagentActivityStatus, number> = {
+        running: 0,
+        queued: 1,
+        completed: 2,
+        failed: 3,
+      };
+      const statusOrder = order[a.status] - order[b.status];
       return statusOrder || a.launchIndex - b.launchIndex;
     });
 }
@@ -247,6 +264,7 @@ export function SubagentActivityTray({
   if (!activities.length || dismissedSignature === signature) return null;
 
   const running = activities.filter((activity) => activity.status === 'running').length;
+  const queued = activities.filter((activity) => activity.status === 'queued').length;
   const failed = activities.filter((activity) => activity.status === 'failed').length;
   const title = activities.length === 1
     ? t('1 subagent')
@@ -255,11 +273,15 @@ export function SubagentActivityTray({
     ? running === 1
       ? t('1 running')
       : t('{count} running', { count: running })
-    : failed > 0
-      ? failed === 1
-        ? t('1 failed')
-        : t('{count} failed', { count: failed })
-      : t('All completed');
+    : queued > 0
+      ? queued === 1
+        ? t('1 queued')
+        : t('{count} queued', { count: queued })
+      : failed > 0
+        ? failed === 1
+          ? t('1 failed')
+          : t('{count} failed', { count: failed })
+        : t('All completed');
 
   return (
     <section
@@ -303,9 +325,11 @@ export function SubagentActivityTray({
               <i aria-hidden="true" />
               {activity.status === 'running'
                 ? t('Running')
-                : activity.status === 'failed'
-                  ? t('Failed')
-                  : t('Completed')}
+                : activity.status === 'queued'
+                  ? t('Queued')
+                  : activity.status === 'failed'
+                    ? t('Failed')
+                    : t('Completed')}
             </span>
           </div>
         ))}

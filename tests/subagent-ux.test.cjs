@@ -165,6 +165,58 @@ test('prompt tray adopts the detailed widget SSE state before the parent result 
   await act(async () => renderer.unmount());
 });
 
+test('prompt tray preserves the queued state published by the detailed widget', async () => {
+  const {
+    AgentThreadState,
+    HandoffSubagentWidget,
+    SubagentActivityTray,
+  } = await import('../dist/esm/index.js');
+  const threadId = 'activity-thread-live-queued';
+  const messages = [{
+    uid: 'queued-launch', role: 'assistant', timestamp: 1, content: {},
+    tool_calls: [{
+      id: 'queued-call', type: 'function',
+      function: { name: 'hand_off_subagent', arguments: '{}' },
+    }],
+  }, {
+    uid: 'queued-tool', role: 'tool', timestamp: 2, tool_call_id: 'queued-call',
+    content: {
+      data: {
+        subThreadId: threadId,
+        asynchronous: true,
+        agent: { id: 'queued-agent', name: 'Queued verifier' },
+      },
+    },
+  }];
+  let renderer;
+
+  await act(async () => {
+    renderer = create(React.createElement(React.Fragment, null,
+      React.createElement(HandoffSubagentWidget, {
+        subThreadId: threadId,
+        threadHint: {
+          _id: threadId,
+          agentId: 'queued-agent',
+          name: 'Queued verifier',
+          state: AgentThreadState.QUEUED,
+          threadContent: [],
+          tasks: [],
+        },
+        streaming: false,
+      }),
+      React.createElement(SubagentActivityTray, { messages }),
+    ));
+  });
+
+  const tray = renderer.root.findByProps({ className: 'devic-subagent-activity' });
+  const json = JSON.stringify(renderer.toJSON());
+  assert.equal(tray.findAllByProps({ 'data-status': 'queued' }).length, 1);
+  assert.equal(tray.findAllByProps({ 'data-status': 'running' }).length, 0);
+  assert.match(json, /1 queued/);
+  assert.doesNotMatch(json, /1 running/);
+  await act(async () => renderer.unmount());
+});
+
 test('renders a synthetic subagent result as an execution card', async () => {
   const { SubagentResultCard } = await import('../dist/esm/index.js');
   const html = renderToStaticMarkup(

@@ -33,7 +33,7 @@ export type {
 } from './i18n';
 
 // Components
-export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, SubagentResultCard, SubagentActivityTray, collectSubagentActivities, ReferenceChip, UsageBar, LimitBanner, QueueNotice, RecalledMemoriesWidget, CompactionWidget, GuardrailNotice } from './components/ChatDrawer';
+export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, SubagentResultCard, SubagentActivityTray, collectSubagentActivities, ReferenceChip, UsageBar, LimitBanner, QueueNotice, AssistantPauseWidget, RecalledMemoriesWidget, CompactionWidget, GuardrailNotice } from './components/ChatDrawer';
 export type {
   ChatDrawerProps,
   ChatDrawerOptions,
@@ -59,6 +59,7 @@ export type {
   UsageBarData,
   LimitBannerProps,
   QueueNoticeProps,
+  AssistantPauseWidgetProps,
   RecalledMemoriesWidgetProps,
   RecalledMemoriesRenderer,
   RecalledMemoriesRendererProps,
@@ -212,7 +213,9 @@ export type {
   AssistantResponse,
   AsyncResponse,
   QueueDisposition,
+  StopScope,
   StopChatResponse,
+  ResumePausedChatResponse,
   RealtimeChatHistory,
   RealtimeStatus,
   PendingAsyncToolCall,

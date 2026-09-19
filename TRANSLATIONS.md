@@ -34,12 +34,12 @@ here:
 - `New chat`
 - `No conversations`
 - `No credentials configured. Cannot transcribe audio.`
+- `No paused conversation to resume`
 - `Open chat`
 - `Remove reference`
 - `Search conversations...`
 - `The assistant is not taking messages while it works. Your message is back in the box.`
 - `Waiting for subagent to complete`
-- `Assistant paused until its scheduled resume time`
 - `Waiting for tool response`
 - `Your message is back in the box.`
 - `{count} queued messages were not sent — the text is back in the box.`
@@ -50,11 +50,14 @@ here:
 - `1 message waiting — the assistant picks it up on its next turn.`
 - `1 message waiting — the assistant picks it up when it comes back to this conversation.`
 - `Attach file`
+- `Assistant paused`
 - `Audio recording is not supported in this browser`
 - `Auto-sending… keep talking to cancel`
 - `Cancel recording`
+- `Cancel conversation and subagents`
 - `Confirm`
 - `Could not start recording: {error}`
+- `Could not resume the assistant. Try again.`
 - `Could not transcribe the audio: {error}`
 - `Drop files to attach`
 - `Hands-free on`
@@ -66,14 +69,19 @@ here:
 - `Record voice message`
 - `Remove pasted text`
 - `Resume`
+- `Resume now`
+- `Resuming…`
 - `Send message`
 - `Stop hands-free`
+- `Stop current response`
 - `Stop`
+- `More stop options`
 - `Tap to dictate · hold to start hands-free`
 - `The assistant is answering…`
 - `The assistant is still answering. Send anyway and your message joins its next turn.`
 - `Transcribing…`
 - `Type a message...`
+- `Paused until {when}`
 - `unknown error`
 - `Write while the assistant answers — it will be queued`
 - `{count} lines`
@@ -83,11 +91,15 @@ here:
 
 ## Chat drawer — messages
 
+- `1 failed`
+- `1 queued`
+- `1 running`
 - `1 entity`
 - `1 fact`
 - `1 message`
 - `1 message is still in this conversation but no longer sent to the assistant`
 - `Audio unavailable`
+- `All completed`
 - `collapse`
 - `Compacting context`
 - `Completed`
@@ -96,6 +108,7 @@ here:
 - `Decisions`
 - `Dictated by voice`
 - `Done`
+- `Dismiss subagent activity`
 - `expand`
 - `Goal`
 - `In progress`
@@ -112,8 +125,10 @@ here:
 - `Processing...`
 - `Queued`
 - `Recalled memories`
+- `Running`
 - `since {date}`
 - `Subagent`
+- `Subagent activity`
 - `Summary`
 - `superseded`
 - `Superseded by a later compaction, which merged this summary into itself. Kept for the record.`
@@ -125,10 +140,13 @@ here:
 - `Your message was stopped by the “{name}” guardrail.`
 - `{before} → {after} tokens`
 - `{count} entities`
+- `{count} failed`
 - `{count} facts`
 - `{count} lines`
 - `{count} messages`
 - `{count} messages are still in this conversation but no longer sent to the assistant`
+- `{count} queued`
+- `{count} running`
 - `{tokens} tokens`
 
 ## Chat drawer — usage and limits

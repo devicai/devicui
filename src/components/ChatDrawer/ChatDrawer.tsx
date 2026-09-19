@@ -9,9 +9,10 @@ import { ConversationSelector } from './ConversationSelector';
 import { ChatDrawerErrorBoundary } from './ErrorBoundary';
 import { UsageBar } from './UsageBar';
 import { LimitBanner } from './LimitBanner';
+import { AssistantPauseWidget } from './AssistantPauseWidget';
 import { isRenderedLimitError } from '../../utils/limitError';
 import { QueueNotice } from './QueueNotice';
-import { SubagentActivityTray } from './SubagentActivityTray';
+import { collectSubagentActivities, SubagentActivityTray } from './SubagentActivityTray';
 import { CoreMemoryModal, DEFAULT_CORE_MEMORY_LABELS } from '../CoreMemoryModal';
 import {
   IntegrationsHint,
@@ -30,7 +31,7 @@ import { isVoiceInvitationHidden, hideVoiceInvitation } from '../../utils/voiceI
 import { DevicTranslationsProvider, useTranslations } from '../../i18n';
 import type { DevicTheme } from '../theme';
 import type { ChatDrawerProps, ChatDrawerOptions, ChatDrawerHandle } from './ChatDrawer.types';
-import type { QueueDisposition } from '../../api/types';
+import type { QueueDisposition, StopScope } from '../../api/types';
 import './styles.css';
 const LiveVoicePanel = React.lazy(() => import('./LiveVoicePanel'));
 import { avatarUri } from '../../utils/avatar';
@@ -87,6 +88,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   showFeedback: true,
   showSubagentActivity: true,
   handoffWidgetRenderer: undefined as any,
+  pauseWidgetRenderer: undefined as any,
   toolGroups: undefined as any,
   stopButtonContent: undefined as any,
   debug: false,
@@ -519,6 +521,19 @@ function ChatDrawerInner({
         : <LimitBanner limit={chat.limitExceeded} />
       : null;
 
+  const pauseWidgetProps = {
+    pausedUntil: chat.pausedUntil,
+    pausedReason: chat.pausedReason,
+    resumeNow: chat.resumeNow,
+    isResuming: chat.isResumingPause,
+    error: chat.resumePauseError,
+  };
+  const pauseWidgetNode = chat.status === 'paused_for_resume'
+    ? mergedOptions.pauseWidgetRenderer
+      ? mergedOptions.pauseWidgetRenderer(pauseWidgetProps)
+      : <AssistantPauseWidget {...pauseWidgetProps} />
+    : null;
+
   // Speech-to-text transcription, exposed to custom prompt boxes so a developer
   // can transcribe audio (binary or URL) and attach the resulting transcriptId.
   const transcribeAudio = useCallback(
@@ -685,8 +700,10 @@ function ChatDrawerInner({
   const canQueue =
     chat.queueEnabled && inlineWidgets.length === 0 && !chat.limitExceeded;
 
-  const handleStopChat = useCallback(async () => {
-    const result = await chat.stopChat();
+  const handleStopChat = useCallback(async (
+    scope: StopScope = 'conversation',
+  ) => {
+    const result = await chat.stopChat(scope);
     setQueueDisposition(undefined);
     setQueueAlert(
       result.discarded
@@ -700,6 +717,19 @@ function ChatDrawerInner({
     );
     return result;
   }, [chat]);
+
+  const hasRunningSubagents = useMemo(
+    () => collectSubagentActivities(chat.messages).some(
+      (activity) =>
+        activity.status === 'running' || activity.status === 'queued'
+    ),
+    [chat.messages]
+  );
+  const canCancelConversation =
+    chat.isLoading ||
+    chat.handedOff ||
+    chat.status === 'paused_for_resume' ||
+    hasRunningSubagents;
 
   /**
    * Shown while there is something to explain: the user is writing into a run
@@ -1155,6 +1185,7 @@ function ChatDrawerInner({
             {integrationsHintNode}
             {queueNoticeNode}
             {subagentActivityNode}
+            {pauseWidgetNode}
             {mergedOptions.customPromptBox({
               voice: chat.voice,
               sendMessage: handleSend,
@@ -1163,6 +1194,11 @@ function ChatDrawerInner({
               isLoading: chat.isLoading,
               queueEnabled: canQueue,
               queuedCount: chat.queuedCount,
+              pausedUntil: chat.pausedUntil,
+              pausedReason: chat.pausedReason,
+              isResumingPause: chat.isResumingPause,
+              resumePauseError: chat.resumePauseError,
+              resumeNow: chat.resumeNow,
               newConversation: chat.clearChat,
               references,
               removeReference,
@@ -1209,17 +1245,17 @@ function ChatDrawerInner({
             disabledMessage={
               chat.handedOff
                 ? t('Waiting for subagent to complete')
-                : chat.status === 'paused_for_resume'
-                  ? t('Assistant paused until its scheduled resume time')
                 : inlineWidgets.length > 0
                   ? t('Waiting for tool response')
                   : undefined
             }
             isProcessing={chat.isLoading && !chat.handedOff}
+            canCancelConversation={canCancelConversation}
             onStop={handleStopChat}
             allowQueueing={canQueue}
             queueNotice={queueNoticeNode}
             subagentActivity={subagentActivityNode}
+            pauseWidget={pauseWidgetNode}
             stopButtonContent={mergedOptions.stopButtonContent}
             pendingInputWidget={inputWidget}
             onSubmitWidget={chat.submitWidgetResponse}

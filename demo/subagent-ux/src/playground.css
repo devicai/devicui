@@ -39,6 +39,14 @@ section { padding: 30px 0 42px; border-top: 1px solid #2c2c31; }
 .live-badge i { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 4px rgba(74, 222, 128, .1); }
 .live-chat-shell { height: 720px; min-width: 0; }
 .live-chat-shell .devic-chat-drawer { overflow: hidden; }
+.playground-pause-banner { display: flex; align-items: center; gap: 12px; margin: 0 14px 10px; padding: 12px 14px; border: 1px solid rgba(245, 158, 11, .42); border-radius: 10px; background: rgba(120, 72, 8, .18); }
+.playground-pause-icon { color: #fbbf24; font-size: 22px; line-height: 1; }
+.playground-pause-banner > div { display: grid; gap: 3px; flex: 1; min-width: 0; }
+.playground-pause-banner strong { color: #fef3c7; font-size: 13px; }
+.playground-pause-banner span:not(.playground-pause-icon) { overflow: hidden; color: #b8afa0; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.playground-pause-banner button { flex: none; padding: 7px 10px; border: 1px solid rgba(251, 191, 36, .45); border-radius: 7px; background: rgba(245, 158, 11, .12); color: #fde68a; cursor: pointer; }
+.playground-pause-banner button:disabled { cursor: wait; opacity: .6; }
+.playground-pause-banner .playground-pause-error { color: #fca5a5; }
 .compact-preview { max-width: 720px; padding: 14px; border: 1px solid #34343a; border-radius: 14px; background: #18181b; }
 .compact-prompt { min-height: 46px; display: flex; align-items: center; gap: 12px; padding: 9px 10px 9px 14px; border-radius: 9px; background: #202024; color: #77727f; font-size: 13px; }
 .compact-prompt span { flex: 1; }

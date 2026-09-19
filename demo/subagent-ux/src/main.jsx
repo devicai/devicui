@@ -15,6 +15,7 @@ const assistantId = '02833776-0e30-4b7e-8586-664c1ac446a1';
 const apiBaseUrl = '/devic-api';
 const playgroundCredential = 'local-playground-proxy';
 const parallelPrompt = 'Lanza los dos subagentes disponibles en paralelo y en modo asíncrono. Continúa tu ejecución mientras trabajan, indica qué agente has lanzado y espera a incorporar sus dos resultados al hilo.';
+const pausePrompt = 'Pausa esta conversación durante 1 minuto usando pause_and_resume. No hagas nada más hasta reanudar.';
 const agents = [
   { id: 'agent-research', name: 'Analista', thread: 'thread-research' },
   { id: 'agent-critic', name: 'Crítico', thread: 'thread-critic' },
@@ -128,6 +129,22 @@ const parallelResults = {
   },
 };
 
+function PlaygroundPauseBanner({ pausedUntil, pausedReason, resumeNow, isResuming, error }) {
+  return (
+    <div className="playground-pause-banner" role="status">
+      <span className="playground-pause-icon">◷</span>
+      <div>
+        <strong>Pausa activa hasta {pausedUntil ? new Date(pausedUntil).toLocaleTimeString() : 'la hora programada'}</strong>
+        {pausedReason ? <span>{pausedReason}</span> : null}
+        {error ? <span className="playground-pause-error">No se pudo reanudar: {error.message}</span> : null}
+      </div>
+      <button type="button" disabled={isResuming} onClick={() => void resumeNow().catch(() => undefined)}>
+        {isResuming ? 'Reanudando…' : 'Reanudar ahora'}
+      </button>
+    </div>
+  );
+}
+
 function App() {
   return (
     <main className="playground">
@@ -143,11 +160,11 @@ function App() {
           <aside className="live-guide">
             <span className="live-badge"><i /> Backend local</span>
             <h3>Async Coordinator</h3>
-            <p>El mensaje sugerido pide lanzar al Analista y al Crítico sin bloquear el turno principal.</p>
+            <p>Los mensajes sugeridos prueban subagentes paralelos y la pausa con reinicio anticipado.</p>
             <ol>
-              <li>Envía el mensaje sugerido.</li>
+              <li>Envía una de las dos pruebas sugeridas.</li>
               <li>Comprueba que ambos aparecen dentro de un único widget compacto.</li>
-              <li>Déjalo abierto: el chat usa SSE y debe incorporar cada resultado sin recargar.</li>
+              <li>En la prueba de pausa, pulsa “Reanudar ahora”: el mismo turno debe continuar por SSE.</li>
             </ol>
             <code>{assistantId}</code>
           </aside>
@@ -167,10 +184,16 @@ function App() {
                   borderRadius: 14,
                   title: 'Async Coordinator',
                   welcomeMessage: 'Prueba la ejecución paralela de los dos subagentes locales.',
-                  suggestedMessages: [{
-                    content: <>↗ Lanzar Analista + Crítico en paralelo</>,
-                    message: parallelPrompt,
-                  }],
+                  suggestedMessages: [
+                    {
+                      content: <>↗ Lanzar Analista + Crítico en paralelo</>,
+                      message: parallelPrompt,
+                    },
+                    {
+                      content: <>◷ Pausar 1 minuto y reanudar antes</>,
+                      message: pausePrompt,
+                    },
+                  ],
                   inputPlaceholder: 'Pide una ejecución asíncrona en paralelo…',
                   showToolTimeline: true,
                   showFeedback: false,
@@ -186,6 +209,7 @@ function App() {
                   assistantBubbleColor: '#25242a',
                   assistantBubbleTextColor: '#f5f3ff',
                   sendButtonColor: '#8b6df6',
+                  pauseWidgetRenderer: (props) => <PlaygroundPauseBanner {...props} />,
                 }}
               />
             </DevicProvider>
