@@ -62,7 +62,7 @@ export function resolveStreaming(
   return DEFAULT_STREAMING;
 }
 
-export interface UsePollingOptions {
+export interface UsePollingOptions<T extends object = RealtimeChatHistory> {
   /**
    * Opens a server-sent event stream for the conversation and feeds every
    * snapshot it carries. While the connection is open the timer below makes
@@ -72,7 +72,7 @@ export interface UsePollingOptions {
    * Absent, the hook only polls.
    */
   streamFn?: (
-    onSnapshot: (data: RealtimeChatHistory) => Promise<void>,
+    onSnapshot: (data: T) => Promise<void>,
     signal: AbortSignal,
     onActivity?: () => void,
   ) => Promise<void>;
@@ -99,7 +99,10 @@ export interface UsePollingOptions {
    * Statuses that should stop polling
    * @default ['completed', 'error']
    */
-  stopStatuses?: RealtimeStatus[];
+  stopStatuses?: Array<RealtimeStatus | string>;
+
+  /** Reads the lifecycle status from a snapshot. Defaults to `data.status`. */
+  getStatus?: (data: T) => string | undefined;
 
   /**
    * Consulted when the status says the conversation is done. Returning true
@@ -112,17 +115,17 @@ export interface UsePollingOptions {
    * responsible for bounding it — the hook will hold open for as long as it is
    * told to.
    */
-  holdOpen?: (data: RealtimeChatHistory) => boolean;
+  holdOpen?: (data: T) => boolean;
 
   /**
    * Callback when polling stops
    */
-  onStop?: (data: RealtimeChatHistory | null) => void;
+  onStop?: (data: T | null) => void;
 
   /**
    * Callback on each poll update
    */
-  onUpdate?: (data: RealtimeChatHistory) => void | Promise<void>;
+  onUpdate?: (data: T) => void | Promise<void>;
 
   /**
    * Callback on poll error
@@ -136,11 +139,11 @@ export interface UsePollingOptions {
   debug?: boolean;
 }
 
-export interface UsePollingResult {
+export interface UsePollingResult<T extends object = RealtimeChatHistory> {
   /**
    * Current polling data
    */
-  data: RealtimeChatHistory | null;
+  data: T | null;
 
   /**
    * Whether polling is currently active
@@ -175,16 +178,18 @@ export interface UsePollingResult {
  * @param fetchFn - Function that fetches the realtime history
  * @param options - Polling options
  */
-export function usePolling(
+export function usePolling<T extends object = RealtimeChatHistory>(
   chatUid: string | null,
-  fetchFn: () => Promise<RealtimeChatHistory>,
-  options: UsePollingOptions = {}
-): UsePollingResult {
+  fetchFn: () => Promise<T>,
+  options: UsePollingOptions<T> = {}
+): UsePollingResult<T> {
   const {
     interval = DEFAULT_POLLING_INTERVAL_MS,
     enabled = true,
     stopStatuses = ['completed', 'error'],
     holdOpen,
+    getStatus = (snapshot: T) =>
+      (snapshot as RealtimeChatHistory).status,
     onStop,
     onUpdate,
     onError,
@@ -195,7 +200,7 @@ export function usePolling(
   const logRef = useRef(log);
   logRef.current = log;
 
-  const [data, setData] = useState<RealtimeChatHistory | null>(null);
+  const [data, setData] = useState<T | null>(null);
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -221,6 +226,7 @@ export function usePolling(
   const onErrorRef = useRef(onError);
   const fetchFnRef = useRef(fetchFn);
   const stopStatusesRef = useRef(stopStatuses);
+  const getStatusRef = useRef(getStatus);
   const intervalValueRef = useRef(interval);
   const isPollingRef = useRef(false);
   // Cadence the running timer was armed with, so a change can be detected.
@@ -233,6 +239,7 @@ export function usePolling(
     onErrorRef.current = onError;
     fetchFnRef.current = fetchFn;
     stopStatusesRef.current = stopStatuses;
+    getStatusRef.current = getStatus;
     intervalValueRef.current = interval;
   });
 
@@ -245,7 +252,7 @@ export function usePolling(
     isPollingRef.current = false;
   }, []);
 
-  const fetchData = useCallback(async (snapshot?: RealtimeChatHistory, force = false) => {
+  const fetchData = useCallback(async (snapshot?: T, force = false) => {
     logRef.current.log('[usePolling] fetchData called, isMounted:', isMountedRef.current);
     if (!isMountedRef.current) return;
 
@@ -265,7 +272,9 @@ export function usePolling(
       const result = snapshot || await fetchFnRef.current();
       if (startedChat !== chatUidRef.current) return;
       if (!snapshot && lastStreamAt.current > started) return;
-      logRef.current.log('[usePolling] Fetch result:', { status: result.status, messageCount: result.chatHistory?.length });
+      const status = getStatusRef.current(result);
+      const chatHistory = (result as RealtimeChatHistory).chatHistory;
+      logRef.current.log('[usePolling] Fetch result:', { status, messageCount: chatHistory?.length });
 
       if (!isMountedRef.current) return;
 
@@ -275,11 +284,12 @@ export function usePolling(
 
       // Check if we should stop polling
       const shouldStop =
-        stopStatusesRef.current.includes(result.status) &&
+        !!status &&
+        stopStatusesRef.current.includes(status) &&
         !holdOpenRef.current?.(result);
-      logRef.current.log('[usePolling] Should stop?', shouldStop, 'stopStatuses:', stopStatusesRef.current, 'current status:', result.status);
+      logRef.current.log('[usePolling] Should stop?', shouldStop, 'stopStatuses:', stopStatusesRef.current, 'current status:', status);
       if (shouldStop) {
-        logRef.current.log('[usePolling] Stopping polling due to status:', result.status);
+        logRef.current.log('[usePolling] Stopping polling due to status:', status);
         clearPolling();
         setIsPolling(false);
         onStopRef.current?.(result);

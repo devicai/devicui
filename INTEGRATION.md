@@ -525,8 +525,10 @@ Two other things also queue, and both are covered:
 
 - an assistant with an **input delay** collects what is written into an *idle*
   conversation during that window, whatever the queue setting says;
-- a conversation waiting on a **subagent** or a tool response takes messages too,
-  and drains them when it resumes.
+- a conversation waiting on a **subagent**, a timed self-pause, or a tool
+  response takes messages too, and drains them when it resumes. The widget
+  stops its active poll during a timed pause and automatically reconnects at
+  the scheduled resume time.
 
 ```tsx
 <ChatDrawer

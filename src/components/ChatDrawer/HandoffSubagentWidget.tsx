@@ -4,15 +4,23 @@ import { DevicApiClient } from '../../api/client';
 import { AgentThreadState } from '../../api/types';
 import type { AgentThreadDto, AgentDto } from '../../api/types';
 import { ThreadStateTag } from '../ThreadStateTag';
-import { resolvePollingInterval } from '../../hooks/usePolling';
+import {
+  resolvePollingInterval,
+  resolveStreaming,
+  usePolling,
+} from '../../hooks/usePolling';
 import { createLogger } from '../../utils/logger';
 import { avatarUri } from '../../utils/avatar';
+import { publishSubagentLifecycle } from '../../utils/subagentLifecycle';
 import { useTranslations } from '../../i18n';
 
 const TERMINAL_STATES: AgentThreadState[] = [
   AgentThreadState.COMPLETED,
   AgentThreadState.FAILED,
   AgentThreadState.TERMINATED,
+  AgentThreadState.APPROVAL_REJECTED,
+  AgentThreadState.GUARDRAIL_TRIGGER,
+  AgentThreadState.LIMIT_EXCEEDED,
 ];
 
 /**
@@ -27,10 +35,19 @@ export interface HandoffSubagentWidgetProps {
    */
   subThreadId: string;
 
+  /** Identity returned by the handoff acknowledgement, shown before polling. */
+  agentHint?: Pick<AgentDto, '_id' | 'name' | 'imgUrl' | 'avatarStyle'>;
+
+  /** Optional initial snapshot, useful while the first poll is pending. */
+  threadHint?: AgentThreadDto;
+
   /**
    * Called when the subthread reaches a terminal state
    */
   onCompleted?: () => void;
+
+  /** Called whenever a fresh lifecycle snapshot changes the thread state. */
+  onStateChange?: (state: AgentThreadState) => void;
 
   /**
    * API key (overrides provider context)
@@ -48,6 +65,19 @@ export interface HandoffSubagentWidgetProps {
    * @default 5000
    */
   pollingInterval?: number;
+
+  /**
+   * Follow lifecycle snapshots over SSE, with polling retained as fallback.
+   * Overrides the DevicProvider setting.
+   */
+  streaming?: boolean;
+
+  /**
+   * Render as a collapsible row inside an aggregate handoff widget.
+   * Polling/SSE and completion callbacks remain independent per subthread.
+   * @default false
+   */
+  compact?: boolean;
 
   /**
    * Custom renderer to replace the entire widget content.
@@ -69,10 +99,15 @@ function formatElapsed(seconds: number): string {
 
 export function HandoffSubagentWidget({
   subThreadId,
+  agentHint,
+  threadHint,
   onCompleted,
+  onStateChange,
   apiKey,
   baseUrl,
   pollingInterval,
+  streaming,
+  compact = false,
   renderWidget,
 }: HandoffSubagentWidgetProps): JSX.Element {
   const t = useTranslations();
@@ -84,14 +119,14 @@ export function HandoffSubagentWidget({
     context?.pollingInterval,
     DEFAULT_POLL_INTERVAL_MS
   );
+  const resolvedStreaming = resolveStreaming(streaming, context?.streaming);
   const debug = context?.debug ?? false;
   const log = useMemo(() => createLogger(debug), [debug]);
 
-  const [thread, setThread] = useState<AgentThreadDto | null>(null);
-  const [agent, setAgent] = useState<AgentDto | null>(null);
+  const [thread, setThread] = useState<AgentThreadDto | null>(threadHint || null);
+  const [agent, setAgent] = useState<AgentDto | null>(agentHint as AgentDto | null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasCalledCompleted = useRef(false);
   const startTimeRef = useRef(Date.now());
@@ -108,42 +143,66 @@ export function HandoffSubagentWidget({
     });
   }, [resolvedApiKey, resolvedTenantSession, resolvedBaseUrl]);
 
-  const fetchThread = useCallback(async () => {
+  const fetchThread = useCallback(async (): Promise<AgentThreadDto> => {
     const client = getClient();
-    if (!client) return;
+    if (!client) throw new Error('No API client available');
+    // Keep lifecycle polling on the lightweight thread read. `withTasks`
+    // also calls Task and Template services server-side; if either one is
+    // unavailable the status would never reach the card.
+    return client.getThreadById(subThreadId, false);
+  }, [subThreadId, getClient]);
 
-    try {
-      const data = await client.getThreadById(subThreadId, true);
-      log.log('[HandoffSubagentWidget] Thread loaded:', {
-        id: data._id,
-        agentId: data.agentId,
-        parentAgentId: data.parentAgentId,
-        name: data.name,
-        state: data.state,
-      });
-      setThread(data);
-
-      if (
-        data.state &&
-        TERMINAL_STATES.includes(data.state) &&
-        !hasCalledCompleted.current
-      ) {
-        hasCalledCompleted.current = true;
-        onCompleted?.();
-      }
-    } catch (err) {
-      log.error('[HandoffSubagentWidget] Error fetching thread:', err);
+  const acceptThread = useCallback((data: AgentThreadDto) => {
+    log.log('[HandoffSubagentWidget] Thread loaded:', {
+      id: data._id,
+      agentId: data.agentId,
+      parentAgentId: data.parentAgentId,
+      name: data.name,
+      state: data.state,
+    });
+    setThread(data);
+    if (data.state) {
+      publishSubagentLifecycle(subThreadId, data.state);
+      onStateChange?.(data.state);
     }
-  }, [subThreadId, getClient, onCompleted]);
+    if (
+      data.state &&
+      TERMINAL_STATES.includes(data.state) &&
+      !hasCalledCompleted.current
+    ) {
+      hasCalledCompleted.current = true;
+      onCompleted?.();
+    }
+  }, [log, onCompleted, onStateChange, subThreadId]);
 
-  // Initial fetch + polling
+  // An initial snapshot is already authoritative. Publish it immediately so
+  // sibling prompt UI does not briefly regress to the launch-derived state.
   useEffect(() => {
-    fetchThread();
-    pollRef.current = setInterval(fetchThread, resolvedPollInterval);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [fetchThread, resolvedPollInterval]);
+    if (!threadHint?.state) return;
+    publishSubagentLifecycle(subThreadId, threadHint.state);
+    onStateChange?.(threadHint.state);
+  }, [onStateChange, subThreadId, threadHint?.state]);
+
+  const streamThread = useCallback((
+    onSnapshot: (data: AgentThreadDto) => Promise<void>,
+    signal: AbortSignal,
+    onActivity?: () => void,
+  ) => {
+    const client = getClient();
+    if (!client) return Promise.reject(new Error('No API client available'));
+    return client.streamThread(subThreadId, onSnapshot, signal, onActivity);
+  }, [getClient, subThreadId]);
+
+  usePolling<AgentThreadDto>(subThreadId, fetchThread, {
+    interval: resolvedPollInterval,
+    streamFn: resolvedStreaming ? streamThread : undefined,
+    getStatus: (data) => data.state,
+    stopStatuses: TERMINAL_STATES,
+    onUpdate: acceptThread,
+    onError: (error) =>
+      log.error('[HandoffSubagentWidget] Error loading thread:', error),
+    debug,
+  });
 
   // Fetch agent details once we have a thread with an agent ID
   const agentIdToFetch = thread?.agentId || thread?.parentAgentId;
@@ -163,16 +222,6 @@ export function HandoffSubagentWidget({
       log.warn('[HandoffSubagentWidget] Could not fetch agent details:', err);
     });
   }, [agentIdToFetch, agent, getClient]);
-
-  // Stop polling on terminal state
-  useEffect(() => {
-    if (thread?.state && TERMINAL_STATES.includes(thread.state)) {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-    }
-  }, [thread?.state]);
 
   // Elapsed timer
   useEffect(() => {
@@ -210,6 +259,92 @@ export function HandoffSubagentWidget({
     return <>{renderWidget({ thread, agent, elapsedSeconds, isTerminal })}</>;
   }
 
+  const agentName = agent?.name || thread?.name || t('Subagent');
+
+  if (compact) {
+    const state = thread?.state;
+    const status = compactStateStatus(state);
+
+    return (
+      <details className="devic-handoff-compact" data-status={status}>
+        <summary className="devic-handoff-compact-summary">
+          <span className="devic-handoff-agent-avatar">
+            {agent?.imgUrl || agent?._id ? (
+              <img
+                src={agent.imgUrl || avatarUri(agent._id!, agent.avatarStyle)}
+                alt=""
+                className="devic-handoff-avatar-img"
+              />
+            ) : (
+              <RobotFallbackIcon />
+            )}
+          </span>
+          <span className="devic-handoff-compact-copy">
+            <span className="devic-handoff-agent-name">{agentName}</span>
+            {lastSummary && (
+              <span className="devic-handoff-compact-preview">{lastSummary}</span>
+            )}
+          </span>
+          <span className="devic-handoff-compact-state">
+            <i aria-hidden="true" />
+            {compactStateLabel(t, state)}
+          </span>
+          <CompactChevronIcon />
+        </summary>
+
+        <div className="devic-handoff-compact-body">
+          {state && (
+            <div className="devic-handoff-state-row">
+              <ThreadStateTag
+                state={state}
+                threadId={thread._id || subThreadId}
+                agentName={agentName}
+                pausedReason={thread.pausedReason}
+                finishReason={thread.finishReason}
+                pauseUntil={thread.pauseUntil}
+                interactive={true}
+                apiKey={resolvedApiKey}
+                baseUrl={resolvedBaseUrl}
+              />
+            </div>
+          )}
+
+          {totalTasks > 0 && (
+            <div className="devic-handoff-progress">
+              <div className="devic-handoff-progress-bar">
+                <div
+                  className="devic-handoff-progress-fill"
+                  data-status={state === AgentThreadState.FAILED ? 'error' : isTerminal ? 'success' : 'active'}
+                  style={{ width: `${taskPercentage}%` }}
+                />
+              </div>
+              <span className="devic-handoff-progress-text">
+                {completedTasks}/{totalTasks}
+              </span>
+            </div>
+          )}
+
+          {totalTasks === 0 && isProcessing && (
+            <div className="devic-handoff-progress">
+              <div className="devic-handoff-progress-bar">
+                <div className="devic-handoff-progress-indeterminate" />
+              </div>
+            </div>
+          )}
+
+          {lastSummary && <div className="devic-handoff-summary">{lastSummary}</div>}
+
+          {isProcessing && (
+            <div className="devic-handoff-elapsed">
+              <ClockSmallIcon />
+              <span>{formatElapsed(elapsedSeconds)}</span>
+            </div>
+          )}
+        </div>
+      </details>
+    );
+  }
+
   return (
     <div className="devic-handoff-widget">
       {/* Header: Agent avatar + name */}
@@ -229,7 +364,7 @@ export function HandoffSubagentWidget({
           )}
         </div>
         <span className="devic-handoff-agent-name">
-          {agent?.name || thread?.name || t('Subagent')}
+          {agentName}
         </span>
       </div>
 
@@ -239,7 +374,7 @@ export function HandoffSubagentWidget({
           <ThreadStateTag
             state={thread.state}
             threadId={thread._id || subThreadId}
-            agentName={agent?.name || thread?.name || t('Subagent')}
+            agentName={agentName}
             pausedReason={thread.pausedReason}
             finishReason={thread.finishReason}
             pauseUntil={thread.pauseUntil}
@@ -293,6 +428,55 @@ export function HandoffSubagentWidget({
   );
 }
 
+type CompactStateStatus = 'loading' | 'queued' | 'running' | 'completed' | 'paused' | 'failed';
+
+function compactStateStatus(state?: AgentThreadState): CompactStateStatus {
+  switch (state) {
+    case AgentThreadState.COMPLETED:
+      return 'completed';
+    case AgentThreadState.FAILED:
+    case AgentThreadState.TERMINATED:
+    case AgentThreadState.APPROVAL_REJECTED:
+    case AgentThreadState.GUARDRAIL_TRIGGER:
+    case AgentThreadState.LIMIT_EXCEEDED:
+      return 'failed';
+    case AgentThreadState.PROCESSING:
+    case AgentThreadState.HANDED_OFF:
+      return 'running';
+    case AgentThreadState.PAUSED:
+    case AgentThreadState.PAUSED_FOR_APPROVAL:
+    case AgentThreadState.PAUSED_FOR_RESUME:
+    case AgentThreadState.WAITING_FOR_RESPONSE:
+      return 'paused';
+    case AgentThreadState.QUEUED:
+      return 'queued';
+    default:
+      return 'loading';
+  }
+}
+
+function compactStateLabel(
+  t: ReturnType<typeof useTranslations>,
+  state?: AgentThreadState,
+): string {
+  switch (state) {
+    case AgentThreadState.QUEUED: return t('Queued');
+    case AgentThreadState.PROCESSING: return t('Processing');
+    case AgentThreadState.COMPLETED: return t('Completed');
+    case AgentThreadState.FAILED: return t('Failed');
+    case AgentThreadState.TERMINATED: return t('Terminated');
+    case AgentThreadState.GUARDRAIL_TRIGGER: return t('Guardrail Triggered');
+    case AgentThreadState.PAUSED: return t('Paused');
+    case AgentThreadState.PAUSED_FOR_APPROVAL: return t('Waiting for approval');
+    case AgentThreadState.APPROVAL_REJECTED: return t('Approval rejected');
+    case AgentThreadState.WAITING_FOR_RESPONSE: return t('Waiting for response');
+    case AgentThreadState.PAUSED_FOR_RESUME: return t('Resume scheduled');
+    case AgentThreadState.HANDED_OFF: return t('Handed off');
+    case AgentThreadState.LIMIT_EXCEEDED: return t('Limit exceeded');
+    default: return t('Starting...');
+  }
+}
+
 /* ── Icons ── */
 
 function RobotFallbackIcon(): JSX.Element {
@@ -312,6 +496,14 @@ function ClockSmallIcon(): JSX.Element {
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />
       <polyline points="12,6 12,12 16,14" />
+    </svg>
+  );
+}
+
+function CompactChevronIcon(): JSX.Element {
+  return (
+    <svg className="devic-handoff-compact-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="6 9 12 15 18 9" />
     </svg>
   );
 }

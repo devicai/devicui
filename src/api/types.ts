@@ -82,6 +82,12 @@ export interface ChatMessage {
   tool_calls?: ToolCall[];
   tool_call_id?: string;
   summary?: string;
+  /** Origin channel. `subagent` marks an internal synthetic user turn. */
+  source?: string;
+  /** True when the platform, rather than the end user, created the message. */
+  synthetic?: boolean;
+  eventType?: 'subagent_result' | 'subagent_results';
+  subagent?: SubagentMessageMetadata;
   /**
    * Where `content.message` came from, when the model did not write it.
    * `'finish_tool'`: the assistant is configured to require a tool call to
@@ -152,6 +158,16 @@ export interface PinnedMessagesResponse {
   pinnedMessages: PinnedMessageEntry[];
   /** Most messages the conversation can keep pinned at once. */
   maxPinnedMessages: number;
+}
+
+export interface SubagentMessageMetadata {
+  threadId: string;
+  parentToolCallId?: string;
+  agentId?: string;
+  agentName?: string;
+  agentImgUrl?: string;
+  agentAvatarStyle?: AvatarStyle | string;
+  executionMode: 'async';
 }
 
 /**
@@ -334,16 +350,34 @@ export interface AsyncResponse {
  */
 export type QueueDisposition = 'after_delay' | 'next_turn' | 'on_resume';
 
+/** Which part of an assistant conversation a stop request closes. */
+export type StopScope = 'turn' | 'conversation';
+
 /** Response of the stop endpoint. */
 export interface StopChatResponse {
   chatUid: string;
   message: string;
+  outcome?: 'stop_requested' | 'tool_wait_closed' | 'conversation_cancelled';
+  /** Active assistant subthreads terminated by a conversation-level stop. */
+  cancelledSubagentIds?: string[];
+  /** Child callbacks fenced off so they cannot restart the cancelled run. */
+  suppressedSubagentResultIds?: string[];
   /**
    * Queued messages the stop threw away — answering them would be the opposite
    * of what was asked. Handed back so their text can be put where the user
    * wrote it. Absent on an API older than this, and when nothing was queued.
    */
   discardedMessages?: ChatMessage[];
+}
+
+/** Response returned once an early timed-pause continuation has been claimed. */
+export interface ResumePausedChatResponse {
+  chatUid: string;
+  outcome: 'resume_started';
+  /** True when the user resumed before the original deadline. */
+  resumedEarly: boolean;
+  /** Original pause deadline in epoch milliseconds. */
+  previousPausedUntil: number;
 }
 
 /**
@@ -357,6 +391,7 @@ export type RealtimeStatus =
   | 'error'
   | 'waiting_for_tool_response'
   | 'handed_off'
+  | 'paused_for_resume'
   | 'limit_exceeded'
   /** Collecting messages during the assistant's input delay, before any run. */
   | 'buffering';
@@ -485,6 +520,9 @@ export interface RealtimeChatHistory {
    */
   pendingAsyncToolCalls?: PendingAsyncToolCall[];
   handedOffSubThreadId?: string;
+  /** Present while the assistant has paused itself until a future time. */
+  pausedUntil?: number;
+  pausedReason?: string;
   /** Present only when status is `limit_exceeded`. */
   limitExceeded?: TenantLimitExceeded;
   /**
@@ -686,6 +724,12 @@ export interface ChatHistory {
   handedOff?: boolean;
   handedOffSubThreadId?: string;
   handedOffToolCallId?: string;
+  pausedUntil?: number;
+  pausedReason?: string;
+  pausedToolCallId?: string;
+  /** Durable marker for the latest conversation-level cancellation. */
+  cancelledAt?: number;
+  cancelledByUserUID?: string;
   /** Structured long-term-memory recall events of the conversation. */
   recalledMemories?: RecalledMemoryRecord[];
   /** Audit trail of the core-memory blocks the conversation saw. */
@@ -862,6 +906,8 @@ export enum AgentThreadState {
   PAUSED_FOR_RESUME = 'paused_for_resume',
   HANDED_OFF = 'handed_off',
   GUARDRAIL_TRIGGER = 'guardrail_trigger',
+  UNDER_CONSTRUCTION = 'under_construction',
+  LIMIT_EXCEEDED = 'limit_exceeded',
 }
 
 /**
@@ -893,6 +939,8 @@ export interface AgentThreadDto {
   parentThreadId?: string;
   subThreadToolCallId?: string;
   parentAgentId?: string;
+  parentChatUID?: string;
+  parentHandoffMode?: 'wait' | 'async';
 }
 
 /**
@@ -912,8 +960,32 @@ export interface AgentDto {
  * Hand-off tool response content
  */
 export interface HandOffToolResponse {
-  response: string;
-  subthreadId: string;
+  response?: string;
+  subthreadId?: string;
+  subThreadId?: string;
+  subThreadIds?: string[];
+  handedOff?: boolean;
+  asynchronous?: boolean;
+  executionMode?: 'wait' | 'async';
+  launched?: number;
+  failed?: number;
+  agent?: {
+    id: string;
+    name?: string;
+    imgUrl?: string;
+    avatarStyle?: AvatarStyle | string;
+  };
+  executions?: Array<{
+    subthreadId?: string;
+    subThreadId?: string;
+    error?: string;
+    agent: {
+      id: string;
+      name?: string;
+      imgUrl?: string;
+      avatarStyle?: AvatarStyle | string;
+    };
+  }>;
 }
 
 /**

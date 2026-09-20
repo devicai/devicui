@@ -8,6 +8,7 @@ import { createLogger } from '../utils/logger';
 import { useAssistantInfo } from '../api/assistantInfo';
 import { useTranslations } from '../i18n';
 import { useDevicLiveVoice, type UseDevicLiveVoiceResult } from './useDevicLiveVoice';
+import { pendingAsyncSubagentIds } from '../utils/asyncSubagents';
 import type {
   ChatMessage,
   ChatFile,
@@ -20,6 +21,8 @@ import type {
   RealtimeChatHistory,
   RealtimeStatus,
   RecalledMemoryRecord,
+  ResumePausedChatResponse,
+  StopScope,
   TenantLimitExceeded,
 } from '../api/types';
 
@@ -215,6 +218,10 @@ export interface StopResult {
   restoredText?: string;
   /** How many were discarded. */
   discarded: number;
+  scope: StopScope;
+  outcome?: 'stop_requested' | 'tool_wait_closed' | 'conversation_cancelled';
+  cancelledSubagentIds?: string[];
+  suppressedSubagentResultIds?: string[];
 }
 
 export interface UseDevicChatResult {
@@ -238,6 +245,14 @@ export interface UseDevicChatResult {
    * Current status
    */
   status: RealtimeStatus | 'idle';
+
+  /** Original deadline and reason while the assistant is in a timed pause. */
+  pausedUntil: number | null;
+  pausedReason: string | null;
+  /** True while the explicit early-resume request is being claimed. */
+  isResumingPause: boolean;
+  /** Error from the last explicit early-resume attempt, if any. */
+  resumePauseError: Error | null;
 
   /**
    * Last error
@@ -361,7 +376,10 @@ export interface UseDevicChatResult {
    * back where the user wrote it — a stop should not be the way someone's
    * typing disappears.
    */
-  stopChat: () => Promise<StopResult>;
+  stopChat: (scope?: StopScope) => Promise<StopResult>;
+
+  /** End an active timed pause immediately and continue the same turn. */
+  resumeNow: () => Promise<ResumePausedChatResponse>;
 
   /**
    * Pending tool calls that require user interaction via a response widget
@@ -476,6 +494,10 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   useEffect(() => { setStreamingMessage(null); }, [chatUid]);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<RealtimeStatus | 'idle'>('idle');
+  const [pausedUntil, setPausedUntil] = useState<number | null>(null);
+  const [pausedReason, setPausedReason] = useState<string | null>(null);
+  const [isResumingPause, setIsResumingPause] = useState(false);
+  const [resumePauseError, setResumePauseError] = useState<Error | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [limitExceeded, setLimitExceeded] = useState<TenantLimitExceeded | null>(
     null
@@ -524,6 +546,23 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
 
   // Polling state
   const [shouldPoll, setShouldPoll] = useState(false);
+  const pauseResumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const schedulePauseResumeWatch = useCallback(
+    (pausedUntil?: number) => {
+      if (pauseResumeTimerRef.current) {
+        clearTimeout(pauseResumeTimerRef.current);
+      }
+      const delay = Math.min(
+        Math.max((pausedUntil || Date.now()) - Date.now() + 5_000, 5_000),
+        2_147_000_000
+      );
+      pauseResumeTimerRef.current = setTimeout(() => {
+        setIsLoading(true);
+        setShouldPoll(true);
+      }, delay);
+    },
+    []
+  );
 
   // Keep a ref to chatUid so async callbacks always read the latest value
   const chatUidRef = useRef(chatUid);
@@ -629,16 +668,25 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           ...m,
           queued: true,
         }));
-        if (realtime.chatHistory?.length || queuedOnServer.length) {
-          setMessages([...(realtime.chatHistory ?? []), ...queuedOnServer]);
-        }
+        const realtimeMessages = [
+          ...(realtime.chatHistory ?? []),
+          ...queuedOnServer,
+        ];
+        if (realtimeMessages.length) setMessages(realtimeMessages);
         mergeRecalledMemories(realtime.recalledMemories);
         mergeCompactions(realtime.compactions);
         setCompaction(realtime.compaction ?? null);
         setStatus(realtime.status);
+        if (realtime.status === 'paused_for_resume') {
+          setPausedUntil(realtime.pausedUntil ?? null);
+          setPausedReason(realtime.pausedReason ?? null);
+        } else {
+          setPausedUntil(null);
+          setPausedReason(null);
+        }
         setQueuedCount(realtime.queuedMessages ?? 0);
 
-        if (realtime.status === 'processing') {
+        if (realtime.status === 'processing' || realtime.status === 'buffering') {
           // Chat is still processing — resume polling
           setIsLoading(true);
           setShouldPoll(true);
@@ -655,11 +703,24 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           if (subThreadId) {
             setHandedOffSubThreadId(subThreadId);
           }
+        } else if (realtime.status === 'paused_for_resume') {
+          // The scheduler, not the browser, owns this continuation.
+          setIsLoading(false);
+          setShouldPoll(false);
+          schedulePauseResumeWatch(realtime.pausedUntil);
         } else if ((realtime.queuedMessages ?? 0) > 0) {
           // The run settled, but the conversation still owes an answer to
           // something queued — reopened on a conversation whose follow-up run
           // has not started yet. Watch it until the queue is served.
           setIsLoading(true);
+          setShouldPoll(true);
+        } else if (
+          realtime.status === 'completed' &&
+          pendingAsyncSubagentIds(realtimeMessages).length > 0
+        ) {
+          // The parent turn is done, but async children still owe results.
+          // Keep the SSE attached without presenting the parent as busy.
+          setIsLoading(false);
           setShouldPoll(true);
         } else {
           // completed or error — just stop
@@ -671,7 +732,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         setIsLoading(false);
       }
     },
-    [assistantId, mergeRecalledMemories, mergeCompactions]
+    [assistantId, mergeRecalledMemories, mergeCompactions, schedulePauseResumeWatch]
   );
 
   // Load initial chat history if chatUid prop is provided
@@ -788,14 +849,25 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         'completed',
         'error',
         'handed_off',
+        'paused_for_resume',
         'limit_exceeded',
       ],
       onUpdate: async (data: RealtimeChatHistory) => {
+        const pendingSubagentResults = pendingAsyncSubagentIds([
+          ...(data.chatHistory ?? []),
+          ...(data.pendingUserMessages ?? []),
+        ]).length > 0;
         if (observingVoice) {
           setIsLoading(data.status === 'processing' || data.status === 'buffering');
           setHandedOff(data.status === 'handed_off');
           setHandedOffSubThreadId(data.status === 'handed_off' ? data.handedOffSubThreadId || null : null);
           if (data.status === 'error' || data.status === 'limit_exceeded') void voiceRef.current.stop();
+        } else if (data.status === 'completed' && pendingSubagentResults) {
+          // Async handoffs do not make the parent assistant busy. Observation
+          // continues in the background until their synthetic results arrive.
+          setIsLoading(false);
+        } else if (data.status === 'processing' || data.status === 'buffering') {
+          setIsLoading(true);
         }
         setStreamingMessage(data.status === 'processing' ? data.streamingMessage || null : null);
         logRef.current.log('[useDevicChat] onUpdate called, status:', data.status);
@@ -901,6 +973,13 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         mergeCompactions(data.compactions);
         setCompaction(data.compaction ?? null);
         setStatus(data.status);
+        if (data.status === 'paused_for_resume') {
+          setPausedUntil(data.pausedUntil ?? null);
+          setPausedReason(data.pausedReason ?? null);
+        } else {
+          setPausedUntil(null);
+          setPausedReason(null);
+        }
 
         // Notify about new messages
         const lastMessage = data.chatHistory[data.chatHistory.length - 1];
@@ -917,6 +996,14 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       },
       holdOpen: (data) => {
         if (observingVoice && ['completed', 'waiting_for_tool_response', 'handed_off'].includes(data.status)) return true;
+        const hasPendingSubagentResults = pendingAsyncSubagentIds([
+          ...(data.chatHistory ?? []),
+          ...(data.pendingUserMessages ?? []),
+        ]).length > 0;
+        if (data.status === 'completed' && hasPendingSubagentResults) {
+          queueGraceTicksRef.current = 0;
+          return true;
+        }
         // Only `completed` is worth waiting on. An error, a usage limit or a
         // gate mean something else is going on, and holding the poll open would
         // just be watching a conversation that is not coming back.
@@ -973,6 +1060,9 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           if (subThreadId) {
             setHandedOffSubThreadId(subThreadId);
           }
+        } else if (data?.status === 'paused_for_resume') {
+          setIsLoading(false);
+          schedulePauseResumeWatch(data.pausedUntil);
         }
         // MIT waits are not terminal: onUpdate may already have submitted the
         // response. Stopping here would overwrite that continuation. Widgets
@@ -988,6 +1078,15 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       debug,
     }
   );
+
+  useEffect(() => {
+    return () => {
+      if (pauseResumeTimerRef.current) {
+        clearTimeout(pauseResumeTimerRef.current);
+        pauseResumeTimerRef.current = null;
+      }
+    };
+  }, [assistantId, chatUid]);
 
   // Handle pending tool calls from model interface
   const handlePendingToolCalls = useCallback(
@@ -1321,6 +1420,10 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     setChatUid(null);
     setIsLoading(false);
     setStatus('idle');
+    setPausedUntil(null);
+    setPausedReason(null);
+    setIsResumingPause(false);
+    setResumePauseError(null);
     setError(null);
     setLimitExceeded(null);
     setRecalledMemories([]);
@@ -1356,6 +1459,10 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
 
       setIsLoading(true);
       setError(null);
+      setPausedUntil(null);
+      setPausedReason(null);
+      setIsResumingPause(false);
+      setResumePauseError(null);
       setRecalledMemories([]);
       setCompactions([]);
       setCompaction(null);
@@ -1376,8 +1483,16 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         setPinnedMessages(history.pinnedMessages ?? []);
         setChatUid(loadChatUid);
 
-        // Check realtime status to resume in-progress conversations
-        await resumeFromRealtimeStatus(loadChatUid);
+        // A cascade-cancelled run has durable async handoff acknowledgements in
+        // its history but none of those children may deliver a result. Do not
+        // reopen a follow stream for them after selecting/reloading the chat.
+        if (history.cancelledAt) {
+          setIsLoading(false);
+          setStatus('idle');
+        } else {
+          // Check realtime status to resume in-progress conversations
+          await resumeFromRealtimeStatus(loadChatUid);
+        }
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
         setError(error);
@@ -1560,16 +1675,60 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     [changePin]
   );
 
-  // Stop current conversation — calls the server-side stop endpoint
-  // then stops polling and resets loading state.
-  const stopChat = useCallback(async (): Promise<StopResult> => {
+  const resumeNow = useCallback(async (): Promise<ResumePausedChatResponse> => {
     const uid = chatUidRef.current;
-    logRef.current.log('[useDevicChat] stopChat called, chatUid:', uid);
+    if (!clientRef.current || !uid) {
+      const unavailable = new Error(tRef.current('No paused conversation to resume'));
+      setResumePauseError(unavailable);
+      throw unavailable;
+    }
+
+    setIsResumingPause(true);
+    setResumePauseError(null);
+    try {
+      const response = await clientRef.current.resumePausedChat(
+        assistantId,
+        uid,
+      );
+      if (pauseResumeTimerRef.current) {
+        clearTimeout(pauseResumeTimerRef.current);
+        pauseResumeTimerRef.current = null;
+      }
+      setPausedUntil(null);
+      setPausedReason(null);
+      setStatus('processing');
+      setIsLoading(true);
+      setShouldPoll(true);
+      return response;
+    } catch (err) {
+      const resumeError = err instanceof Error ? err : new Error(String(err));
+      setResumePauseError(resumeError);
+      setError(resumeError);
+      setIsLoading(false);
+      setStatus('paused_for_resume');
+      setShouldPoll(false);
+      schedulePauseResumeWatch(pausedUntil ?? undefined);
+      onErrorRef.current?.(resumeError);
+      throw resumeError;
+    } finally {
+      setIsResumingPause(false);
+    }
+  }, [assistantId, pausedUntil, schedulePauseResumeWatch]);
+
+  // Stop one response or the whole logical run. The hook keeps `turn` as its
+  // default for API compatibility; ChatDrawer's primary button explicitly
+  // chooses `conversation`.
+  const stopChat = useCallback(async (
+    scope: StopScope = 'turn',
+  ): Promise<StopResult> => {
+    const uid = chatUidRef.current;
+    logRef.current.log('[useDevicChat] stopChat called, chatUid:', uid, 'scope:', scope);
     let discarded: ChatMessage[] = [];
+    let response: import('../api/types').StopChatResponse | undefined;
     if (clientRef.current && uid) {
       try {
-        const result = await clientRef.current.stopChat(assistantId, uid);
-        discarded = result?.discardedMessages ?? [];
+        response = await clientRef.current.stopChat(assistantId, uid, scope);
+        discarded = response?.discardedMessages ?? [];
         logRef.current.log('[useDevicChat] stopChat API call succeeded');
       } catch (err) {
         logRef.current.warn('[useDevicChat] stopChat API call failed:', err);
@@ -1586,9 +1745,19 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     }
     resetQueueState();
 
-    setShouldPoll(false);
+    const childrenStillRunning =
+      scope === 'turn' && pendingAsyncSubagentIds(messages).length > 0;
+    setShouldPoll(childrenStillRunning);
     setIsLoading(false);
     setStatus('idle');
+    if (scope === 'conversation') {
+      setHandedOff(false);
+      setHandedOffSubThreadId(null);
+      setPausedUntil(null);
+      setPausedReason(null);
+      setIsResumingPause(false);
+      setResumePauseError(null);
+    }
 
     const restoredText = discarded
       .map((m) => m.content?.message)
@@ -1597,9 +1766,13 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
 
     return {
       discarded: discarded.length,
+      scope,
+      outcome: response?.outcome,
+      cancelledSubagentIds: response?.cancelledSubagentIds,
+      suppressedSubagentResultIds: response?.suppressedSubagentResultIds,
       ...(restoredText ? { restoredText } : {}),
     };
-  }, [assistantId, resetQueueState]);
+  }, [assistantId, messages, resetQueueState]);
 
   // Marked so the list can tell it apart: it is not stored yet, so nothing —
   // a pin, feedback — can point at it.
@@ -1614,6 +1787,10 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     chatUid,
     isLoading,
     status,
+    pausedUntil,
+    pausedReason,
+    isResumingPause,
+    resumePauseError,
     error,
     limitExceeded,
     recalledMemories,
@@ -1631,6 +1808,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     loadChat,
     onHandoffCompleted,
     stopChat,
+    resumeNow,
     pendingWidgetCalls,
     submitWidgetResponse,
     cancelWidgetCall,

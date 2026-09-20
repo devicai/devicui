@@ -633,6 +633,64 @@
   color: white;
 }
 
+.devic-stop-actions {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.devic-stop-btn-split {
+  border-radius: var(--devic-radius-sm) 0 0 var(--devic-radius-sm);
+}
+
+.devic-stop-menu {
+  position: relative;
+}
+
+.devic-stop-menu-toggle {
+  min-width: 20px;
+  padding: 4px;
+  border-left: 1px solid color-mix(in srgb, white 35%, transparent);
+  border-radius: 0 var(--devic-radius-sm) var(--devic-radius-sm) 0;
+  background: var(--devic-send-btn, var(--devic-primary));
+  color: white;
+  list-style: none;
+}
+
+.devic-stop-menu-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.devic-stop-menu-popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 4;
+  min-width: 180px;
+  padding: 4px;
+  border: 1px solid var(--devic-border);
+  border-radius: var(--devic-radius-sm);
+  background: var(--devic-bg);
+  box-shadow: var(--devic-shadow);
+}
+
+.devic-stop-menu-popover button {
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--devic-text);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.devic-stop-menu-popover button:hover {
+  background: var(--devic-bg-secondary);
+}
+
 .devic-send-btn-wrapper {
   position: relative;
   flex-shrink: 0;
@@ -1773,6 +1831,619 @@
   gap: 4px;
   font-size: 11px;
   color: var(--devic-text-muted);
+}
+
+/* Consecutive parallel handoffs share one compact shell. Each row still owns
+   its lifecycle subscription and can be expanded for state actions/details. */
+.devic-handoff-group {
+  width: min(520px, 100%);
+  border: 1px solid var(--devic-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--devic-bg);
+  animation: devic-slideUp 0.3s ease-out;
+}
+
+.devic-handoff-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--devic-border);
+  color: var(--devic-text);
+  font-size: 12px;
+}
+
+.devic-handoff-group-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: var(--devic-primary);
+  background: color-mix(in srgb, var(--devic-primary) 13%, transparent);
+}
+
+.devic-handoff-group-items {
+  display: flex;
+  flex-direction: column;
+}
+
+.devic-handoff-monitor-only {
+  display: none !important;
+}
+
+.devic-handoff-group-footer {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 7px 12px;
+  border-top: 1px solid var(--devic-border);
+  background: color-mix(in srgb, var(--devic-bg-secondary) 55%, var(--devic-bg));
+  color: var(--devic-text-muted);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.devic-handoff-group-indicators {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.devic-handoff-group-indicators i {
+  display: block;
+  width: 22px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--devic-border);
+  transition: background var(--devic-transition), opacity var(--devic-transition);
+}
+
+.devic-handoff-group-indicators i[data-state='loading'] {
+  background: color-mix(in srgb, var(--devic-primary) 55%, var(--devic-border));
+}
+
+.devic-handoff-group-indicators i[data-state='queued'] {
+  background: #d89614;
+}
+
+.devic-handoff-group-indicators i[data-state='processing'],
+.devic-handoff-group-indicators i[data-state='handed_off'] {
+  background: var(--devic-primary);
+  animation: devic-handoff-blink 1.2s ease-in-out infinite;
+}
+
+.devic-handoff-group-indicators i[data-state='completed'] {
+  background: #52c41a;
+}
+
+.devic-handoff-group-indicators i[data-state='paused'],
+.devic-handoff-group-indicators i[data-state='paused_for_approval'],
+.devic-handoff-group-indicators i[data-state='paused_for_resume'],
+.devic-handoff-group-indicators i[data-state='waiting_for_response'] {
+  background: #9254de;
+}
+
+.devic-handoff-group-indicators i[data-state='failed'],
+.devic-handoff-group-indicators i[data-state='terminated'],
+.devic-handoff-group-indicators i[data-state='approval_rejected'],
+.devic-handoff-group-indicators i[data-state='guardrail_trigger'],
+.devic-handoff-group-indicators i[data-state='limit_exceeded'] {
+  background: #ff4d4f;
+}
+
+.devic-handoff-group-overflow {
+  color: var(--devic-text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.devic-assistant-pause {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid color-mix(in srgb, #d89614 48%, var(--devic-border));
+  border-radius: var(--devic-radius-sm);
+  color: var(--devic-text);
+  background: color-mix(in srgb, #d89614 10%, var(--devic-bg));
+}
+
+.devic-assistant-pause-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  color: #d89614;
+}
+
+.devic-assistant-pause-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.devic-assistant-pause-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.devic-assistant-pause-copy strong,
+.devic-assistant-pause-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devic-assistant-pause-copy span {
+  color: var(--devic-text-secondary);
+}
+
+.devic-assistant-pause-copy .devic-assistant-pause-error {
+  color: #ff4d4f;
+}
+
+.devic-assistant-pause-resume {
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, #d89614 58%, var(--devic-border));
+  border-radius: var(--devic-radius-sm);
+  background: transparent;
+  color: var(--devic-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--devic-transition), border-color var(--devic-transition);
+}
+
+.devic-assistant-pause-resume:hover:not(:disabled) {
+  background: color-mix(in srgb, #d89614 15%, transparent);
+  border-color: #d89614;
+}
+
+.devic-assistant-pause-resume:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+@media (max-width: 480px) {
+  .devic-assistant-pause {
+    grid-template-columns: 22px minmax(0, 1fr);
+  }
+
+  .devic-assistant-pause-resume {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+.devic-handoff-compact {
+  color: var(--devic-text);
+}
+
+.devic-handoff-compact + .devic-handoff-compact {
+  border-top: 1px solid var(--devic-border);
+}
+
+.devic-handoff-compact-summary {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto 12px;
+  align-items: center;
+  gap: 9px;
+  min-height: 52px;
+  padding: 8px 12px;
+  cursor: pointer;
+  list-style: none;
+  transition: background var(--devic-transition);
+}
+
+.devic-handoff-compact-summary::-webkit-details-marker {
+  display: none;
+}
+
+.devic-handoff-compact-summary:hover {
+  background: var(--devic-bg-secondary);
+}
+
+.devic-handoff-compact-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.devic-handoff-compact-preview {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--devic-text-muted);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.devic-handoff-compact-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--devic-text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.devic-handoff-compact-state i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--devic-text-muted);
+}
+
+.devic-handoff-compact[data-status='queued'] .devic-handoff-compact-state i {
+  background: #d89614;
+}
+
+.devic-handoff-compact[data-status='running'] .devic-handoff-compact-state i,
+.devic-handoff-compact[data-status='loading'] .devic-handoff-compact-state i {
+  background: var(--devic-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--devic-primary) 15%, transparent);
+}
+
+.devic-handoff-compact[data-status='running'] .devic-handoff-compact-state i {
+  animation: devic-handoff-blink 1.2s ease-in-out infinite;
+}
+
+.devic-handoff-compact[data-status='completed'] .devic-handoff-compact-state i {
+  background: #52c41a;
+}
+
+.devic-handoff-compact[data-status='paused'] .devic-handoff-compact-state i {
+  background: #9254de;
+}
+
+.devic-handoff-compact[data-status='failed'] .devic-handoff-compact-state i {
+  background: #ff4d4f;
+}
+
+.devic-handoff-compact-chevron {
+  color: var(--devic-text-muted);
+  transition: transform var(--devic-transition);
+}
+
+.devic-handoff-compact[open] .devic-handoff-compact-chevron {
+  transform: rotate(180deg);
+}
+
+.devic-handoff-compact-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 12px 12px 45px;
+}
+
+@media (max-width: 520px) {
+  .devic-handoff-compact-summary {
+    grid-template-columns: 24px minmax(0, 1fr) 12px;
+  }
+
+  .devic-handoff-compact-state {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .devic-handoff-compact-chevron {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+}
+
+/* Async subagent completion. It remains role=user in the protocol, but is an
+   execution event in the conversation rather than a human speech bubble. */
+.devic-subagent-results {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.devic-subagent-results[data-stacked='true'] {
+  width: min(100%, 460px);
+  gap: 0;
+  /* The border belongs to real result rows. Keeping it on this aggregate
+     shell exposed a lone horizontal line during an SSE reconciliation frame
+     where the batch message existed but its entries had not landed yet. */
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+  animation: none;
+}
+
+.devic-subagent-result {
+  position: relative;
+  width: min(100%, 460px);
+  border: 1px solid color-mix(in srgb, var(--devic-primary) 28%, var(--devic-border));
+  border-left: 2px solid var(--devic-primary);
+  border-radius: 9px;
+  background: var(--devic-bg-secondary);
+  overflow: hidden;
+  animation: devic-slideUp 0.24s ease-out;
+}
+
+.devic-subagent-results[data-stacked='true'] .devic-subagent-result {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--devic-primary) 28%, var(--devic-border));
+  border-left: 2px solid var(--devic-primary);
+  border-radius: 0;
+  background: var(--devic-bg-secondary);
+  animation: none;
+}
+
+.devic-subagent-results[data-stacked='true'] .devic-subagent-result + .devic-subagent-result {
+  border-top: 0;
+}
+
+.devic-subagent-results[data-stacked='true'] .devic-subagent-result:first-child {
+  border-radius: 9px 9px 0 0;
+}
+
+.devic-subagent-results[data-stacked='true'] .devic-subagent-result:last-child {
+  border-radius: 0 0 9px 9px;
+}
+
+.devic-subagent-results[data-stacked='true'] .devic-subagent-result:only-child {
+  border-radius: 9px;
+}
+
+.devic-subagent-result[data-status='error'] {
+  border-left-color: #ff4d4f;
+}
+
+.devic-subagent-results[data-stacked='true'] .devic-subagent-result[data-status='error'] {
+  border-left-color: #ff4d4f;
+}
+
+.devic-subagent-result[data-status='error'] .devic-subagent-result-status {
+  color: #ff4d4f;
+}
+
+.devic-subagent-result-summary {
+  display: block;
+  padding: 7px 9px 8px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.devic-subagent-result-summary::-webkit-details-marker { display: none; }
+
+.devic-subagent-result-summary:hover {
+  background: color-mix(in srgb, var(--devic-primary) 4%, transparent);
+}
+
+.devic-subagent-result-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.devic-subagent-result-header .devic-handoff-agent-avatar {
+  width: 22px;
+  height: 22px;
+}
+
+.devic-subagent-result-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--devic-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devic-subagent-result-status {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--devic-text-muted);
+}
+
+.devic-subagent-result-chevron {
+  width: 14px;
+  color: var(--devic-text-muted);
+  font-size: 13px;
+  line-height: 1;
+  text-align: center;
+  transition: transform 0.16s ease;
+}
+
+.devic-subagent-result[open] .devic-subagent-result-chevron {
+  transform: rotate(180deg);
+}
+
+.devic-subagent-result-preview {
+  display: block;
+  margin: 3px 21px 0 29px;
+  overflow: hidden;
+  color: var(--devic-text-secondary);
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devic-subagent-result-body {
+  padding: 8px 10px 9px;
+  border-top: 1px solid var(--devic-border);
+  color: var(--devic-text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.devic-subagent-result-body > :first-child { margin-top: 0; }
+.devic-subagent-result-body > :last-child { margin-bottom: 0; }
+
+/* Compact companion to the detailed timeline cards. It reads the parent
+   conversation, so it does not open another lifecycle stream per child. */
+.devic-subagent-activity {
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--devic-primary) 22%, var(--devic-border));
+  border-radius: calc(var(--devic-radius) + 2px);
+  background: color-mix(in srgb, var(--devic-primary) 5%, var(--devic-bg));
+  animation: devic-slideUp 0.2s ease-out;
+}
+
+.devic-subagent-activity-header {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 2px 6px;
+  color: var(--devic-text);
+}
+
+.devic-subagent-activity-header strong {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.devic-subagent-activity-branch {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  color: var(--devic-primary);
+  background: color-mix(in srgb, var(--devic-primary) 12%, transparent);
+  font-size: 13px;
+  flex: none;
+}
+
+.devic-subagent-activity-summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--devic-text-muted);
+  font-size: 11px;
+}
+
+.devic-subagent-activity-close {
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--devic-text-muted);
+  cursor: pointer;
+  flex: none;
+}
+
+.devic-subagent-activity-close:hover {
+  color: var(--devic-text);
+  background: var(--devic-bg-secondary);
+}
+
+.devic-subagent-activity-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: 5px;
+  max-height: 118px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.devic-subagent-activity-item {
+  min-width: 0;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  border: 1px solid var(--devic-border);
+  border-radius: 8px;
+  background: var(--devic-bg);
+}
+
+.devic-subagent-activity-avatar {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--devic-bg-secondary);
+  color: var(--devic-text-muted);
+  font-size: 11px;
+  flex: none;
+}
+
+.devic-subagent-activity-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.devic-subagent-activity-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--devic-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.devic-subagent-activity-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--devic-text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+  flex: none;
+}
+
+.devic-subagent-activity-state i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #52c41a;
+}
+
+.devic-subagent-activity-item[data-status='running'] .devic-subagent-activity-state i {
+  background: var(--devic-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--devic-primary) 14%, transparent);
+  animation: devic-pulse 1.6s ease-in-out infinite;
+}
+
+.devic-subagent-activity-item[data-status='queued'] .devic-subagent-activity-state i {
+  background: #d89614;
+}
+
+.devic-subagent-activity-item[data-status='failed'] .devic-subagent-activity-state i {
+  background: #ff4d4f;
 }
 
 /* Reference chips inside a user message bubble (rendered above the bubble) */

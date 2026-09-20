@@ -64,12 +64,14 @@ const HANDOFF_HOLD_MS = 3000; // press-and-hold duration on the mic to arm hands
  * swap, same as before.
  */
 export function ChatInput(props: ChatInputProps): JSX.Element {
-  const { pendingInputWidget, onSubmitWidget, onCancelWidget } = props;
+  const { pendingInputWidget, onSubmitWidget, onCancelWidget, subagentActivity, pauseWidget } = props;
 
   if (pendingInputWidget) {
     const WidgetComponent = pendingInputWidget.widget.component;
     return (
       <div className="devic-input-area" data-widget-mode="input">
+        {subagentActivity}
+        {pauseWidget}
         <div className="devic-input-widget" data-tool-name={pendingInputWidget.toolName}>
           <WidgetComponent
             toolCall={pendingInputWidget.toolCall}
@@ -111,9 +113,12 @@ function ChatInputBox({
   sendButtonContent,
   disabledMessage,
   isProcessing = false,
+  canCancelConversation = isProcessing,
   onStop,
   allowQueueing = false,
   queueNotice,
+  subagentActivity,
+  pauseWidget,
   stopButtonContent,
   references,
   onRemoveReference,
@@ -342,9 +347,11 @@ function ChatInputBox({
    * back where it was written — quietly discarding something the user typed is
    * the one outcome a stop should not have.
    */
-  const handleStop = useCallback(async () => {
+  const handleStop = useCallback(async (
+    scope: 'turn' | 'conversation',
+  ) => {
     if (!onStop) return;
-    const result = await onStop();
+    const result = await onStop(scope);
     const restoredText = (result as { restoredText?: string } | void)
       ?.restoredText;
     if (!restoredText) return;
@@ -753,6 +760,8 @@ function ChatInputBox({
       {usageBar}
       {integrationsHint}
       {queueNotice}
+      {subagentActivity}
+      {pauseWidget}
       {disabledMessage && disabled && (
         <div className="devic-input-disabled-notice">
           <WaitingIcon />
@@ -1021,29 +1030,55 @@ function ChatInputBox({
               disappears with an empty box, so a busy conversation nobody is
               writing into still reads as "stop only".
             */}
-            {isProcessing &&
-              (stopButtonContent ? (
-                <div className="devic-send-btn-wrapper">
-                  <div className="devic-send-btn-custom" aria-hidden="true">
-                    {stopButtonContent}
+            {canCancelConversation && (
+              <div className="devic-stop-actions">
+                {stopButtonContent ? (
+                  <div className="devic-send-btn-wrapper">
+                    <div className="devic-send-btn-custom" aria-hidden="true">
+                      {stopButtonContent}
+                    </div>
+                    <button
+                      className="devic-send-btn-overlay"
+                      onClick={() => void handleStop('conversation')}
+                      type="button"
+                      title={t('Cancel conversation and subagents')}
+                    />
                   </div>
+                ) : (
                   <button
-                    className="devic-send-btn-overlay"
-                    onClick={handleStop}
+                    className={`devic-input-btn devic-stop-btn${isProcessing ? ' devic-stop-btn-split' : ''}`}
+                    onClick={() => void handleStop('conversation')}
                     type="button"
-                    title={t('Stop')}
-                  />
-                </div>
-              ) : (
-                <button
-                  className="devic-input-btn devic-stop-btn"
-                  onClick={handleStop}
-                  type="button"
-                  title={t('Stop')}
-                >
-                  <StopIcon />
-                </button>
-              ))}
+                    title={t('Cancel conversation and subagents')}
+                    aria-label={t('Cancel conversation and subagents')}
+                  >
+                    <StopIcon />
+                  </button>
+                )}
+                {isProcessing && (
+                  <details className="devic-stop-menu">
+                    <summary
+                      className="devic-input-btn devic-stop-menu-toggle"
+                      title={t('More stop options')}
+                      aria-label={t('More stop options')}
+                    >
+                      <span aria-hidden="true">⌄</span>
+                    </summary>
+                    <div className="devic-stop-menu-popover">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.currentTarget.closest('details')?.removeAttribute('open');
+                          void handleStop('turn');
+                        }}
+                      >
+                        {t('Stop current response')}
+                      </button>
+                    </div>
+                  </details>
+                )}
+              </div>
+            )}
             {(!isProcessing || (allowQueueing && hasContent)) &&
               (sendButtonContent ? (
                 <div className="devic-send-btn-wrapper">
