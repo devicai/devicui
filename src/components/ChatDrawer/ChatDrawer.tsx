@@ -12,6 +12,7 @@ import { LimitBanner } from './LimitBanner';
 import { AssistantPauseWidget } from './AssistantPauseWidget';
 import { isRenderedLimitError } from '../../utils/limitError';
 import { QueueNotice } from './QueueNotice';
+import { PinnedMessagesBar, buildPinnedMessageViews } from './PinnedMessagesBar';
 import { collectSubagentActivities, SubagentActivityTray } from './SubagentActivityTray';
 import { CoreMemoryModal, DEFAULT_CORE_MEMORY_LABELS } from '../CoreMemoryModal';
 import {
@@ -30,7 +31,7 @@ import { isDarkTheme } from '../theme';
 import { isVoiceInvitationHidden, hideVoiceInvitation } from '../../utils/voiceInvitation';
 import { DevicTranslationsProvider, useTranslations } from '../../i18n';
 import type { DevicTheme } from '../theme';
-import type { ChatDrawerProps, ChatDrawerOptions, ChatDrawerHandle } from './ChatDrawer.types';
+import type { ChatDrawerProps, ChatDrawerOptions, ChatDrawerHandle, ChatMessagesHandle } from './ChatDrawer.types';
 import type { QueueDisposition, StopScope } from '../../api/types';
 import './styles.css';
 const LiveVoicePanel = React.lazy(() => import('./LiveVoicePanel'));
@@ -113,6 +114,9 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   expandableCompaction: false,
   compactionRenderer: undefined as any,
   guardrailRenderer: undefined as any,
+  showPinnedMessages: true,
+  pinnedMessagesRenderer: undefined as any,
+  showScrollToBottomButton: true,
   showCoreMemoryButton: false,
   coreMemoryLabels: undefined as any,
   showIntegrationsButton: true,
@@ -849,6 +853,52 @@ function ChatDrawerInner({
     [chat.chatUid, assistantId]
   );
 
+  // Pinned messages. The list scrolls itself; the bar above it only asks.
+  const pinningEnabled = mergedOptions.showPinnedMessages !== false;
+  const messagesControlRef = useRef<ChatMessagesHandle>(null);
+  const pinnedViews = useMemo(
+    () =>
+      pinningEnabled
+        ? buildPinnedMessageViews(chat.pinnedMessages, chat.messages)
+        : [],
+    [pinningEnabled, chat.pinnedMessages, chat.messages]
+  );
+  const pinnedMessageUids = useMemo(
+    () => chat.pinnedMessages.map((p) => p.messageUid),
+    [chat.pinnedMessages]
+  );
+  const scrollToMessage = useCallback((messageUid: string) => {
+    messagesControlRef.current?.scrollToMessage(messageUid);
+  }, []);
+  // A refused pin is already reported through `chat.error` and `onError`.
+  const handleTogglePin = useCallback(
+    (messageUid: string, pinned: boolean) => {
+      (pinned ? chat.pinMessage(messageUid) : chat.unpinMessage(messageUid)).catch(
+        () => {}
+      );
+    },
+    [chat.pinMessage, chat.unpinMessage]
+  );
+  const handleUnpin = useCallback(
+    (messageUid: string) => handleTogglePin(messageUid, false),
+    [handleTogglePin]
+  );
+  const pinnedBarNode =
+    pinningEnabled && pinnedViews.length > 0
+      ? (() => {
+          const props = {
+            pins: pinnedViews,
+            scrollToMessage,
+            unpin: handleUnpin,
+          };
+          return mergedOptions.pinnedMessagesRenderer ? (
+            mergedOptions.pinnedMessagesRenderer(props)
+          ) : (
+            <PinnedMessagesBar {...props} />
+          );
+        })()
+      : null;
+
   // Apply CSS variables for theming on the drawer element itself
   // (must target the component root so they override the defaults defined on .devic-chat-drawer)
   const drawerRef = useRef<HTMLDivElement>(null);
@@ -1118,8 +1168,14 @@ function ChatDrawerInner({
           </div>
         )}
 
+        {pinnedBarNode}
+
         {/* Messages */}
         <ChatMessages
+          controlRef={messagesControlRef}
+          pinnedMessageUids={pinningEnabled ? pinnedMessageUids : undefined}
+          onTogglePin={pinningEnabled && chat.chatUid ? handleTogglePin : undefined}
+          showScrollToBottomButton={mergedOptions.showScrollToBottomButton}
           messages={chat.messages}
           allMessages={chat.messages}
           isLoading={chat.isLoading}

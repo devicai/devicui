@@ -15,6 +15,8 @@ import type {
   CompactionActivity,
   CompactionCheckpoint,
   ModelInterfaceTool,
+  PinnedMessage,
+  PinnedMessageEntry,
   QueueDisposition,
   RealtimeChatHistory,
   RealtimeStatus,
@@ -43,6 +45,10 @@ const QUEUE_HANDOVER_GRACE_TICKS = 60;
 
 /** Messages are matched to their optimistic copies by text, so it is normalized. */
 const normalizeText = (text?: string): string => (text ?? '').trim();
+
+/** The pins as the conversation stores them, without the messages attached. */
+const stripPinnedMessages = (entries: PinnedMessageEntry[]): PinnedMessage[] =>
+  entries.map(({ message: _message, ...stored }) => stored);
 
 export interface UseDevicChatOptions {
   /** Opt-in full-duplex voice. Uses the same chat SSE and client tools. */
@@ -284,6 +290,24 @@ export interface UseDevicChatResult {
   compaction: CompactionActivity | null;
 
   /**
+   * Messages pinned in this conversation, in the order they were pinned. They
+   * live on the conversation, so every client showing it sees the same ones.
+   * Each points at a message by its server uid — `serverUid ?? uid` of the
+   * entries of `messages`.
+   */
+  pinnedMessages: PinnedMessage[];
+
+  /**
+   * Pin a user or assistant message by its server uid. Applied at once and
+   * rolled back if the API refuses it, in which case the error is reported
+   * through `error` and `onError` and the promise rejects.
+   */
+  pinMessage: (messageUid: string) => Promise<void>;
+
+  /** Unpin a message by its server uid. Same contract as `pinMessage`. */
+  unpinMessage: (messageUid: string) => Promise<void>;
+
+  /**
    * Whether the assistant has handed off to a subagent
    */
   handedOff: boolean;
@@ -510,6 +534,10 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   // Absent on every ordinary realtime write, which is how a finished
   // compaction stops being reported.
   const [compaction, setCompaction] = useState<CompactionActivity | null>(null);
+
+  // Pinned messages of the conversation. Taken from the history on load and
+  // kept in step by the pin calls; the realtime blob does not carry them.
+  const [pinnedMessages, setPinnedMessages] = useState<PinnedMessage[]>([]);
 
   // Handoff state
   const [handedOff, setHandedOff] = useState(false);
@@ -740,6 +768,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           setMessages(history.chatContent);
           mergeRecalledMemories(history.recalledMemories);
           mergeCompactions(history.compactions);
+          setPinnedMessages(history.pinnedMessages ?? []);
           setChatUid(initialChatUid);
 
           // Check realtime status to resume in-progress conversations
@@ -1400,6 +1429,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     setRecalledMemories([]);
     setCompactions([]);
     setCompaction(null);
+    setPinnedMessages([]);
     resetQueueState();
     pendingWidgetCallsRef.current = [];
     setPendingWidgetCalls([]);
@@ -1436,6 +1466,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       setRecalledMemories([]);
       setCompactions([]);
       setCompaction(null);
+      setPinnedMessages([]);
       // The queue belongs to the conversation being left behind.
       resetQueueState();
 
@@ -1449,6 +1480,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         setMessages(history.chatContent);
         mergeRecalledMemories(history.recalledMemories);
         mergeCompactions(history.compactions);
+        setPinnedMessages(history.pinnedMessages ?? []);
         setChatUid(loadChatUid);
 
         // A cascade-cancelled run has durable async handoff acknowledgements in
@@ -1574,6 +1606,75 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     [submitWidgetResponse]
   );
 
+  // --- Pinned messages ------------------------------------------------------
+
+  // Read by the pin calls, which need the role of the message being pinned and
+  // must not be rebuilt on every poll.
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const pinnedMessagesRef = useRef(pinnedMessages);
+  pinnedMessagesRef.current = pinnedMessages;
+  // Only the answer to the latest pin call is applied: two quick clicks answered
+  // out of order would otherwise leave the first one's list on screen.
+  const pinCallSeqRef = useRef(0);
+
+  const changePin = useCallback(
+    async (messageUid: string, pin: boolean) => {
+      const uid = chatUidRef.current;
+      if (!clientRef.current || !uid) {
+        throw new Error(t('Cannot pin a message before the conversation exists'));
+      }
+      const previous = pinnedMessagesRef.current;
+      if (pin) {
+        if (previous.some((p) => p.messageUid === messageUid)) return;
+        const message = messagesRef.current.find(
+          (m) => (m.serverUid ?? m.uid) === messageUid
+        );
+        const role = message?.role === 'user' ? 'user' : 'assistant';
+        setPinnedMessages([...previous, { messageUid, role, pinnedAt: Date.now() }]);
+      } else {
+        setPinnedMessages(previous.filter((p) => p.messageUid !== messageUid));
+      }
+
+      const seq = ++pinCallSeqRef.current;
+      try {
+        const result = pin
+          ? await clientRef.current.pinMessage(assistantId, uid, messageUid)
+          : await clientRef.current.unpinMessage(assistantId, uid, messageUid);
+        if (seq !== pinCallSeqRef.current || chatUidRef.current !== uid) return;
+        setPinnedMessages(stripPinnedMessages(result.pinnedMessages));
+      } catch (err) {
+        if (chatUidRef.current === uid && seq === pinCallSeqRef.current) {
+          setPinnedMessages(previous);
+          // `previous` may itself hold an optimistic change an earlier call
+          // never confirmed; what the server has is the only sure answer.
+          clientRef.current
+            ?.getPinnedMessages(assistantId, uid)
+            .then((current) => {
+              if (seq === pinCallSeqRef.current && chatUidRef.current === uid) {
+                setPinnedMessages(stripPinnedMessages(current.pinnedMessages));
+              }
+            })
+            .catch(() => {});
+        }
+        const error = err instanceof Error ? err : new Error(String(err));
+        setError(error);
+        onErrorRef.current?.(error);
+        throw error;
+      }
+    },
+    [assistantId]
+  );
+
+  const pinMessage = useCallback(
+    (messageUid: string) => changePin(messageUid, true),
+    [changePin]
+  );
+  const unpinMessage = useCallback(
+    (messageUid: string) => changePin(messageUid, false),
+    [changePin]
+  );
+
   const resumeNow = useCallback(async (): Promise<ResumePausedChatResponse> => {
     const uid = chatUidRef.current;
     if (!clientRef.current || !uid) {
@@ -1673,9 +1774,16 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     };
   }, [assistantId, messages, resetQueueState]);
 
+  // Marked so the list can tell it apart: it is not stored yet, so nothing —
+  // a pin, feedback — can point at it.
+  const liveStreamingMessage = useMemo(
+    () => (streamingMessage ? { ...streamingMessage, streaming: true } : null),
+    [streamingMessage]
+  );
+
   return {
     voice,
-    messages: streamingMessage && isLoading ? [...messages, streamingMessage] : messages,
+    messages: liveStreamingMessage && isLoading ? [...messages, liveStreamingMessage] : messages,
     chatUid,
     isLoading,
     status,
@@ -1688,6 +1796,9 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     recalledMemories,
     compactions,
     compaction,
+    pinnedMessages,
+    pinMessage,
+    unpinMessage,
     handedOff,
     handedOffSubThreadId,
     queuedCount,

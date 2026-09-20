@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback, useImperativeHandle } from "react";
 import { useOptionalDevicContext } from "../../provider";
 import Markdown from "markdown-to-jsx";
 import { MessageActions } from "../Feedback";
@@ -9,6 +9,12 @@ import { RecalledMemoriesWidget } from "./RecalledMemoriesWidget";
 import { CompactionWidget } from "./CompactionWidget";
 import { GuardrailNotice, type GuardrailPayload } from "./GuardrailNotice";
 import type { ChatMessagesProps, SuggestedMessage } from "./ChatDrawer.types";
+import {
+  readMessageText,
+  parseReferencedPrefix,
+  messageKey,
+  isPinnableMessage,
+} from "./messageText";
 import type { AgentDto, ChatMessage, CompactionCheckpoint, RecalledMemoryRecord, ToolGroupConfig, ToolGroupCall } from "../../api/types";
 import { AgentThreadState, normalizeMessageFile } from "../../api/types";
 import type { FeedbackState } from "../Feedback";
@@ -34,18 +40,6 @@ const FINISH_EXECUTION_TOOL = "finish_execution";
 // Role of the message the backend appends when a guardrail stops a turn. It is
 // not something anyone said, so it renders as a notice rather than a bubble.
 const GUARDRAIL_ROLE = "guard_rail";
-
-/**
- * `content.message` is typed as a string, but it does not always arrive as
- * one: a tripped guardrail puts the whole provider result object there. Every
- * text path downstream — the reference prefix, the pasted blocks, markdown —
- * assumes a string and throws on anything else, taking the drawer with it.
- * Read the field through here so a bad shape renders as nothing instead.
- */
-function readMessageText(message: ChatMessage): string | undefined {
-  const raw = message.content?.message;
-  return typeof raw === "string" ? raw : undefined;
-}
 
 /** The structured guardrail result, when one was sent instead of a sentence. */
 function guardrailPayload(message: ChatMessage): GuardrailPayload | undefined {
@@ -851,10 +845,79 @@ export function ChatMessages({
   compactionRenderer,
   expandableCompaction,
   guardrailRenderer,
+  pinnedMessageUids,
+  onTogglePin,
+  showScrollToBottomButton = true,
+  controlRef,
 }: ChatMessagesProps): JSX.Element {
   const t = useTranslations();
   const containerRef = useRef<HTMLDivElement>(null);
   const prevLengthRef = useRef(messages.length);
+
+  const pinnedSet = useMemo(
+    () => new Set(pinnedMessageUids ?? []),
+    [pinnedMessageUids]
+  );
+
+  // Whether the reader has scrolled away from the latest message, which is
+  // when the arrow back down is worth showing.
+  const [awayFromBottom, setAwayFromBottom] = useState(false);
+  const updateScrollState = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    setAwayFromBottom(
+      el.scrollHeight - el.scrollTop - el.clientHeight > SCROLL_BOTTOM_THRESHOLD_PX
+    );
+  }, []);
+
+  // The message just jumped to, flashed so the eye finds it.
+  const [highlightedUid, setHighlightedUid] = useState<string | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    },
+    []
+  );
+
+  const scrollToBottom = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    scrollContainerTo(el, el.scrollHeight);
+  }, []);
+
+  const scrollToMessage = useCallback((messageUid: string): boolean => {
+    const container = containerRef.current;
+    if (!container) return false;
+    const target = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-message-uid]")
+    ).find((el) => el.dataset.messageUid === messageUid);
+    if (!target) return false;
+    // Computed against the container rather than with `scrollIntoView`, which
+    // would also scroll the host page when the chat is embedded inline.
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const offset = Math.max(
+      16,
+      (containerRect.height - targetRect.height) / 2
+    );
+    scrollContainerTo(
+      container,
+      container.scrollTop + targetRect.top - containerRect.top - offset
+    );
+    setHighlightedUid(messageUid);
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(
+      () => setHighlightedUid(null),
+      HIGHLIGHT_DURATION_MS
+    );
+    return true;
+  }, []);
+
+  useImperativeHandle(controlRef, () => ({ scrollToMessage, scrollToBottom }), [
+    scrollToMessage,
+    scrollToBottom,
+  ]);
 
   // Anchor each recall record to the message that brought it in: the
   // assistant message carrying its memory tool call (toolCallId), or the
@@ -951,7 +1014,8 @@ export function ChatMessages({
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
     prevLengthRef.current = messages.length;
-  }, [messages.length, isLoading]);
+    updateScrollState();
+  }, [messages.length, isLoading, updateScrollState]);
 
   const grouped = groupMessages(messages, isLoading);
 
@@ -961,7 +1025,12 @@ export function ChatMessages({
     isLoading && !(lastGroup?.type === "toolGroup" && lastGroup.isActive);
 
   return (
-    <div className="devic-messages-container" ref={containerRef}>
+    <>
+    <div
+      className="devic-messages-container"
+      ref={containerRef}
+      onScroll={updateScrollState}
+    >
       {messages.length === 0 &&
         !isLoading &&
         // Boolean, or an empty suggestions list prints a stray "0".
@@ -1092,11 +1161,32 @@ export function ChatMessages({
         const messageRecalls = recallsFor([message.uid]);
         const messageCompactions = compactionsFor([message.uid]);
 
+        const pinUid = messageKey(message);
+        const pinned = pinnedSet.has(pinUid);
+        const pinButton =
+          onTogglePin && isPinnableMessage(message) ? (
+            <div className="devic-message-actions devic-message-pin">
+              <button
+                type="button"
+                className={`devic-action-btn ${pinned ? "devic-action-btn--active" : ""}`}
+                onClick={() => onTogglePin(pinUid, !pinned)}
+                aria-pressed={pinned}
+                aria-label={pinned ? t("Unpin message") : t("Pin message")}
+                title={pinned ? t("Unpin message") : t("Pin message")}
+              >
+                <PinGlyph filled={pinned} />
+              </button>
+            </div>
+          ) : null;
+
         return (
           <React.Fragment key={message.uid}>
           <div
             className="devic-message"
             data-role={message.role}
+            data-message-uid={pinUid}
+            data-pinned={pinned ? "true" : undefined}
+            data-highlighted={highlightedUid === pinUid ? "true" : undefined}
             // Accepted but not seen by the model yet. Drawn as a message that
             // has not landed, so it is not mistaken for something the assistant
             // has already read.
@@ -1124,6 +1214,7 @@ export function ChatMessages({
                     content: bodyText,
                     role: isAssistant ? "assistant" : "user",
                     references: refLabels,
+                    pinned,
                   })
                 ) : (
                   <Markdown options={{ overrides: markdownOverrides }}>
@@ -1169,18 +1260,26 @@ export function ChatMessages({
                   {t("Queued")}
                 </span>
               )}
+              {/* On the right-aligned user footer the pin sits before the
+                  time, so the time stays at the edge like every other bubble. */}
+              {!isAssistant && pinButton}
               <span className="devic-message-time">
                 {formatTime(message.timestamp)}
               </span>
-              {isAssistant && showFeedback && onFeedback && (
-                <MessageActions
-                  messageId={message.uid}
-                  messageContent={messageText}
-                  currentFeedback={currentFeedback as FeedbackState}
-                  onFeedback={onFeedback}
-                  showCopy={true}
-                  showFeedback={true}
-                />
+              {isAssistant && ((showFeedback && onFeedback) || pinButton) && (
+                <div className="devic-message-footer-actions">
+                  {showFeedback && onFeedback && (
+                    <MessageActions
+                      messageId={message.uid}
+                      messageContent={messageText}
+                      currentFeedback={currentFeedback as FeedbackState}
+                      onFeedback={onFeedback}
+                      showCopy={true}
+                      showFeedback={true}
+                    />
+                  )}
+                  {pinButton}
+                </div>
               )}
             </div>
           </div>
@@ -1257,10 +1356,84 @@ export function ChatMessages({
           </div>
         ))}
     </div>
+    {/* A zero-height sibling at the bottom edge of the list, so the arrow
+        floats over the last messages — just above the prompt box — without
+        scrolling with them. */}
+    {showScrollToBottomButton && (
+      <div className="devic-scroll-bottom-anchor">
+        <button
+          type="button"
+          className="devic-scroll-bottom-btn"
+          data-visible={awayFromBottom ? "true" : "false"}
+          onClick={scrollToBottom}
+          aria-label={t("Scroll to the latest message")}
+          title={t("Scroll to the latest message")}
+          tabIndex={awayFromBottom ? 0 : -1}
+          aria-hidden={!awayFromBottom}
+        >
+          <ArrowDownIcon />
+        </button>
+      </div>
+    )}
+    </>
   );
 }
 
+/** How far from the bottom the reader must be before the arrow shows. */
+const SCROLL_BOTTOM_THRESHOLD_PX = 120;
+
+/** How long a message jumped to stays highlighted. */
+const HIGHLIGHT_DURATION_MS = 1600;
+
+function scrollContainerTo(el: HTMLElement, top: number): void {
+  const target = Math.max(0, top);
+  if (typeof el.scrollTo === "function") {
+    el.scrollTo({ top: target, behavior: "smooth" });
+  } else {
+    el.scrollTop = target;
+  }
+}
+
 /* ── Icons ── */
+
+/** Pushpin; filled once the message is pinned. */
+export function PinGlyph({ filled = false }: { filled?: boolean }): JSX.Element {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 17v5" />
+      <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+    </svg>
+  );
+}
+
+function ArrowDownIcon(): JSX.Element {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <polyline points="19 12 12 19 5 12" />
+    </svg>
+  );
+}
 
 function SpinnerIcon(): JSX.Element {
   return (
@@ -1388,26 +1561,6 @@ function FileIcon(): JSX.Element {
       <polyline points="14,2 14,8 20,8" />
     </svg>
   );
-}
-
-/**
- * Extracts the "Elemento referenciado: ..." prefix that ChatDrawer prepends
- * to user messages when AIElementWrapper references are active. Returns the
- * parsed labels and the message text without the prefix. Returns null when
- * the content does not start with the prefix.
- */
-const REFERENCE_PREFIX_RE =
-  /^Elemento referenciado: ((?:"[^"]+")(?:, "[^"]+")*)\n\n([\s\S]*)$/;
-
-function parseReferencedPrefix(
-  content: string
-): { references: string[]; cleanContent: string } | null {
-  const m = content.match(REFERENCE_PREFIX_RE);
-  if (!m) return null;
-  const labels = (m[1].match(/"([^"]+)"/g) || []).map((s) =>
-    s.slice(1, -1)
-  );
-  return { references: labels, cleanContent: m[2] };
 }
 
 /**

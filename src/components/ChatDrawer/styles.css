@@ -2949,3 +2949,253 @@
   flex-shrink: 0;
   color: var(--devic-error, #ff4d4f);
 }
+
+/* ── Pinned messages ─────────────────────────────────────────────────────
+   The bar that keeps the pinned messages at hand, above the conversation. It
+   uses only the drawer's own variables, so it follows the host's theme, light
+   or dark, without colours of its own. */
+.devic-pinned-bar {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px 8px 6px 14px;
+  background: var(--devic-bg);
+  border-bottom: 1px solid var(--devic-border);
+  flex-shrink: 0;
+  z-index: 4;
+}
+
+/* One line per pin, the one shown highlighted. */
+.devic-pinned-track {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 2px;
+  margin: 3px 4px 3px 0;
+  flex-shrink: 0;
+}
+
+.devic-pinned-segment {
+  flex: 1;
+  min-height: 4px;
+  border-radius: 1px;
+  background: var(--devic-primary);
+  opacity: 0.25;
+  transition: opacity 0.2s ease;
+}
+
+.devic-pinned-segment[data-active="true"] {
+  opacity: 1;
+}
+
+.devic-pinned-main,
+.devic-pinned-list-open {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  border: none;
+  border-radius: var(--devic-radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.devic-pinned-main:hover,
+.devic-pinned-list-open:hover {
+  background: var(--devic-bg-secondary);
+}
+
+.devic-pinned-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.devic-pinned-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--devic-primary);
+}
+
+.devic-pinned-preview {
+  font-size: 13px;
+  color: var(--devic-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.devic-pinned-thumb {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--devic-radius-sm);
+  object-fit: cover;
+  display: block;
+}
+
+.devic-pinned-thumb--file {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  background: var(--devic-bg-secondary);
+  border: 1px solid var(--devic-border);
+  color: var(--devic-text-secondary);
+  box-sizing: border-box;
+}
+
+.devic-pinned-thumb-ext {
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.devic-pinned-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--devic-radius-sm);
+  background: none;
+  color: var(--devic-text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.devic-pinned-icon-btn:hover,
+.devic-pinned-icon-btn[aria-expanded="true"] {
+  background: var(--devic-bg-secondary);
+  color: var(--devic-text);
+}
+
+/* Every pin at once, dropped over the conversation. */
+.devic-pinned-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 8px;
+  right: 8px;
+  max-height: min(320px, 55vh);
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--devic-bg);
+  border: 1px solid var(--devic-border);
+  border-radius: var(--devic-radius);
+  box-shadow: var(--devic-shadow);
+}
+
+.devic-pinned-list-header {
+  padding: 6px 8px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--devic-text-muted);
+}
+
+.devic-pinned-list-item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--devic-radius-sm);
+}
+
+.devic-pinned-list-open {
+  padding: 6px 8px;
+}
+
+.devic-pinned-list-role {
+  font-size: 11px;
+  color: var(--devic-text-muted);
+}
+
+/* The pin button on a message: shown on hover like the other actions, and
+   for good once the message is pinned (the active button keeps it visible). */
+.devic-message-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.devic-message-pin .devic-action-btn {
+  width: 24px;
+  height: 24px;
+}
+
+/* The message jumped to, flashed so the eye finds it. */
+.devic-message[data-highlighted="true"] .devic-message-bubble {
+  animation: devic-pin-flash 1.6s ease-out;
+}
+
+@keyframes devic-pin-flash {
+  0%,
+  35% {
+    box-shadow: 0 0 0 3px var(--devic-primary);
+  }
+  100% {
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+
+/* The arrow back down. A zero-height sibling at the bottom edge of the list
+   holds it, so it floats over the last messages without scrolling with them. */
+.devic-scroll-bottom-anchor {
+  position: relative;
+  height: 0;
+  flex-shrink: 0;
+  z-index: 3;
+}
+
+.devic-scroll-bottom-btn {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--devic-border);
+  border-radius: 50%;
+  background: var(--devic-bg);
+  color: var(--devic-text-secondary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transform: translate(-50%, 0);
+  transition: opacity 0.2s ease, transform 0.2s ease, color 0.15s ease;
+}
+
+.devic-scroll-bottom-btn:hover {
+  color: var(--devic-text);
+}
+
+.devic-scroll-bottom-btn[data-visible="false"] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 8px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .devic-message[data-highlighted="true"] .devic-message-bubble {
+    animation: none;
+    box-shadow: 0 0 0 3px var(--devic-primary);
+  }
+  .devic-scroll-bottom-btn {
+    transition: none;
+  }
+}

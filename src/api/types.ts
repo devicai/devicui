@@ -123,6 +123,41 @@ export interface ChatMessage {
    * it", which the timestamp is the only honest way to decide.
    */
   queuedAt?: number;
+  /**
+   * Client-side only: the reply the assistant is still writing, shown while it
+   * streams in. It is not stored yet, so nothing can point at it — it cannot be
+   * pinned until it lands.
+   */
+  streaming?: boolean;
+}
+
+/**
+ * A message of the conversation someone pinned, as stored on the conversation.
+ * `messageUid` is the server uid of the message; on a message rendered under an
+ * optimistic uid that is its `serverUid`.
+ */
+export interface PinnedMessage {
+  messageUid: string;
+  role: 'user' | 'assistant';
+  /** When it was pinned, epoch ms. */
+  pinnedAt: number;
+  /** userUID of whoever pinned it. */
+  pinnedBy?: string;
+}
+
+/** A pin with the message it points at, as the pins endpoints return it. */
+export interface PinnedMessageEntry extends PinnedMessage {
+  /** `null` when the message is no longer in the conversation. */
+  message: ChatMessage | null;
+}
+
+/** Response of the pins endpoints: the whole list after the change. */
+export interface PinnedMessagesResponse {
+  chatUid: string;
+  /** In the order the messages appear in the conversation. */
+  pinnedMessages: PinnedMessageEntry[];
+  /** Most messages the conversation can keep pinned at once. */
+  maxPinnedMessages: number;
 }
 
 export interface SubagentMessageMetadata {
@@ -701,6 +736,8 @@ export interface ChatHistory {
   coreMemories?: CoreMemorySnapshot[];
   /** Compaction checkpoints of the conversation, oldest first. */
   compactions?: CompactionCheckpoint[];
+  /** Messages pinned in the conversation, in the order they were pinned. */
+  pinnedMessages?: PinnedMessage[];
 }
 
 /** One core memory entry (the always-injected tier), as returned by the memory API. */

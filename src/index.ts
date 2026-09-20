@@ -33,12 +33,13 @@ export type {
 } from './i18n';
 
 // Components
-export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, SubagentResultCard, SubagentActivityTray, collectSubagentActivities, ReferenceChip, UsageBar, LimitBanner, QueueNotice, AssistantPauseWidget, RecalledMemoriesWidget, CompactionWidget, GuardrailNotice } from './components/ChatDrawer';
+export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, SubagentResultCard, SubagentActivityTray, collectSubagentActivities, ReferenceChip, UsageBar, LimitBanner, QueueNotice, AssistantPauseWidget, RecalledMemoriesWidget, CompactionWidget, GuardrailNotice, PinnedMessagesBar, buildPinnedMessageViews } from './components/ChatDrawer';
 export type {
   ChatDrawerProps,
   ChatDrawerOptions,
   ChatDrawerHandle,
   ChatMessagesProps,
+  ChatMessagesHandle,
   ChatInputProps,
   CustomPromptBoxProps,
   MessageBubbleRenderer,
@@ -69,6 +70,10 @@ export type {
   GuardrailNoticeProps,
   GuardrailRenderer,
   GuardrailPayload,
+  PinnedMessagesRenderer,
+  PinnedMessagesRendererProps,
+  PinnedMessageView,
+  MessageThumbnail,
 } from './components/ChatDrawer';
 
 // CoreMemoryModal
@@ -250,6 +255,9 @@ export type {
   CompactionSummary,
   CompactionFact,
   CompactionActivity,
+  PinnedMessage,
+  PinnedMessageEntry,
+  PinnedMessagesResponse,
   CoreMemorySnapshot,
   CoreMemoryEntry,
   CoreMemoryLimits,
