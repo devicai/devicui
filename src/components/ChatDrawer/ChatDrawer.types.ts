@@ -8,6 +8,7 @@ import type { RecalledMemoriesRenderer } from './RecalledMemoriesWidget';
 import type { CompactionRenderer } from './CompactionWidget';
 import type { GuardrailRenderer } from './GuardrailNotice';
 import type { PinnedMessagesRenderer } from './PinnedMessagesBar';
+import type { ToolApprovalRenderer } from './ToolApprovalCard';
 import type { CoreMemoryLabels } from '../CoreMemoryModal';
 import type { DevicTranslations } from '../../i18n';
 
@@ -492,6 +493,26 @@ export interface ChatDrawerOptions {
    * realtime observation.
    */
   pauseWidgetRenderer?: (props: AssistantPauseWidgetProps) => React.ReactNode;
+
+  /**
+   * Replace the approval widget shown when backend tools are waiting for an
+   * explicit user decision. Receives the complete pending batch and the same
+   * `onResolve` action used by the built-in card. Called only while at least
+   * one approval is pending; return `null` to hide the surface.
+   *
+   * @example
+   * ```tsx
+   * toolApprovalRenderer: ({ approvals, onResolve }) => (
+   *   <MyApprovalDialog
+   *     calls={approvals}
+   *     onApprove={() => onResolve(
+   *       approvals.map(({ toolCallId }) => ({ toolCallId, approved: true }))
+   *     )}
+   *   />
+   * )
+   * ```
+   */
+  toolApprovalRenderer?: ToolApprovalRenderer;
 
   /**
    * Tool group configurations for rendering consecutive tool calls together.

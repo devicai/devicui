@@ -96,3 +96,56 @@ test("the shared approval card exposes context and makes one decision per call",
   ]);
   await act(async () => renderer.unmount());
 });
+
+test("the approval renderer can replace the card and use the resolution action", async () => {
+  const { ToolApprovalCard } = loadTs(
+    src("components/ChatDrawer/ToolApprovalCard.tsx"),
+  );
+  const approvals = [
+    {
+      toolCallId: "call-custom",
+      toolServerId: "server-custom",
+      toolName: "publish_report",
+      arguments: { reportId: "report-1" },
+      categoryIds: ["external-write"],
+      categories: [{ id: "external-write", name: "External write" }],
+      requestedAt: Date.now(),
+    },
+  ];
+  let submitted;
+  let renderer;
+  await act(async () => {
+    renderer = create(
+      React.createElement(ToolApprovalCard, {
+        approvals,
+        onResolve: async (decisions) => {
+          submitted = decisions;
+        },
+        renderer: ({ approvals: pending, onResolve }) =>
+          React.createElement(
+            "button",
+            {
+              className: "custom-approval",
+              onClick: () =>
+                onResolve(
+                  pending.map(({ toolCallId }) => ({
+                    toolCallId,
+                    approved: false,
+                  })),
+                ),
+            },
+            `Review ${pending[0].toolName}`,
+          ),
+      }),
+    );
+  });
+
+  assert.match(JSON.stringify(renderer.toJSON()), /Review publish_report/);
+  await act(async () => {
+    await renderer.root.findByProps({ className: "custom-approval" }).props.onClick();
+  });
+  assert.deepEqual(submitted, [
+    { toolCallId: "call-custom", approved: false },
+  ]);
+  await act(async () => renderer.unmount());
+});

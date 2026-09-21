@@ -91,6 +91,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   showSubagentActivity: true,
   handoffWidgetRenderer: undefined as any,
   pauseWidgetRenderer: undefined as any,
+  toolApprovalRenderer: undefined as any,
   toolGroups: undefined as any,
   stopButtonContent: undefined as any,
   debug: false,
@@ -1222,6 +1223,7 @@ function ChatDrawerInner({
         <ToolApprovalCard
           approvals={chat.pendingToolApprovals}
           onResolve={chat.resolveToolApprovals}
+          renderer={mergedOptions.toolApprovalRenderer}
         />
 
         {/* Input */}

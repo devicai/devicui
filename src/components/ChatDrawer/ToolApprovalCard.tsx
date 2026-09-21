@@ -1,21 +1,36 @@
 import React, { useState } from "react";
 import type { PendingToolApproval } from "../../api/types";
 
-export interface ToolApprovalCardProps {
+export interface ToolApprovalRendererProps {
   approvals: PendingToolApproval[];
   onResolve: (
     decisions: { toolCallId: string; approved: boolean }[],
   ) => Promise<void>;
 }
 
+/** Replaces the built-in approval card while keeping the resolution action. */
+export type ToolApprovalRenderer = (
+  props: ToolApprovalRendererProps,
+) => React.ReactNode;
+
+export interface ToolApprovalCardProps extends ToolApprovalRendererProps {
+  /** Optional complete visual override. Called only while approvals are pending. */
+  renderer?: ToolApprovalRenderer;
+}
+
 /** Shared approval surface used by ChatDrawer/DeviQI and exportable to Active Chat. */
 export function ToolApprovalCard({
   approvals,
   onResolve,
+  renderer,
 }: ToolApprovalCardProps): JSX.Element | null {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   if (!approvals.length) return null;
+
+  if (renderer) {
+    return <>{renderer({ approvals, onResolve })}</>;
+  }
 
   const resolveAll = async (approved: boolean) => {
     setSubmitting(true);

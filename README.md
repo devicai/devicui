@@ -380,6 +380,44 @@ A complete chat drawer component.
 />
 ```
 
+#### Custom tool approval widget
+
+Backend tools configured to require explicit approval render the built-in
+`ToolApprovalCard` before they execute. Replace that complete surface with
+`options.toolApprovalRenderer`. The renderer receives the pending batch and the
+resolution action; calling `onResolve` submits one decision for every pending
+tool call and resumes the conversation.
+
+```tsx
+import type { ToolApprovalRendererProps } from '@devicai/ui';
+
+function ApprovalDialog({ approvals, onResolve }: ToolApprovalRendererProps) {
+  const decide = (approved: boolean) =>
+    onResolve(
+      approvals.map(({ toolCallId }) => ({ toolCallId, approved })),
+    );
+
+  return (
+    <MyDialog title="Confirm assistant action">
+      {approvals.map((approval) => (
+        <MyToolSummary key={approval.toolCallId} approval={approval} />
+      ))}
+      <button onClick={() => void decide(false)}>Reject</button>
+      <button onClick={() => void decide(true)}>Approve</button>
+    </MyDialog>
+  );
+}
+
+<ChatDrawer
+  assistantId="my-assistant"
+  options={{ toolApprovalRenderer: (props) => <ApprovalDialog {...props} /> }}
+/>
+```
+
+The renderer is called only while approvals are pending. It may return `null`
+to hide the surface. `ToolApprovalCard`, `ToolApprovalRenderer` and
+`ToolApprovalRendererProps` remain exported for composing a partial override.
+
 #### Compact async-subagent activity
 
 Async handoffs keep a compact aggregate in the tool timeline: consecutive

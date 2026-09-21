@@ -62,6 +62,8 @@ export type {
   QueueNoticeProps,
   AssistantPauseWidgetProps,
   ToolApprovalCardProps,
+  ToolApprovalRenderer,
+  ToolApprovalRendererProps,
   RecalledMemoriesWidgetProps,
   RecalledMemoriesRenderer,
   RecalledMemoriesRendererProps,
