@@ -487,6 +487,20 @@ export class DevicApiClient {
     );
   }
 
+  async resolveToolApprovals(
+    assistantId: string,
+    chatUid: string,
+    decisions: { toolCallId: string; approved: boolean }[],
+  ): Promise<AsyncResponse> {
+    return this.request<AsyncResponse>(
+      `/api/v1/assistants/${assistantId}/chats/${chatUid}/tool-approvals`,
+      {
+        method: "POST",
+        body: JSON.stringify({ decisions }),
+      },
+    );
+  }
+
   /**
    * Submit feedback for a chat message
    */

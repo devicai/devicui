@@ -10,6 +10,7 @@ import { ChatDrawerErrorBoundary } from './ErrorBoundary';
 import { UsageBar } from './UsageBar';
 import { LimitBanner } from './LimitBanner';
 import { AssistantPauseWidget } from './AssistantPauseWidget';
+import { ToolApprovalCard } from './ToolApprovalCard';
 import { isRenderedLimitError } from '../../utils/limitError';
 import { QueueNotice } from './QueueNotice';
 import { collectSubagentActivities, SubagentActivityTray } from './SubagentActivityTray';
@@ -1160,6 +1161,11 @@ function ChatDrawerInner({
           compactionRenderer={mergedOptions.compactionRenderer}
           guardrailRenderer={mergedOptions.guardrailRenderer}
           expandableCompaction={mergedOptions.expandableCompaction}
+        />
+
+        <ToolApprovalCard
+          approvals={chat.pendingToolApprovals}
+          onResolve={chat.resolveToolApprovals}
         />
 
         {/* Input */}

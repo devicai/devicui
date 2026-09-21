@@ -2949,3 +2949,73 @@
   flex-shrink: 0;
   color: var(--devic-error, #ff4d4f);
 }
+.devic-tool-approval {
+  margin: 12px 16px;
+  padding: 14px;
+  border: 1px solid
+    color-mix(in srgb, var(--devic-color, #1890ff) 38%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--devic-color, #1890ff) 7%, transparent);
+}
+
+.devic-tool-approval__title {
+  font-weight: 700;
+}
+.devic-tool-approval__description {
+  margin: 6px 0 12px;
+  font-size: 13px;
+}
+.devic-tool-approval__calls {
+  display: grid;
+  gap: 8px;
+}
+.devic-tool-approval__call {
+  padding: 8px 10px;
+  border: 1px solid rgba(127, 127, 127, 0.22);
+  border-radius: 8px;
+}
+.devic-tool-approval__call summary {
+  cursor: pointer;
+}
+.devic-tool-approval__call pre {
+  margin: 8px 0 0;
+  padding: 8px;
+  overflow: auto;
+  font-size: 11px;
+  border-radius: 6px;
+  background: rgba(127, 127, 127, 0.1);
+}
+.devic-tool-approval__categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+.devic-tool-approval__categories span {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: rgba(127, 127, 127, 0.16);
+}
+.devic-tool-approval__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.devic-tool-approval__actions button {
+  padding: 7px 12px;
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.devic-tool-approval__approve {
+  color: #fff;
+  background: var(--devic-color, #1890ff);
+  border-color: transparent !important;
+}
+.devic-tool-approval__error {
+  margin-top: 8px;
+  color: #d4380d;
+  font-size: 12px;
+}

@@ -22,6 +22,8 @@ export { QueueNotice } from './QueueNotice';
 export type { QueueNoticeProps } from './QueueNotice';
 export { AssistantPauseWidget } from './AssistantPauseWidget';
 export type { AssistantPauseWidgetProps } from './AssistantPauseWidget';
+export { ToolApprovalCard } from './ToolApprovalCard';
+export type { ToolApprovalCardProps } from './ToolApprovalCard';
 export { RecalledMemoriesWidget } from './RecalledMemoriesWidget';
 export type {
   CompactionWidgetProps,

@@ -355,6 +355,7 @@ export type RealtimeStatus =
   | 'completed'
   | 'error'
   | 'waiting_for_tool_response'
+  | 'waiting_for_user_action'
   | 'handed_off'
   | 'paused_for_resume'
   | 'limit_exceeded'
@@ -466,6 +467,17 @@ export interface PendingAsyncToolCall {
   callbackUrl?: string;
 }
 
+export interface PendingToolApproval {
+  toolCallId: string;
+  toolServerId: string;
+  toolServerName?: string;
+  toolName: string;
+  arguments: Record<string, unknown>;
+  categoryIds: string[];
+  categories: { id: string; name: string; description?: string }[];
+  requestedAt: number;
+}
+
 /**
  * Real-time chat history response
  */
@@ -484,6 +496,7 @@ export interface RealtimeChatHistory {
    * client's to answer.
    */
   pendingAsyncToolCalls?: PendingAsyncToolCall[];
+  pendingToolApprovals?: PendingToolApproval[];
   handedOffSubThreadId?: string;
   /** Present while the assistant has paused itself until a future time. */
   pausedUntil?: number;
