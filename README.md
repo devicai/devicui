@@ -523,6 +523,60 @@ message instead when the backend sent a plain sentence. Return `null` to hide
 the notice entirely, though a conversation that simply stops with no answer and
 no explanation reads as a bug to the person in it.
 
+#### Pinned messages
+
+In a long conversation the answer worth keeping is rarely the last one. Any
+user or assistant message can be pinned from the pin button in its footer (shown
+on hover, and kept visible once the message is pinned), and a bar above the
+conversation keeps the pinned ones at hand:
+
+- it shows one pin at a time — the beginning of the message, with a thumbnail
+  when it carries an image or an attachment;
+- a segmented line on its left edge has one segment per pin, the one shown
+  highlighted, so the reader can see how many there are;
+- clicking it scrolls to that message, flashes it, and moves on to the previous
+  pin, so clicking again walks back through all of them;
+- the list button opens every pin at once, each with its own unpin;
+- the pin-off button unpins the one shown. A message can also be unpinned from
+  its own pin button.
+
+Once the reader has scrolled away from the latest message — after jumping to a
+pin, for instance — a floating arrow above the prompt box brings them back.
+
+The pins are stored **on the conversation**, not in the browser: every client
+that opens it sees the same ones, and they survive a reload. The feature is on
+by default and needs the API key (or tenant session) to reach
+`/api/v1/assistants/{id}/chats/{chatUid}/pins`.
+
+```tsx
+<ChatDrawer
+  assistantId="my-assistant"
+  options={{
+    showPinnedMessages: true,        // default — false turns the feature off
+    showScrollToBottomButton: true,  // default — the arrow back to the latest message
+    // Replace the bar with your own. Pins come in conversation order, each with
+    // its message, a one-line `preview` and a `thumbnail` (image or file):
+    pinnedMessagesRenderer: ({ pins, scrollToMessage, unpin }) => (
+      <MyPinnedStrip
+        items={pins.map((p) => ({ id: p.messageUid, text: p.preview }))}
+        onOpen={scrollToMessage}
+        onRemove={unpin}
+      />
+    ),
+  }}
+/>
+```
+
+`PinnedMessagesBar` is exported too, to wrap the built-in bar rather than
+rewrite it. A renderer that returns `null` hides the bar and keeps the pin
+buttons on the messages.
+
+From the hook: `useDevicChat().pinnedMessages` (as stored, with the server uid
+of each message), `pinMessage(messageUid)` and `unpinMessage(messageUid)`. Both
+apply at once and roll back if the API refuses — a conversation keeps at most
+50 pinned messages. A message rendered under an optimistic uid is pinned by its
+`serverUid`; messages still queued or streaming cannot be pinned yet.
+
 ### CoreMemoryModal
 
 Modal showing — and letting the end user edit — the **core memory** of an
@@ -1006,6 +1060,9 @@ const {
   error,         // Error | null
   queuedCount,   // number — messages accepted but not seen by the model yet
   queueEnabled,  // boolean — whether this assistant takes messages while busy
+  pinnedMessages, // PinnedMessage[] — stored on the conversation
+  pinMessage,    // (messageUid) => Promise<void>
+  unpinMessage,  // (messageUid) => Promise<void>
   sendMessage,   // (message, options?) => Promise<SendMessageResult>
   clearChat,     // () => void
   loadChat,      // (chatUid: string) => Promise<void>

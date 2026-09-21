@@ -29,6 +29,7 @@ import type {
   IntegrationSetupRequired,
   ModelInterfaceToolSchema,
   StopChatResponse,
+  PinnedMessagesResponse,
   ResumePausedChatResponse,
   StopScope,
 } from "./types";
@@ -527,6 +528,52 @@ export class DevicApiClient {
   ): Promise<FeedbackEntry[]> {
     return this.request<FeedbackEntry[]>(
       `/api/v1/assistants/${assistantId}/chats/${chatUid}/feedback`,
+    );
+  }
+
+  /**
+   * The pinned messages of a conversation, each with its message attached, in
+   * the order they appear in the conversation.
+   */
+  async getPinnedMessages(
+    assistantId: string,
+    chatUid: string,
+  ): Promise<PinnedMessagesResponse> {
+    return this.request<PinnedMessagesResponse>(
+      `/api/v1/assistants/${assistantId}/chats/${chatUid}/pins`,
+    );
+  }
+
+  /**
+   * Pin a user or assistant message of a conversation. Pinning one that is
+   * already pinned succeeds without changes. Returns the updated list.
+   */
+  async pinMessage(
+    assistantId: string,
+    chatUid: string,
+    messageUid: string,
+  ): Promise<PinnedMessagesResponse> {
+    return this.request<PinnedMessagesResponse>(
+      `/api/v1/assistants/${assistantId}/chats/${chatUid}/pins`,
+      {
+        method: "POST",
+        body: JSON.stringify({ messageUid }),
+      },
+    );
+  }
+
+  /**
+   * Unpin a message of a conversation. Unpinning one that is not pinned
+   * succeeds without changes. Returns the updated list.
+   */
+  async unpinMessage(
+    assistantId: string,
+    chatUid: string,
+    messageUid: string,
+  ): Promise<PinnedMessagesResponse> {
+    return this.request<PinnedMessagesResponse>(
+      `/api/v1/assistants/${assistantId}/chats/${chatUid}/pins/${encodeURIComponent(messageUid)}`,
+      { method: "DELETE" },
     );
   }
 

@@ -91,15 +91,19 @@ here:
 
 ## Chat drawer — messages
 
-- `1 failed`
-- `1 queued`
-- `1 running`
 - `1 entity`
 - `1 fact`
-- `1 message`
+- `1 failed`
 - `1 message is still in this conversation but no longer sent to the assistant`
-- `Audio unavailable`
+- `1 message`
+- `1 queued`
+- `1 running`
 - `All completed`
+- `All pinned messages`
+- `Assistant`
+- `Attachment`
+- `Audio unavailable`
+- `Cannot pin a message before the conversation exists`
 - `collapse`
 - `Compacting context`
 - `Completed`
@@ -107,17 +111,24 @@ here:
 - `Context compacted`
 - `Decisions`
 - `Dictated by voice`
-- `Done`
 - `Dismiss subagent activity`
+- `Done`
 - `expand`
+- `Go to pinned message`
 - `Goal`
+- `Image`
 - `In progress`
 - `Key data`
+- `Message`
 - `Notes`
 - `Open questions`
 - `PASTED`
 - `Pause recording`
 - `Pending`
+- `Pin message`
+- `Pinned message #{index}`
+- `Pinned message`
+- `Pinned messages`
 - `Play recording`
 - `Playback failed`
 - `Preserved exactly`
@@ -126,25 +137,29 @@ here:
 - `Queued`
 - `Recalled memories`
 - `Running`
+- `Scroll to the latest message`
 - `since {date}`
-- `Subagent`
 - `Subagent activity`
+- `Subagent`
 - `Summary`
-- `superseded`
 - `Superseded by a later compaction, which merged this summary into itself. Kept for the record.`
+- `superseded`
 - `The answer was stopped by the “{name}” guardrail.`
 - `This is what the assistant reads in place of the messages above. The messages themselves are still here.`
 - `This message was stopped by a guardrail.`
 - `Unavailable`
+- `Unpin message`
 - `Voice message`
+- `You`
 - `Your message was stopped by the “{name}” guardrail.`
 - `{before} → {after} tokens`
 - `{count} entities`
-- `{count} failed`
 - `{count} facts`
+- `{count} failed`
 - `{count} lines`
-- `{count} messages`
 - `{count} messages are still in this conversation but no longer sent to the assistant`
+- `{count} messages`
+- `{count} pinned messages`
 - `{count} queued`
 - `{count} running`
 - `{tokens} tokens`
