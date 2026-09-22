@@ -3020,6 +3020,28 @@
   font-size: 12px;
 }
 
+.devic-mcp-elicitation {
+  margin: 12px 16px;
+  padding: 14px;
+  border: 1px solid var(--devic-border-color, #d9d9d9);
+  border-radius: 10px;
+  background: var(--devic-secondary-bg, rgba(127, 127, 127, 0.06));
+  color: inherit;
+}
+.devic-mcp-elicitation__title { font-weight: 650; margin-bottom: 10px; }
+.devic-mcp-elicitation__request + .devic-mcp-elicitation__request { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--devic-border-color, #d9d9d9); }
+.devic-mcp-elicitation__tool { font-size: 13px; }
+.devic-mcp-elicitation__request p { margin: 6px 0 10px; }
+.devic-mcp-elicitation__field { display: grid; gap: 5px; margin: 9px 0; font-size: 13px; }
+.devic-mcp-elicitation__field input:not([type='checkbox']),
+.devic-mcp-elicitation__field select { width: 100%; box-sizing: border-box; padding: 8px 9px; border: 1px solid var(--devic-border-color, #d9d9d9); border-radius: 7px; background: var(--devic-bg, #fff); color: inherit; }
+.devic-mcp-elicitation__field small { opacity: .7; }
+.devic-mcp-elicitation__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.devic-mcp-elicitation__actions button { padding: 7px 12px; border: 1px solid var(--devic-border-color, #d9d9d9); border-radius: 7px; background: transparent; color: inherit; cursor: pointer; }
+.devic-mcp-elicitation__actions button:disabled { cursor: default; opacity: .55; }
+.devic-mcp-elicitation__actions .devic-mcp-elicitation__continue { color: #fff; border-color: var(--devic-color, #1677ff); background: var(--devic-color, #1677ff); }
+.devic-mcp-elicitation__error { margin-top: 8px; color: #cf1322; font-size: 13px; }
+
 /* ── Pinned messages ─────────────────────────────────────────────────────
    The bar that keeps the pinned messages at hand, above the conversation. It
    uses only the drawer's own variables, so it follows the host's theme, light

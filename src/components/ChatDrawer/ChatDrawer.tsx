@@ -11,6 +11,7 @@ import { UsageBar } from './UsageBar';
 import { LimitBanner } from './LimitBanner';
 import { AssistantPauseWidget } from './AssistantPauseWidget';
 import { ToolApprovalCard } from './ToolApprovalCard';
+import { McpElicitationCard } from './McpElicitationCard';
 import { isRenderedLimitError } from '../../utils/limitError';
 import { QueueNotice } from './QueueNotice';
 import { PinnedMessagesBar, buildPinnedMessageViews } from './PinnedMessagesBar';
@@ -92,6 +93,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   handoffWidgetRenderer: undefined as any,
   pauseWidgetRenderer: undefined as any,
   toolApprovalRenderer: undefined as any,
+  mcpElicitationRenderer: undefined as any,
   toolGroups: undefined as any,
   stopButtonContent: undefined as any,
   debug: false,
@@ -1224,6 +1226,12 @@ function ChatDrawerInner({
           approvals={chat.pendingToolApprovals}
           onResolve={chat.resolveToolApprovals}
           renderer={mergedOptions.toolApprovalRenderer}
+        />
+
+        <McpElicitationCard
+          elicitations={chat.pendingMcpElicitations}
+          onResolve={chat.resolveMcpElicitations}
+          renderer={mergedOptions.mcpElicitationRenderer}
         />
 
         {/* Input */}

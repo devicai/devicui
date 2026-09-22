@@ -9,6 +9,7 @@ import type { CompactionRenderer } from './CompactionWidget';
 import type { GuardrailRenderer } from './GuardrailNotice';
 import type { PinnedMessagesRenderer } from './PinnedMessagesBar';
 import type { ToolApprovalRenderer } from './ToolApprovalCard';
+import type { McpElicitationRenderer } from './McpElicitationCard';
 import type { CoreMemoryLabels } from '../CoreMemoryModal';
 import type { DevicTranslations } from '../../i18n';
 
@@ -513,6 +514,12 @@ export interface ChatDrawerOptions {
    * ```
    */
   toolApprovalRenderer?: ToolApprovalRenderer;
+
+  /**
+   * Replace the MCP elicitation card while preserving the typed resolution
+   * action. The renderer receives every request in the current batch.
+   */
+  mcpElicitationRenderer?: McpElicitationRenderer;
 
   /**
    * Tool group configurations for rendering consecutive tool calls together.

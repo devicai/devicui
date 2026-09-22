@@ -28,6 +28,12 @@ export type {
   ToolApprovalRenderer,
   ToolApprovalRendererProps,
 } from './ToolApprovalCard';
+export { McpElicitationCard } from './McpElicitationCard';
+export type {
+  McpElicitationCardProps,
+  McpElicitationRenderer,
+  McpElicitationRendererProps,
+} from './McpElicitationCard';
 export { RecalledMemoriesWidget } from './RecalledMemoriesWidget';
 export type {
   CompactionWidgetProps,
