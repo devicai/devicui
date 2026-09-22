@@ -33,7 +33,7 @@ export type {
 } from './i18n';
 
 // Components
-export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, SubagentResultCard, SubagentActivityTray, collectSubagentActivities, ReferenceChip, UsageBar, LimitBanner, QueueNotice, AssistantPauseWidget, RecalledMemoriesWidget, CompactionWidget, GuardrailNotice, PinnedMessagesBar, buildPinnedMessageViews } from './components/ChatDrawer';
+export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, SubagentResultCard, SubagentActivityTray, collectSubagentActivities, ReferenceChip, UsageBar, LimitBanner, QueueNotice, AssistantPauseWidget, ToolApprovalCard, McpElicitationCard, RecalledMemoriesWidget, CompactionWidget, GuardrailNotice, PinnedMessagesBar, buildPinnedMessageViews } from './components/ChatDrawer';
 export type {
   ChatDrawerProps,
   ChatDrawerOptions,
@@ -61,6 +61,12 @@ export type {
   LimitBannerProps,
   QueueNoticeProps,
   AssistantPauseWidgetProps,
+  ToolApprovalCardProps,
+  ToolApprovalRenderer,
+  ToolApprovalRendererProps,
+  McpElicitationCardProps,
+  McpElicitationRenderer,
+  McpElicitationRendererProps,
   RecalledMemoriesWidgetProps,
   RecalledMemoriesRenderer,
   RecalledMemoriesRendererProps,
@@ -224,6 +230,10 @@ export type {
   RealtimeChatHistory,
   RealtimeStatus,
   PendingAsyncToolCall,
+  PendingToolApproval,
+  PendingMcpElicitation,
+  McpElicitationAction,
+  McpElicitationDecision,
   ChatHistory,
   AssistantSpecialization,
   ModelInterfaceTool,

@@ -390,6 +390,7 @@ export type RealtimeStatus =
   | 'completed'
   | 'error'
   | 'waiting_for_tool_response'
+  | 'waiting_for_user_action'
   | 'handed_off'
   | 'paused_for_resume'
   | 'limit_exceeded'
@@ -501,6 +502,41 @@ export interface PendingAsyncToolCall {
   callbackUrl?: string;
 }
 
+export interface PendingToolApproval {
+  toolCallId: string;
+  toolServerId: string;
+  toolServerName?: string;
+  toolName: string;
+  arguments: Record<string, unknown>;
+  categoryIds: string[];
+  categories: { id: string; name: string; description?: string }[];
+  requestedAt: number;
+}
+
+export type McpElicitationAction = 'accept' | 'decline' | 'cancel';
+
+export interface PendingMcpElicitation {
+  id: string;
+  toolCallId: string;
+  toolServerId: string;
+  toolServerName?: string;
+  toolName: string;
+  arguments: Record<string, unknown>;
+  mode: 'form' | 'url';
+  message: string;
+  requestedSchema?: Record<string, any>;
+  url?: string;
+  elicitationId?: string;
+  protocol: 'modern' | 'legacy';
+  requestedAt: number;
+}
+
+export interface McpElicitationDecision {
+  id: string;
+  action: McpElicitationAction;
+  content?: Record<string, string | number | boolean | string[]>;
+}
+
 /**
  * Real-time chat history response
  */
@@ -519,6 +555,8 @@ export interface RealtimeChatHistory {
    * client's to answer.
    */
   pendingAsyncToolCalls?: PendingAsyncToolCall[];
+  pendingToolApprovals?: PendingToolApproval[];
+  pendingMcpElicitations?: PendingMcpElicitation[];
   handedOffSubThreadId?: string;
   /** Present while the assistant has paused itself until a future time. */
   pausedUntil?: number;
@@ -727,6 +765,8 @@ export interface ChatHistory {
   pausedUntil?: number;
   pausedReason?: string;
   pausedToolCallId?: string;
+  pendingToolApprovals?: PendingToolApproval[];
+  pendingMcpElicitations?: PendingMcpElicitation[];
   /** Durable marker for the latest conversation-level cancellation. */
   cancelledAt?: number;
   cancelledByUserUID?: string;
