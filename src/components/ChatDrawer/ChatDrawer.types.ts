@@ -120,16 +120,19 @@ export interface CustomPromptBoxProps {
 }
 
 /**
- * Allowed file types for upload. Each flag turns on a family of MIME types:
+ * Allowed file types for upload. Each flag turns on a family of formats,
+ * accepted by MIME type or by extension (the OS often reports no MIME type for
+ * a .docx without Office installed, or for a .json on Windows):
  * - `images`: jpeg, png, gif, webp
- * - `documents`: pdf, doc/docx, plain text, csv, json (`.json` is also accepted
- *   by extension, since the OS often reports no MIME type for it)
+ * - `documents`: pdf, doc/docx, odt, rtf, plain text, csv, json
+ * - `spreadsheets`: xlsx, xls, xlsm, ods, csv (off by default)
  * - `audio`: mpeg, wav, ogg
  * - `video`: mp4, webm, ogg
  */
 export interface AllowedFileTypes {
   images?: boolean;
   documents?: boolean;
+  spreadsheets?: boolean;
   audio?: boolean;
   video?: boolean;
 }

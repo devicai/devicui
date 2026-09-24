@@ -748,6 +748,7 @@ Enable file attachments in chat:
     allowedFileTypes: {
       images: true,
       documents: true,
+      spreadsheets: true, // off by default
       audio: false,
       video: false,
     },
@@ -756,17 +757,23 @@ Enable file attachments in chat:
 />
 ```
 
-Each flag enables a family of MIME types:
+Each flag enables a family of formats, accepted by MIME type **or** by
+extension. The extension matters: the browser takes `File.type` from the
+operating system, which often reports none (a `.docx` on a computer without
+Office, a `.json` on Windows), and those files used to be refused.
 
 | Flag | Accepted |
 | --- | --- |
 | `images` | `image/jpeg`, `image/png`, `image/gif`, `image/webp` |
-| `documents` | `application/pdf`, `application/msword`, `.docx`, `text/plain`, `text/csv`, `application/json` (also matched by the `.json` extension, because many systems report no MIME type for it) |
+| `images` extensions | `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp` |
+| `documents` | `application/pdf`, `application/msword`, `.docx`, `.odt`, `.rtf`, `text/plain`, `text/csv`, `application/json`; extensions `.pdf`, `.doc`, `.docx`, `.odt`, `.rtf`, `.txt`, `.csv`, `.json` |
+| `spreadsheets` (off by default) | `.xlsx`, `application/vnd.ms-excel`, `.xlsm`, `.ods`, `text/csv`; extensions `.xlsx`, `.xls`, `.xlsm`, `.ods`, `.csv` |
 | `audio` | `audio/mpeg`, `audio/wav`, `audio/ogg` |
 | `video` | `video/mp4`, `video/webm`, `video/ogg` |
 
 The same list applies however the file gets in: the attach button, drag & drop,
-or pasting a file from the clipboard.
+or pasting a file from the clipboard. A refused file is reported above the
+input (wrong type, or larger than `maxFileSize`) instead of disappearing.
 
 ## Theming
 
