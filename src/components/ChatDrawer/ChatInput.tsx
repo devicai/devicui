@@ -11,29 +11,10 @@ import {
   pastedLineCount,
   type PastedText,
 } from './pastedText';
+import { acceptedFileTypes, fileRejection } from './fileAcceptance';
 
-const FILE_TYPE_ACCEPT: Record<string, string[]> = {
-  images: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-  documents: [
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'text/plain',
-    'text/csv',
-    'application/json',
-  ],
-  audio: ['audio/mpeg', 'audio/wav', 'audio/ogg'],
-  video: ['video/mp4', 'video/webm', 'video/ogg'],
-};
-
-// Extensions accepted per category, on top of the MIME types above. The browser
-// derives `File.type` from the OS, which reports .json inconsistently: empty on
-// Windows without the registry entry, 'text/plain' on some Linux setups. Without
-// this fallback a .json picked from the dialog or dropped in would be silently
-// rejected on those machines.
-const FILE_TYPE_ACCEPT_EXT: Record<string, string[]> = {
-  documents: ['.json'],
-};
+// How long the notice of a refused attachment stays above the input.
+const FILE_ERROR_MS = 6000;
 
 // Extensions used to name images pasted from the clipboard, which arrive with a
 // generic name ("image.png") or none at all.
@@ -93,6 +74,7 @@ function ChatInputBox({
   placeholder = 'Type a message...',
   enableFileUploads = false,
   allowedFileTypes = { images: true, documents: true },
+  additionalFileTypes,
   maxFileSize = 10 * 1024 * 1024, // 10MB
   enableLongTextPaste = false,
   longTextPasteThreshold = 2000,
@@ -210,48 +192,50 @@ function ChatInputBox({
     enableSpeechToText && recording.isSupported && !!transcribeClient;
   const isRecordingActive = recording.isRecording || recording.isPaused;
 
-  // Calculate accepted file types
-  const acceptedTypeList = useMemo(
+  // Accepted MIME types and extensions; the native dialog takes both in `accept`.
+  const accepted = useMemo(
     () =>
-      Object.entries(allowedFileTypes)
-        .filter(([, enabled]) => enabled)
-        .flatMap(([type]) => FILE_TYPE_ACCEPT[type] || []),
-    [allowedFileTypes]
+      acceptedFileTypes(
+        allowedFileTypes as Record<string, boolean | undefined>,
+        additionalFileTypes
+      ),
+    [allowedFileTypes, additionalFileTypes]
   );
-  const acceptedExtList = useMemo(
-    () =>
-      Object.entries(allowedFileTypes)
-        .filter(([, enabled]) => enabled)
-        .flatMap(([type]) => FILE_TYPE_ACCEPT_EXT[type] || []),
-    [allowedFileTypes]
-  );
-  // The native dialog takes both MIME types and extensions in `accept`.
-  const acceptedTypes = [...acceptedTypeList, ...acceptedExtList].join(',');
+  const acceptedTypes = accepted.accept;
+
+  // A refused attachment used to vanish with only a console warning; the user
+  // was left thinking the file had not been picked. Say it above the input.
+  const [fileError, setFileError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!fileError) return;
+    const timer = setTimeout(() => setFileError(null), FILE_ERROR_MS);
+    return () => clearTimeout(timer);
+  }, [fileError]);
 
   // Single entry point for every way of attaching a file (button, paste, drop):
   // enforces the size limit and the allowed MIME types, which until now were
   // only hinted at the native file dialog and never actually checked.
   const addFiles = useCallback(
     (incoming: File[]) => {
+      const refused: string[] = [];
       const validFiles = incoming.filter((file) => {
-        if (file.size > maxFileSize) {
-          console.warn(`File ${file.name} exceeds maximum size`);
-          return false;
+        const rejection = fileRejection(file, accepted, maxFileSize);
+        if (rejection === 'size') {
+          refused.push(
+            t('"{name}" is larger than {size} MB and cannot be attached.', {
+              name: file.name,
+              size: Math.round((maxFileSize / (1024 * 1024)) * 10) / 10,
+            })
+          );
+        } else if (rejection === 'type') {
+          refused.push(t('"{name}" cannot be attached: this file type is not allowed.', { name: file.name }));
         }
-        const name = file.name.toLowerCase();
-        const allowed =
-          acceptedTypeList.length === 0 ||
-          acceptedTypeList.includes(file.type) ||
-          acceptedExtList.some((ext) => name.endsWith(ext));
-        if (!allowed) {
-          console.warn(`File type ${file.type || 'unknown'} is not allowed`);
-          return false;
-        }
-        return true;
+        return rejection === null;
       });
+      setFileError(refused.length ? refused.join(' ') : null);
       if (validFiles.length > 0) setFiles((prev) => [...prev, ...validFiles]);
     },
-    [maxFileSize, acceptedTypeList, acceptedExtList]
+    [maxFileSize, accepted, t]
   );
 
   // Thumbnails for attached images. The cleanup revokes the previous batch on
@@ -771,6 +755,11 @@ function ChatInputBox({
       {speechError && (
         <div className="devic-speech-error" role="alert">
           {speechError}
+        </div>
+      )}
+      {fileError && (
+        <div className="devic-speech-error devic-file-error" role="alert">
+          {fileError}
         </div>
       )}
       {handoffActive && (

@@ -117,19 +117,32 @@ export interface CustomPromptBoxProps {
   isResumingPause?: boolean;
   resumePauseError?: Error | null;
   resumeNow: () => Promise<ResumePausedChatResponse>;
+  /**
+   * The drawer's file rules (`allowedFileTypes` + `additionalFileTypes`) as a
+   * value for the `accept` attribute of your `<input type="file">`.
+   */
+  fileAccept: string;
+  /**
+   * Checks a file against the same rules the default composer applies (type
+   * and `maxFileSize`): `null` when it can be attached, otherwise why not.
+   */
+  checkFile: (file: File) => 'size' | 'type' | null;
 }
 
 /**
- * Allowed file types for upload. Each flag turns on a family of MIME types:
+ * Allowed file types for upload. Each flag turns on a family of formats,
+ * accepted by MIME type or by extension (the OS often reports no MIME type for
+ * a .docx without Office installed, or for a .json on Windows):
  * - `images`: jpeg, png, gif, webp
- * - `documents`: pdf, doc/docx, plain text, csv, json (`.json` is also accepted
- *   by extension, since the OS often reports no MIME type for it)
+ * - `documents`: pdf, doc/docx, odt, rtf, plain text, csv, json
+ * - `spreadsheets`: xlsx, xls, xlsm, ods, csv (off by default)
  * - `audio`: mpeg, wav, ogg
  * - `video`: mp4, webm, ogg
  */
 export interface AllowedFileTypes {
   images?: boolean;
   documents?: boolean;
+  spreadsheets?: boolean;
   audio?: boolean;
   video?: boolean;
 }
@@ -299,6 +312,17 @@ export interface ChatDrawerOptions {
    * Allowed file types for upload
    */
   allowedFileTypes?: AllowedFileTypes;
+
+  /**
+   * Extra formats to accept on top of the `allowedFileTypes` families, for
+   * formats the families do not cover. Each entry is an extension, with or
+   * without its dot (`'.dwg'`, `'dxf'`), or a MIME type, wildcards included
+   * (`'application/zip'`, `'model/*'`). A file passes on either its MIME type
+   * or its extension. Also handed to a `customPromptBox` through `fileAccept`
+   * and `checkFile`.
+   * @example ['.dwg', '.dxf', 'application/zip']
+   */
+  additionalFileTypes?: string[];
 
   /**
    * Maximum file size in bytes
@@ -1145,6 +1169,8 @@ export interface ChatInputProps {
   placeholder?: string;
   enableFileUploads?: boolean;
   allowedFileTypes?: AllowedFileTypes;
+  /** Extra extensions or MIME types to accept; see `ChatDrawerOptions.additionalFileTypes`. */
+  additionalFileTypes?: string[];
   maxFileSize?: number;
   /** Turn long pasted text into an attachment card. @default false */
   enableLongTextPaste?: boolean;

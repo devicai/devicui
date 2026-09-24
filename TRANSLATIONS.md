@@ -60,6 +60,8 @@ here:
 - `Could not resume the assistant. Try again.`
 - `Could not transcribe the audio: {error}`
 - `Drop files to attach`
+- `"{name}" cannot be attached: this file type is not allowed.`
+- `"{name}" is larger than {size} MB and cannot be attached.`
 - `Hands-free on`
 - `Hands-free · waiting for reply`
 - `Microphone permission denied`

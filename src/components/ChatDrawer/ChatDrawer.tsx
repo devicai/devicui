@@ -34,6 +34,7 @@ import type { DevicTheme } from '../theme';
 import type { ChatDrawerProps, ChatDrawerOptions, ChatDrawerHandle, ChatMessagesHandle } from './ChatDrawer.types';
 import type { QueueDisposition, StopScope } from '../../api/types';
 import './styles.css';
+import { acceptedFileTypes, fileRejection } from './fileAcceptance';
 const LiveVoicePanel = React.lazy(() => import('./LiveVoicePanel'));
 import { avatarUri } from '../../utils/avatar';
 
@@ -47,6 +48,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   suggestedMessages: [],
   enableFileUploads: false,
   allowedFileTypes: { images: true, documents: true },
+  additionalFileTypes: [],
   maxFileSize: 10 * 1024 * 1024,
   enableLongTextPaste: false,
   longTextPasteThreshold: 2000,
@@ -211,6 +213,21 @@ function ChatDrawerInner({
   // its language; a host that sets its own text keeps it, unless it also put
   // that text in the dictionary.
   const t = useTranslations(mergedOptions.translations);
+
+  // File rules handed to a custom prompt box, so it can apply the same ones as
+  // the default composer (`fileAccept` for its dialog, `checkFile` per file).
+  const promptBoxFileTypes = useMemo(
+    () =>
+      acceptedFileTypes(
+        mergedOptions.allowedFileTypes as Record<string, boolean | undefined>,
+        mergedOptions.additionalFileTypes
+      ),
+    [mergedOptions.allowedFileTypes, mergedOptions.additionalFileTypes]
+  );
+  const checkPromptBoxFile = useCallback(
+    (file: File) => fileRejection(file, promptBoxFileTypes, mergedOptions.maxFileSize),
+    [promptBoxFileTypes, mergedOptions.maxFileSize]
+  );
 
   // localStorage key for persisting selected conversation
   const storageKey = mergedOptions.persistConversation
@@ -1260,6 +1277,8 @@ function ChatDrawerInner({
               removeReference,
               clearReferences,
               limitExceeded: chat.limitExceeded,
+              fileAccept: promptBoxFileTypes.accept,
+              checkFile: checkPromptBoxFile,
             })}
           </div>
         ) : (
@@ -1280,6 +1299,7 @@ function ChatDrawerInner({
             placeholder={t(mergedOptions.inputPlaceholder)}
             enableFileUploads={mergedOptions.enableFileUploads}
             allowedFileTypes={mergedOptions.allowedFileTypes}
+            additionalFileTypes={mergedOptions.additionalFileTypes}
             maxFileSize={mergedOptions.maxFileSize}
             enableLongTextPaste={mergedOptions.enableLongTextPaste}
             longTextPasteThreshold={mergedOptions.longTextPasteThreshold}
