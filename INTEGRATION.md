@@ -775,6 +775,46 @@ The same list applies however the file gets in: the attach button, drag & drop,
 or pasting a file from the clipboard. A refused file is reported above the
 input (wrong type, or larger than `maxFileSize`) instead of disappearing.
 
+### Extra formats: `additionalFileTypes`
+
+For formats the families do not cover, list them in `additionalFileTypes`.
+Each entry is an extension, with or without its dot, or a MIME type
+(wildcards included). They add to the enabled families; with every family off,
+only these are accepted. `maxFileSize` still applies.
+
+```tsx
+<ChatDrawer
+  assistantId="engineering-assistant"
+  options={{
+    enableFileUploads: true,
+    allowedFileTypes: { images: true, documents: true },
+    additionalFileTypes: ['.dwg', 'dxf', 'application/zip', 'model/*'],
+  }}
+/>
+```
+
+`ChatInput` takes the same `additionalFileTypes` prop when used on its own.
+
+### Custom prompt box
+
+A `customPromptBox` receives the drawer's file rules so it does not have to
+duplicate them: `fileAccept` (for the `accept` attribute of its file input) and
+`checkFile(file)`, which returns `null` when the file can be attached, or
+`'type'` / `'size'` when it cannot.
+
+```tsx
+customPromptBox: ({ sendMessage, fileAccept, checkFile }) => (
+  <input
+    type="file"
+    accept={fileAccept}
+    onChange={(e) => {
+      const files = Array.from(e.target.files || []).filter((f) => checkFile(f) === null);
+      if (files.length) sendMessage('', files);
+    }}
+  />
+)
+```
+
 ## Theming
 
 ### Using CSS Variables

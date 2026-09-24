@@ -54,14 +54,42 @@ const enabledFamilies = (allowed: Record<string, boolean | undefined>) =>
 
 const unique = (items: string[]) => Array.from(new Set(items));
 
+/**
+ * Normalises the host's `additionalFileTypes`: an entry with a slash is a MIME
+ * type (`application/zip`, or a wildcard such as `model/*`); anything else is
+ * an extension, with or without its leading dot (`.dwg`, `dwg`).
+ */
+const splitAdditional = (additional: string[] = []) => {
+  const mimeTypes: string[] = [];
+  const extensions: string[] = [];
+  for (const raw of additional) {
+    const entry = (raw || '').trim().toLowerCase();
+    if (!entry) continue;
+    if (entry.includes('/')) mimeTypes.push(entry);
+    else extensions.push(entry.startsWith('.') ? entry : `.${entry}`);
+  }
+  return { mimeTypes, extensions };
+};
+
 export const acceptedFileTypes = (
-  allowed: Record<string, boolean | undefined>
+  allowed: Record<string, boolean | undefined>,
+  additional: string[] = []
 ): AcceptedFileTypes => {
   const families = enabledFamilies(allowed);
-  const mimeTypes = unique(families.flatMap((family) => FILE_TYPE_ACCEPT[family] || []));
-  const extensions = unique(families.flatMap((family) => FILE_TYPE_ACCEPT_EXT[family] || []));
+  const extra = splitAdditional(additional);
+  const mimeTypes = unique([
+    ...families.flatMap((family) => FILE_TYPE_ACCEPT[family] || []),
+    ...extra.mimeTypes,
+  ]);
+  const extensions = unique([
+    ...families.flatMap((family) => FILE_TYPE_ACCEPT_EXT[family] || []),
+    ...extra.extensions,
+  ]);
   return { mimeTypes, extensions, accept: [...mimeTypes, ...extensions].join(',') };
 };
+
+const mimeMatches = (type: string, accepted: string) =>
+  accepted.endsWith('/*') ? type.startsWith(accepted.slice(0, -1)) : type === accepted;
 
 export type FileRejection = 'size' | 'type';
 
@@ -75,7 +103,8 @@ export const fileRejection = (
   if (accepted.mimeTypes.length === 0 && accepted.extensions.length === 0) return null;
   const name = (file.name || '').toLowerCase();
   const allowed =
-    (!!file.type && accepted.mimeTypes.includes(file.type)) ||
+    (!!file.type &&
+      accepted.mimeTypes.some((mime) => mimeMatches(file.type.toLowerCase(), mime))) ||
     accepted.extensions.some((extension) => name.endsWith(extension));
   return allowed ? null : 'type';
 };

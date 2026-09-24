@@ -48,3 +48,25 @@ test('the dialog accept list carries MIME types and extensions without duplicate
   assert.equal(parts.length, new Set(parts).size);
   assert.ok(!DEFAULTS.accept.includes('.xlsx'));
 });
+
+test('additionalFileTypes adds extensions (with or without dot) and MIME types, wildcards included', () => {
+  const accepted = acceptedFileTypes({ documents: true }, ['.dwg', 'DXF', ' application/zip ', 'model/*', '']);
+  assert.equal(fileRejection(file('plano.dwg', ''), accepted, 10 * MB), null);
+  assert.equal(fileRejection(file('PLANO.DXF', 'application/octet-stream'), accepted, 10 * MB), null);
+  assert.equal(fileRejection(file('fotos.bin', 'application/zip'), accepted, 10 * MB), null);
+  assert.equal(fileRejection(file('cubierta', 'model/gltf-binary'), accepted, 10 * MB), null);
+  // The families still apply, and anything else is still refused.
+  assert.equal(fileRejection(file('memoria.docx', ''), accepted, 10 * MB), null);
+  assert.equal(fileRejection(file('hoja.xlsx', ''), accepted, 10 * MB), 'type');
+  assert.equal(fileRejection(file('modelo.gltf', 'text/plain+model'), accepted, 10 * MB), 'type');
+  const parts = accepted.accept.split(',');
+  for (const entry of ['.dwg', '.dxf', 'application/zip', 'model/*']) assert.ok(parts.includes(entry), entry);
+  assert.ok(!parts.includes(''));
+});
+
+test('additionalFileTypes alone restricts to those formats, and never lifts the size limit', () => {
+  const accepted = acceptedFileTypes({}, ['.dwg']);
+  assert.equal(fileRejection(file('plano.dwg', ''), accepted, 10 * MB), null);
+  assert.equal(fileRejection(file('memoria.pdf', 'application/pdf'), accepted, 10 * MB), 'type');
+  assert.equal(fileRejection(file('plano.dwg', '', 20 * MB), accepted, 10 * MB), 'size');
+});

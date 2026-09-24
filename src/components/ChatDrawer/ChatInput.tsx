@@ -74,6 +74,7 @@ function ChatInputBox({
   placeholder = 'Type a message...',
   enableFileUploads = false,
   allowedFileTypes = { images: true, documents: true },
+  additionalFileTypes,
   maxFileSize = 10 * 1024 * 1024, // 10MB
   enableLongTextPaste = false,
   longTextPasteThreshold = 2000,
@@ -193,8 +194,12 @@ function ChatInputBox({
 
   // Accepted MIME types and extensions; the native dialog takes both in `accept`.
   const accepted = useMemo(
-    () => acceptedFileTypes(allowedFileTypes as Record<string, boolean | undefined>),
-    [allowedFileTypes]
+    () =>
+      acceptedFileTypes(
+        allowedFileTypes as Record<string, boolean | undefined>,
+        additionalFileTypes
+      ),
+    [allowedFileTypes, additionalFileTypes]
   );
   const acceptedTypes = accepted.accept;
 

@@ -326,7 +326,8 @@ A complete chat drawer component.
     welcomeMessage: 'Hello!',
     suggestedMessages: ['Help me...'],
     enableFileUploads: true,
-    allowedFileTypes: { images: true, documents: true },
+    allowedFileTypes: { images: true, documents: true }, // also spreadsheets
+    additionalFileTypes: ['.dwg', 'application/zip'], // extra extensions / MIME types
     inputPlaceholder: 'Type a message...',
     title: 'Chat Assistant',
     showAvatar: true,           // Assistant's face next to the title
