@@ -1,0 +1,26 @@
+* { box-sizing: border-box; }
+body { margin: 0; color: #24233f; background: #f4f3fa; font: 15px/1.5 system-ui, sans-serif; }
+button, input, select { font: inherit; }
+main { display: grid; grid-template-columns: minmax(280px, 390px) minmax(0, 1fr); gap: 30px; max-width: 1380px; min-height: 100dvh; margin: auto; padding: 30px; }
+.intro { padding: 18px 8px; }
+.eyebrow { color: #5d58cf; font-size: 11px; font-weight: 800; letter-spacing: .16em; }
+h1 { margin: 18px 0 14px; font-size: clamp(30px, 3vw, 44px); line-height: 1.08; letter-spacing: -.04em; }
+.intro p { color: #59586f; }
+.steps { display: grid; gap: 10px; margin: 26px 0; padding: 20px; border: 1px solid #dfddee; border-radius: 16px; background: white; font-size: 14px; }
+.connect-form { display: grid; gap: 8px; padding: 20px; border: 1px solid #dfddee; border-radius: 16px; background: white; }
+.connect-form label { font-size: 12px; font-weight: 700; }
+.connect-form input, .connect-form select { width: 100%; padding: 10px 12px; border: 1px solid #c9c6dd; border-radius: 9px; background: white; }
+.connect-form button, .custom-notice button { padding: 10px 14px; border: 0; border-radius: 9px; background: #5d58cf; color: white; font-weight: 700; cursor: pointer; }
+.connect-form button { margin-top: 8px; }
+.connect-form small { color: #77758e; font-size: 11px; }
+.connected { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 15px; border: 1px solid #cce9d7; border-radius: 12px; background: #effaf3; color: #236341; font-size: 13px; }
+.connected button { border: 0; background: transparent; color: #236341; text-decoration: underline; cursor: pointer; }
+.toggle { display: flex; align-items: center; gap: 8px; margin-top: 20px; font-size: 13px; }
+.chat-panel { min-width: 0; height: calc(100dvh - 60px); min-height: 560px; }
+.empty-state { display: flex; height: 100%; flex-direction: column; align-items: center; justify-content: center; padding: 30px; border: 1px solid #dfddee; border-radius: 18px; background: white; text-align: center; }
+.empty-state h2 { margin-bottom: 0; }
+.empty-state p { color: #77758e; }
+.empty-icon { display: grid; place-items: center; width: 60px; height: 60px; border-radius: 18px; background: #eeecff; color: #5d58cf; font-size: 30px; }
+.custom-notice { margin: 10px 12px; padding: 16px; border: 1px solid #c4bfff; border-radius: 12px; background: #f0efff; text-align: center; font-size: 13px; }
+.custom-notice p { margin: 5px 0 10px; }
+@media (max-width: 800px) { main { display: block; padding: 14px; } .intro { padding: 10px 2px; } .chat-panel { height: 75dvh; min-height: 500px; } }

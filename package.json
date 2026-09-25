@@ -24,6 +24,7 @@
     "build": "rollup -c",
     "dev": "rollup -c -w",
     "demo:subagents": "../frontend/suntropy-ai-frontend/node_modules/.bin/vite demo/subagent-ux --host 127.0.0.1 --port 5174",
+    "demo:message-limit": "node demo/message-limit/server.cjs",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build",
     "typecheck": "tsc --noEmit",
