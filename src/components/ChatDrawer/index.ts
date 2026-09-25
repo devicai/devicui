@@ -30,6 +30,8 @@ export type {
 } from './CompactionWidget';
 export { CompactionWidget } from './CompactionWidget';
 export { GuardrailNotice } from './GuardrailNotice';
+export { MessageLimitNotice } from './MessageLimitNotice';
+export type { MessageLimitNoticeProps, MessageLimitRenderer } from './MessageLimitNotice';
 export { PinnedMessagesBar, buildPinnedMessageViews } from './PinnedMessagesBar';
 export type {
   PinnedMessagesRenderer,

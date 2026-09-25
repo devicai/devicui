@@ -511,6 +511,8 @@ export interface RealtimeChatHistory {
   clientUID: string;
   chatHistory: ChatMessage[];
   status: RealtimeStatus;
+  /** System reason the conversation stopped, when available. */
+  stopReason?: string;
   lastUpdatedAt: number;
   pendingToolCalls?: ToolCall[];
   /**
@@ -712,6 +714,8 @@ export interface ChatHistory {
   clientUID: string;
   userUID: string;
   chatContent: ChatMessage[];
+  /** Persisted system reason the conversation stopped. */
+  stopReason?: string;
   name?: string;
   assistantSpecializationIdentifier: string;
   creationTimestampMs: number;
