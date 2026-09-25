@@ -8,6 +8,7 @@ import type { RecalledMemoriesRenderer } from './RecalledMemoriesWidget';
 import type { CompactionRenderer } from './CompactionWidget';
 import type { GuardrailRenderer } from './GuardrailNotice';
 import type { PinnedMessagesRenderer } from './PinnedMessagesBar';
+import type { MessageLimitRenderer } from './MessageLimitNotice';
 import type { CoreMemoryLabels } from '../CoreMemoryModal';
 import type { DevicTranslations } from '../../i18n';
 
@@ -104,6 +105,8 @@ export interface CustomPromptBoxProps {
    * their own notice.
    */
   limitExceeded?: TenantLimitExceeded | null;
+  /** True when this conversation reached the assistant's message cap. */
+  messageLimitReached?: boolean;
   /**
    * Whether this assistant accepts messages written while it is working. With
    * it off, sending during a run is refused and the box should stay closed.
@@ -759,6 +762,9 @@ export interface ChatDrawerOptions {
    * ```
    */
   guardrailRenderer?: GuardrailRenderer;
+
+  /** Replace the message cap notice with a React node. Receives the new chat action. */
+  messageLimitRenderer?: MessageLimitRenderer;
 
   /**
    * Let the reader pin messages of the conversation to keep them at hand: a

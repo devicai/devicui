@@ -9,6 +9,7 @@ import { ConversationSelector } from './ConversationSelector';
 import { ChatDrawerErrorBoundary } from './ErrorBoundary';
 import { UsageBar } from './UsageBar';
 import { LimitBanner } from './LimitBanner';
+import { MessageLimitNotice } from './MessageLimitNotice';
 import { AssistantPauseWidget } from './AssistantPauseWidget';
 import { isRenderedLimitError } from '../../utils/limitError';
 import { QueueNotice } from './QueueNotice';
@@ -116,6 +117,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   expandableCompaction: false,
   compactionRenderer: undefined as any,
   guardrailRenderer: undefined as any,
+  messageLimitRenderer: undefined as any,
   showPinnedMessages: true,
   pinnedMessagesRenderer: undefined as any,
   showScrollToBottomButton: true,
@@ -1235,6 +1237,12 @@ function ChatDrawerInner({
           expandableCompaction={mergedOptions.expandableCompaction}
         />
 
+        {chat.stopReason === 'max_chat_messages_reached' && (
+          mergedOptions.messageLimitRenderer
+            ? mergedOptions.messageLimitRenderer({ onNewChat: handleNewChat })
+            : <MessageLimitNotice onNewChat={handleNewChat} />
+        )}
+
         {/* Input */}
         {/* Idle, the voice widget is a card above the composer; during a call
             it takes the composer's place, banners included. */}
@@ -1272,11 +1280,12 @@ function ChatDrawerInner({
               isResumingPause: chat.isResumingPause,
               resumePauseError: chat.resumePauseError,
               resumeNow: chat.resumeNow,
-              newConversation: chat.clearChat,
+              newConversation: handleNewChat,
               references,
               removeReference,
               clearReferences,
               limitExceeded: chat.limitExceeded,
+              messageLimitReached: chat.stopReason === 'max_chat_messages_reached',
               fileAccept: promptBoxFileTypes.accept,
               checkFile: checkPromptBoxFile,
             })}
@@ -1294,7 +1303,8 @@ function ChatDrawerInner({
               (chat.handedOff && !canQueue) ||
               (chat.status === 'paused_for_resume' && !canQueue) ||
               inlineWidgets.length > 0 ||
-              !!chat.limitExceeded
+              !!chat.limitExceeded ||
+              chat.stopReason === 'max_chat_messages_reached'
             }
             placeholder={t(mergedOptions.inputPlaceholder)}
             enableFileUploads={mergedOptions.enableFileUploads}
