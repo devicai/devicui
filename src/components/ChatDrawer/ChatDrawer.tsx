@@ -9,6 +9,7 @@ import { ConversationSelector } from './ConversationSelector';
 import { ChatDrawerErrorBoundary } from './ErrorBoundary';
 import { UsageBar } from './UsageBar';
 import { LimitBanner } from './LimitBanner';
+import { MessageLimitNotice } from './MessageLimitNotice';
 import { AssistantPauseWidget } from './AssistantPauseWidget';
 import { ToolApprovalCard } from './ToolApprovalCard';
 import { McpElicitationCard } from './McpElicitationCard';
@@ -36,6 +37,7 @@ import type { DevicTheme } from '../theme';
 import type { ChatDrawerProps, ChatDrawerOptions, ChatDrawerHandle, ChatMessagesHandle } from './ChatDrawer.types';
 import type { QueueDisposition, StopScope } from '../../api/types';
 import './styles.css';
+import { acceptedFileTypes, fileRejection } from './fileAcceptance';
 const LiveVoicePanel = React.lazy(() => import('./LiveVoicePanel'));
 import { avatarUri } from '../../utils/avatar';
 
@@ -49,6 +51,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   suggestedMessages: [],
   enableFileUploads: false,
   allowedFileTypes: { images: true, documents: true },
+  additionalFileTypes: [],
   maxFileSize: 10 * 1024 * 1024,
   enableLongTextPaste: false,
   longTextPasteThreshold: 2000,
@@ -118,6 +121,7 @@ const DEFAULT_OPTIONS: Required<ChatDrawerOptions> = {
   expandableCompaction: false,
   compactionRenderer: undefined as any,
   guardrailRenderer: undefined as any,
+  messageLimitRenderer: undefined as any,
   showPinnedMessages: true,
   pinnedMessagesRenderer: undefined as any,
   showScrollToBottomButton: true,
@@ -215,6 +219,21 @@ function ChatDrawerInner({
   // its language; a host that sets its own text keeps it, unless it also put
   // that text in the dictionary.
   const t = useTranslations(mergedOptions.translations);
+
+  // File rules handed to a custom prompt box, so it can apply the same ones as
+  // the default composer (`fileAccept` for its dialog, `checkFile` per file).
+  const promptBoxFileTypes = useMemo(
+    () =>
+      acceptedFileTypes(
+        mergedOptions.allowedFileTypes as Record<string, boolean | undefined>,
+        mergedOptions.additionalFileTypes
+      ),
+    [mergedOptions.allowedFileTypes, mergedOptions.additionalFileTypes]
+  );
+  const checkPromptBoxFile = useCallback(
+    (file: File) => fileRejection(file, promptBoxFileTypes, mergedOptions.maxFileSize),
+    [promptBoxFileTypes, mergedOptions.maxFileSize]
+  );
 
   // localStorage key for persisting selected conversation
   const storageKey = mergedOptions.persistConversation
@@ -1233,6 +1252,11 @@ function ChatDrawerInner({
           onResolve={chat.resolveMcpElicitations}
           renderer={mergedOptions.mcpElicitationRenderer}
         />
+        {chat.stopReason === 'max_chat_messages_reached' && (
+          mergedOptions.messageLimitRenderer
+            ? mergedOptions.messageLimitRenderer({ onNewChat: handleNewChat })
+            : <MessageLimitNotice onNewChat={handleNewChat} />
+        )}
 
         {/* Input */}
         {/* Idle, the voice widget is a card above the composer; during a call
@@ -1271,11 +1295,14 @@ function ChatDrawerInner({
               isResumingPause: chat.isResumingPause,
               resumePauseError: chat.resumePauseError,
               resumeNow: chat.resumeNow,
-              newConversation: chat.clearChat,
+              newConversation: handleNewChat,
               references,
               removeReference,
               clearReferences,
               limitExceeded: chat.limitExceeded,
+              messageLimitReached: chat.stopReason === 'max_chat_messages_reached',
+              fileAccept: promptBoxFileTypes.accept,
+              checkFile: checkPromptBoxFile,
             })}
           </div>
         ) : (
@@ -1291,11 +1318,13 @@ function ChatDrawerInner({
               (chat.handedOff && !canQueue) ||
               (chat.status === 'paused_for_resume' && !canQueue) ||
               inlineWidgets.length > 0 ||
-              !!chat.limitExceeded
+              !!chat.limitExceeded ||
+              chat.stopReason === 'max_chat_messages_reached'
             }
             placeholder={t(mergedOptions.inputPlaceholder)}
             enableFileUploads={mergedOptions.enableFileUploads}
             allowedFileTypes={mergedOptions.allowedFileTypes}
+            additionalFileTypes={mergedOptions.additionalFileTypes}
             maxFileSize={mergedOptions.maxFileSize}
             enableLongTextPaste={mergedOptions.enableLongTextPaste}
             longTextPasteThreshold={mergedOptions.longTextPasteThreshold}

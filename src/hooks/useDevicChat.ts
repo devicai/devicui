@@ -269,6 +269,8 @@ export interface UseDevicChatResult {
    * Cleared when a new message is sent or the chat is cleared.
    */
   limitExceeded: TenantLimitExceeded | null;
+  /** System reason this conversation stopped, if any. */
+  stopReason: string | null;
 
   /**
    * Structured long-term-memory recall events of the conversation, streamed
@@ -508,6 +510,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   useEffect(() => { setStreamingMessage(null); }, [chatUid]);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<RealtimeStatus | 'idle'>('idle');
+  const [stopReason, setStopReason] = useState<string | null>(null);
   const [pausedUntil, setPausedUntil] = useState<number | null>(null);
   const [pausedReason, setPausedReason] = useState<string | null>(null);
   const [isResumingPause, setIsResumingPause] = useState(false);
@@ -693,6 +696,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         setStatus(realtime.status);
         setPendingToolApprovals(realtime.pendingToolApprovals || []);
         setPendingMcpElicitations(realtime.pendingMcpElicitations || []);
+        if (realtime.stopReason) setStopReason(realtime.stopReason);
         if (realtime.status === 'paused_for_resume') {
           setPausedUntil(realtime.pausedUntil ?? null);
           setPausedReason(realtime.pausedReason ?? null);
@@ -785,6 +789,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           );
           if (previousInitialChatRef.current !== initialChatUid) return;
           setMessages(history.chatContent);
+          setStopReason(history.stopReason ?? null);
           mergeRecalledMemories(history.recalledMemories);
           mergeCompactions(history.compactions);
           setPinnedMessages(history.pinnedMessages ?? []);
@@ -997,6 +1002,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         setStatus(data.status);
         setPendingToolApprovals(data.pendingToolApprovals || []);
         setPendingMcpElicitations(data.pendingMcpElicitations || []);
+        if (data.stopReason) setStopReason(data.stopReason);
         if (data.status === 'paused_for_resume') {
           setPausedUntil(data.pausedUntil ?? null);
           setPausedReason(data.pausedReason ?? null);
@@ -1446,6 +1452,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     setChatUid(null);
     setIsLoading(false);
     setStatus('idle');
+    setStopReason(null);
     setPausedUntil(null);
     setPausedReason(null);
     setIsResumingPause(false);
@@ -1487,6 +1494,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
 
       setIsLoading(true);
       setError(null);
+      setStopReason(null);
       setPausedUntil(null);
       setPausedReason(null);
       setIsResumingPause(false);
@@ -1506,6 +1514,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         );
 
         setMessages(history.chatContent);
+        setStopReason(history.stopReason ?? null);
         mergeRecalledMemories(history.recalledMemories);
         mergeCompactions(history.compactions);
         setPinnedMessages(history.pinnedMessages ?? []);
@@ -1855,6 +1864,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     chatUid,
     isLoading,
     status,
+    stopReason,
     pausedUntil,
     pausedReason,
     isResumingPause,

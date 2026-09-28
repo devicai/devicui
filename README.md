@@ -326,7 +326,8 @@ A complete chat drawer component.
     welcomeMessage: 'Hello!',
     suggestedMessages: ['Help me...'],
     enableFileUploads: true,
-    allowedFileTypes: { images: true, documents: true },
+    allowedFileTypes: { images: true, documents: true }, // also spreadsheets
+    additionalFileTypes: ['.dwg', 'application/zip'], // extra extensions / MIME types
     inputPlaceholder: 'Type a message...',
     title: 'Chat Assistant',
     showAvatar: true,           // Assistant's face next to the title
@@ -614,6 +615,38 @@ of each message), `pinMessage(messageUid)` and `unpinMessage(messageUid)`. Both
 apply at once and roll back if the API refuses — a conversation keeps at most
 50 pinned messages. A message rendered under an optimistic uid is pinned by its
 `serverUid`; messages still queued or streaming cannot be pinned yet.
+
+#### Conversation message limit
+
+When the API reports `stopReason: "max_chat_messages_reached"`, the drawer
+shows a notice explaining that this conversation is full and a button to start
+a new chat. The composer is disabled for that conversation. The notice also
+appears when reopening a conversation that already reached the limit.
+
+Translate the default notice with the same dictionary as the rest of the drawer:
+
+```tsx
+translations={{
+  'Message limit reached for this chat': 'Límite de mensajes alcanzado',
+  'This conversation has reached its message limit. Start a new chat to continue.':
+    'Esta conversación ha alcanzado su límite. Abre otra para continuar.',
+  'Start a new chat': 'Abrir nueva conversación',
+}}
+```
+
+For a custom React component, use `options.messageLimitRenderer`:
+
+```tsx
+<ChatDrawer assistantId="my-assistant" options={{
+  messageLimitRenderer: ({ onNewChat }) => (
+    <MyLimitNotice onNewChat={onNewChat} />
+  ),
+}} />
+```
+
+Custom prompt boxes receive `messageLimitReached` and can use it to disable
+their own composer. `useDevicChat().stopReason` exposes the reason for custom
+chat interfaces.
 
 ### CoreMemoryModal
 
