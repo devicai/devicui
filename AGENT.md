@@ -180,6 +180,16 @@ count as life; `streamSilenceMs` drops a dead one); without one it only polls. T
 handoff widget has no stream. Flipping `DEFAULT_STREAMING` is the future
 opt-out.
 
+WebKit (Safari, every iOS browser) can hold the end of a streamed response
+until more bytes arrive, so a frame may reach the page only with the next
+keep-alive. Two reads of `/realtime` cover it without closing the stream:
+`consumeChatStream` calls `onStall` when a frame stays half-received for
+`STREAM_STALL_MS` (1 s) and `usePolling` fetches once; and `useDevicChat`
+fetches when the stream goes quiet on a `processing` state whose last
+assistant message calls one of this client's tools (`CLIENT_TOOL_RECHECK_MS`,
+1 s doubling to 5 s) — the `waiting_for_tool_response` frame behind it may be
+the one held.
+
 ### 7. Translations
 Every text the library renders itself goes through `useTranslations()`, which
 returns `t(text, vars?)`. The dictionary is a plain `English text -> host text`

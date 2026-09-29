@@ -69,12 +69,15 @@ export interface UsePollingOptions<T extends object = RealtimeChatHistory> {
    * no request at all; when the stream ends it is reopened, and only when it
    * fails does the timer take over. `onActivity` reports every chunk received
    * (keep-alives included) so a silent connection can be told from a dead one.
+   * `onStall` reports a frame left half-received (see `STREAM_STALL_MS`): the
+   * hook then reads the state once with `fetchFn`, the stream staying open.
    * Absent, the hook only polls.
    */
   streamFn?: (
     onSnapshot: (data: T) => Promise<void>,
     signal: AbortSignal,
     onActivity?: () => void,
+    onStall?: () => void,
   ) => Promise<void>;
 
   /**
@@ -338,6 +341,11 @@ export function usePolling<T extends object = RealtimeChatHistory>(
             },
             attempt.signal,
             () => { lastStreamActivity.current = Date.now(); },
+            () => {
+              if (attempt.signal.aborted || !isPollingRef.current) return;
+              logRef.current.log('[usePolling] Stream frame stalled, reading the state');
+              void fetchData(undefined, true);
+            },
           );
         } catch {
           // Our own abort is a reconnect; anything else means the stream is
