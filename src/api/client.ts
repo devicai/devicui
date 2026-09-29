@@ -488,6 +488,34 @@ export class DevicApiClient {
     );
   }
 
+  async resolveToolApprovals(
+    assistantId: string,
+    chatUid: string,
+    decisions: { toolCallId: string; approved: boolean }[],
+  ): Promise<AsyncResponse> {
+    return this.request<AsyncResponse>(
+      `/api/v1/assistants/${assistantId}/chats/${chatUid}/tool-approvals`,
+      {
+        method: "POST",
+        body: JSON.stringify({ decisions }),
+      },
+    );
+  }
+
+  async resolveMcpElicitations(
+    assistantId: string,
+    chatUid: string,
+    decisions: import('./types').McpElicitationDecision[],
+  ): Promise<AsyncResponse> {
+    return this.request<AsyncResponse>(
+      `/api/v1/assistants/${assistantId}/chats/${chatUid}/mcp-elicitations`,
+      {
+        method: "POST",
+        body: JSON.stringify({ decisions }),
+      },
+    );
+  }
+
   /**
    * Submit feedback for a chat message
    */

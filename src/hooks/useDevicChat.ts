@@ -15,6 +15,9 @@ import type {
   CompactionActivity,
   CompactionCheckpoint,
   ModelInterfaceTool,
+  McpElicitationDecision,
+  PendingMcpElicitation,
+  PendingToolApproval,
   PinnedMessage,
   PinnedMessageEntry,
   QueueDisposition,
@@ -399,6 +402,17 @@ export interface UseDevicChatResult {
    * Sends an error response so the model can continue.
    */
   cancelWidgetCall: (toolCallId: string, reason?: string) => Promise<void>;
+
+  /** Backend-owned calls that cannot run until the user decides. */
+  pendingToolApprovals: PendingToolApproval[];
+  resolveToolApprovals: (
+    decisions: { toolCallId: string; approved: boolean }[],
+  ) => Promise<void>;
+  /** MCP server requests waiting for explicit end-user input. */
+  pendingMcpElicitations: PendingMcpElicitation[];
+  resolveMcpElicitations: (
+    decisions: McpElicitationDecision[],
+  ) => Promise<void>;
 }
 
 /**
@@ -680,6 +694,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         mergeCompactions(realtime.compactions);
         setCompaction(realtime.compaction ?? null);
         setStatus(realtime.status);
+        setPendingToolApprovals(realtime.pendingToolApprovals || []);
+        setPendingMcpElicitations(realtime.pendingMcpElicitations || []);
         if (realtime.stopReason) setStopReason(realtime.stopReason);
         if (realtime.status === 'paused_for_resume') {
           setPausedUntil(realtime.pausedUntil ?? null);
@@ -698,6 +714,9 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           // Chat is waiting for tool response — resume polling to trigger tool handling
           setIsLoading(true);
           setShouldPoll(true);
+        } else if (realtime.status === 'waiting_for_user_action') {
+          setIsLoading(false);
+          setShouldPoll(false);
         } else if (realtime.status === 'handed_off') {
           // Chat has an active handoff
           setIsLoading(true);
@@ -829,6 +848,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   useEffect(() => {
     pendingWidgetCallsRef.current = pendingWidgetCalls;
   }, [pendingWidgetCalls]);
+  const [pendingToolApprovals, setPendingToolApprovals] = useState<PendingToolApproval[]>([]);
+  const [pendingMcpElicitations, setPendingMcpElicitations] = useState<PendingMcpElicitation[]>([]);
 
   // Polling hook - uses callbacks for side effects, return value not needed
   logRef.current.log('[useDevicChat] Render - shouldPoll:', shouldPoll, 'chatUid:', chatUid);
@@ -855,6 +876,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         'error',
         'handed_off',
         'paused_for_resume',
+        'waiting_for_user_action',
         'limit_exceeded',
       ],
       onUpdate: async (data: RealtimeChatHistory) => {
@@ -978,6 +1000,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         mergeCompactions(data.compactions);
         setCompaction(data.compaction ?? null);
         setStatus(data.status);
+        setPendingToolApprovals(data.pendingToolApprovals || []);
+        setPendingMcpElicitations(data.pendingMcpElicitations || []);
         if (data.stopReason) setStopReason(data.stopReason);
         if (data.status === 'paused_for_resume') {
           setPausedUntil(data.pausedUntil ?? null);
@@ -1069,6 +1093,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         } else if (data?.status === 'paused_for_resume') {
           setIsLoading(false);
           schedulePauseResumeWatch(data.pausedUntil);
+        } else if (data?.status === 'waiting_for_user_action') {
+          setIsLoading(false);
         }
         // MIT waits are not terminal: onUpdate may already have submitted the
         // response. Stopping here would overwrite that continuation. Widgets
@@ -1440,6 +1466,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     resetQueueState();
     pendingWidgetCallsRef.current = [];
     setPendingWidgetCalls([]);
+    setPendingToolApprovals([]);
+    setPendingMcpElicitations([]);
   }, [resetQueueState]);
 
   // Load existing chat
@@ -1613,6 +1641,46 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       });
     },
     [submitWidgetResponse]
+  );
+
+  const resolveToolApprovals = useCallback(
+    async (decisions: { toolCallId: string; approved: boolean }[]) => {
+      const uid = chatUidRef.current;
+      if (!clientRef.current || !uid || !decisions.length) return;
+      try {
+        await clientRef.current.resolveToolApprovals(assistantId, uid, decisions);
+        setPendingToolApprovals([]);
+        setStatus('processing');
+        setIsLoading(true);
+        setShouldPoll(true);
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        setError(error);
+        onErrorRef.current?.(error);
+        throw error;
+      }
+    },
+    [assistantId],
+  );
+
+  const resolveMcpElicitations = useCallback(
+    async (decisions: McpElicitationDecision[]) => {
+      const uid = chatUidRef.current;
+      if (!clientRef.current || !uid || !decisions.length) return;
+      try {
+        await clientRef.current.resolveMcpElicitations(assistantId, uid, decisions);
+        setPendingMcpElicitations([]);
+        setStatus('processing');
+        setIsLoading(true);
+        setShouldPoll(true);
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        setError(error);
+        onErrorRef.current?.(error);
+        throw error;
+      }
+    },
+    [assistantId],
   );
 
   // --- Pinned messages ------------------------------------------------------
@@ -1822,5 +1890,9 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     pendingWidgetCalls,
     submitWidgetResponse,
     cancelWidgetCall,
+    pendingToolApprovals,
+    resolveToolApprovals,
+    pendingMcpElicitations,
+    resolveMcpElicitations,
   };
 }

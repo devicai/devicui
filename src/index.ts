@@ -34,7 +34,7 @@ export type {
 
 // Components
 export type { MessageLimitNoticeProps, MessageLimitRenderer } from './components/ChatDrawer';
-export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, SubagentResultCard, SubagentActivityTray, collectSubagentActivities, ReferenceChip, UsageBar, LimitBanner, QueueNotice, AssistantPauseWidget, RecalledMemoriesWidget, CompactionWidget, GuardrailNotice, MessageLimitNotice, PinnedMessagesBar, buildPinnedMessageViews } from './components/ChatDrawer';
+export { ChatDrawer, ChatMessages, ChatInput, ToolTimeline, ConversationSelector, HandoffSubagentWidget, SubagentResultCard, SubagentActivityTray, collectSubagentActivities, ReferenceChip, UsageBar, LimitBanner, QueueNotice, AssistantPauseWidget, ToolApprovalCard, McpElicitationCard, RecalledMemoriesWidget, CompactionWidget, GuardrailNotice, MessageLimitNotice, PinnedMessagesBar, buildPinnedMessageViews } from './components/ChatDrawer';
 export type {
   ChatDrawerProps,
   ChatDrawerOptions,
@@ -62,6 +62,12 @@ export type {
   LimitBannerProps,
   QueueNoticeProps,
   AssistantPauseWidgetProps,
+  ToolApprovalCardProps,
+  ToolApprovalRenderer,
+  ToolApprovalRendererProps,
+  McpElicitationCardProps,
+  McpElicitationRenderer,
+  McpElicitationRendererProps,
   RecalledMemoriesWidgetProps,
   RecalledMemoriesRenderer,
   RecalledMemoriesRendererProps,
@@ -225,6 +231,10 @@ export type {
   RealtimeChatHistory,
   RealtimeStatus,
   PendingAsyncToolCall,
+  PendingToolApproval,
+  PendingMcpElicitation,
+  McpElicitationAction,
+  McpElicitationDecision,
   ChatHistory,
   AssistantSpecialization,
   ModelInterfaceTool,
