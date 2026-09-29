@@ -1,4 +1,16 @@
 /**
+ * How long a frame may stay half-received before the caller is told.
+ *
+ * WebKit (Safari, every iOS browser) can hold the end of what just arrived on
+ * a streamed fetch until more bytes come in. When nothing follows, the rest of
+ * the frame — often the one saying the run now waits on this client — only
+ * shows up with the next keep-alive. A frame that started arriving and then
+ * stopped for this long is presumed held, and `onStall` lets the caller read
+ * the state another way.
+ */
+export const STREAM_STALL_MS = 1_000;
+
+/**
  * Consume Devic's version-1 SSE frames, tolerating arbitrary UTF-8/chunk
  * boundaries. `snapshot` frames carry the whole state. When the stream was
  * opened with `?partial=1`, changes to the reply being written arrive as
@@ -6,11 +18,14 @@
  * text appended to it); both are merged into the last snapshot, so the caller
  * always receives a full state. `onActivity` fires on every chunk, keep-alive
  * comments included, so the caller can tell a quiet connection from a dead one.
+ * `onStall` fires when a frame has been left half-received for
+ * `STREAM_STALL_MS` (see there); the stream itself carries on.
  */
 export async function consumeChatStream<T extends object>(
   response: Response,
   onSnapshot: (snapshot: T) => void | Promise<void>,
   onActivity?: () => void,
+  onStall?: () => void,
 ): Promise<void> {
   if (!response.ok || !response.headers.get('content-type')?.includes('text/event-stream') || !response.body) {
     throw new Error('Chat streaming unavailable');
@@ -19,9 +34,14 @@ export async function consumeChatStream<T extends object>(
   const decoder = new TextDecoder();
   let buffer = '';
   let last: (T & { streamingMessage?: any }) | undefined;
+  let stallTimer: ReturnType<typeof setTimeout> | undefined;
   try {
     while (true) {
+      // Armed only while a frame is incomplete; any bytes cancel it.
+      if (onStall && buffer.trim()) stallTimer = setTimeout(onStall, STREAM_STALL_MS);
       const { value, done } = await reader.read();
+      clearTimeout(stallTimer);
+      stallTimer = undefined;
       if (done) break;
       onActivity?.();
       buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
@@ -58,6 +78,7 @@ export async function consumeChatStream<T extends object>(
       }
     }
   } finally {
+    clearTimeout(stallTimer);
     await reader.cancel().catch(() => {});
     reader.releaseLock();
   }

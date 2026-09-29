@@ -187,10 +187,11 @@ export function HandoffSubagentWidget({
     onSnapshot: (data: AgentThreadDto) => Promise<void>,
     signal: AbortSignal,
     onActivity?: () => void,
+    onStall?: () => void,
   ) => {
     const client = getClient();
     if (!client) return Promise.reject(new Error('No API client available'));
-    return client.streamThread(subThreadId, onSnapshot, signal, onActivity);
+    return client.streamThread(subThreadId, onSnapshot, signal, onActivity, onStall);
   }, [getClient, subThreadId]);
 
   usePolling<AgentThreadDto>(subThreadId, fetchThread, {

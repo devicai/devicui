@@ -46,6 +46,21 @@ const DEFAULT_HANDOFF_POLL_INTERVAL_MS = 5000;
  */
 const QUEUE_HANDOVER_GRACE_TICKS = 60;
 
+/**
+ * How long a stream may stay quiet on a conversation that has called one of
+ * this client's tools, before the state is asked for directly.
+ *
+ * The call arrives in a `processing` frame and the `waiting_for_tool_response`
+ * one follows within milliseconds — but WebKit (Safari, every iOS browser)
+ * can hold the end of what just arrived on a streamed fetch until more bytes
+ * come in, which with nothing else to send was the next keep-alive. The tool
+ * then ran seconds late. A single `/realtime` read does not depend on that.
+ * Doubles on each read that still finds the conversation processing (a
+ * backend tool in the same turn), up to the cap.
+ */
+export const CLIENT_TOOL_RECHECK_MS = 1_000;
+const CLIENT_TOOL_RECHECK_MAX_MS = 5_000;
+
 /** Messages are matched to their optimistic copies by text, so it is normalized. */
 const normalizeText = (text?: string): string => (text ?? '').trim();
 
@@ -814,6 +829,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
     toolSchemas,
     handleToolCalls,
     resolvePendingToolCalls,
+    extractPendingToolCalls,
   } = useModelInterface({
     tools: modelInterfaceTools,
     onToolExecute: onToolCall,
@@ -851,9 +867,43 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
   const [pendingToolApprovals, setPendingToolApprovals] = useState<PendingToolApproval[]>([]);
   const [pendingMcpElicitations, setPendingMcpElicitations] = useState<PendingMcpElicitation[]>([]);
 
-  // Polling hook - uses callbacks for side effects, return value not needed
+  // See CLIENT_TOOL_RECHECK_MS. Restarted by every update, so it only fires
+  // when the stream has gone quiet on a call this client owes an answer to.
+  const clientToolRecheckRef = useRef<{ timer?: ReturnType<typeof setTimeout>; attempt: number }>({ attempt: 0 });
+  const pollingRef = useRef<{ refetch: () => Promise<void> } | null>(null);
+  const armClientToolRecheck = (data: RealtimeChatHistory) => {
+    const watch = clientToolRecheckRef.current;
+    clearTimeout(watch.timer);
+    watch.timer = undefined;
+    const quietStreamMayHideIt =
+      (streaming || observingVoice) &&
+      data.status === 'processing' &&
+      extractPendingToolCalls(data.chatHistory ?? []).length > 0;
+    if (!quietStreamMayHideIt) {
+      watch.attempt = 0;
+      return;
+    }
+    const delay = Math.min(CLIENT_TOOL_RECHECK_MS * 2 ** watch.attempt, CLIENT_TOOL_RECHECK_MAX_MS);
+    watch.timer = setTimeout(() => {
+      watch.timer = undefined;
+      watch.attempt += 1;
+      logRef.current.log('[useDevicChat] stream quiet on a client tool call, reading the state');
+      void pollingRef.current?.refetch();
+    }, delay);
+  };
+  useEffect(() => {
+    const watch = clientToolRecheckRef.current;
+    return () => {
+      clearTimeout(watch.timer);
+      watch.timer = undefined;
+      watch.attempt = 0;
+    };
+  }, [chatUid, assistantId]);
+
+  // Polling hook - side effects go through the callbacks; the handle is kept
+  // for the client tool recheck above.
   logRef.current.log('[useDevicChat] Render - shouldPoll:', shouldPoll, 'chatUid:', chatUid);
-  usePolling(
+  pollingRef.current = usePolling(
     observing ? chatUid : null,
     async () => {
       logRef.current.log('[useDevicChat] fetchFn called, chatUid:', chatUid);
@@ -868,7 +918,7 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       interval: pollingInterval,
       // Only when asked for: the poll is the default until the flag flips.
       streamFn: (streaming || observingVoice)
-        ? (onSnapshot, signal, onActivity) => clientRef.current!.streamRealtimeHistory(assistantId, chatUid!, onSnapshot, signal, onActivity)
+        ? (onSnapshot, signal, onActivity, onStall) => clientRef.current!.streamRealtimeHistory(assistantId, chatUid!, onSnapshot, signal, onActivity, onStall)
         : undefined,
       enabled: observing,
       stopStatuses: [
@@ -1018,6 +1068,8 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           notifiedMessages.current.set(lastMessage.uid, messageRevision);
           onMessageReceivedRef.current?.(lastMessage);
         }
+
+        armClientToolRecheck(data);
 
         // Handle model interface - check for pending tool calls
         if (data.status === 'waiting_for_tool_response' || data.pendingToolCalls?.length) {

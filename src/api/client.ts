@@ -384,6 +384,7 @@ export class DevicApiClient {
     onSnapshot: (snapshot: RealtimeChatHistory) => void | Promise<void>,
     signal: AbortSignal,
     onActivity?: () => void,
+    onStall?: () => void,
   ): Promise<void> {
     // `partial=1`: while only the reply being written changes, the API sends
     // `partial` frames with just that instead of the whole conversation.
@@ -396,7 +397,7 @@ export class DevicApiClient {
     if (response.status === 401 && this.config.getTenantSession && await this.recoverSession(credential)) {
       credential = await this.authorization(); response = await open();
     }
-    await consumeChatStream(response, onSnapshot, onActivity);
+    await consumeChatStream(response, onSnapshot, onActivity, onStall);
   }
 
   async getRealtimeHistory(
@@ -610,6 +611,7 @@ export class DevicApiClient {
     onSnapshot: (snapshot: AgentThreadDto) => void | Promise<void>,
     signal: AbortSignal,
     onActivity?: () => void,
+    onStall?: () => void,
   ): Promise<void> {
     const url = `${this.config.baseUrl}/api/v1/agents/threads/${encodeURIComponent(threadId)}/stream`;
     let credential = await this.authorization();
@@ -630,7 +632,7 @@ export class DevicApiClient {
       credential = await this.authorization();
       response = await open();
     }
-    await consumeChatStream(response, onSnapshot, onActivity);
+    await consumeChatStream(response, onSnapshot, onActivity, onStall);
   }
 
   /**
