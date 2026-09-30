@@ -628,7 +628,10 @@
   border-radius: var(--devic-radius-sm);
 }
 
-.devic-stop-btn:hover {
+/* Chained with .devic-input-btn and :not(:disabled) to outrank the generic
+   `.devic-input-btn:hover:not(:disabled)`, whose primary-coloured icon would
+   vanish against this background. */
+.devic-input-btn.devic-stop-btn:hover:not(:disabled) {
   background: var(--devic-primary-hover);
   color: white;
 }
@@ -660,6 +663,22 @@
 
 .devic-stop-menu-toggle::-webkit-details-marker {
   display: none;
+}
+
+/* Same as the stop half (see .devic-stop-btn:hover). */
+.devic-input-btn.devic-stop-menu-toggle:hover:not(:disabled),
+.devic-stop-menu[open] > .devic-input-btn.devic-stop-menu-toggle {
+  background: var(--devic-primary-hover);
+  color: white;
+}
+
+.devic-stop-menu-toggle svg {
+  transition: transform var(--devic-transition);
+}
+
+/* The menu opens upwards. */
+.devic-stop-menu[open] > .devic-stop-menu-toggle svg {
+  transform: rotate(180deg);
 }
 
 .devic-stop-menu-popover {

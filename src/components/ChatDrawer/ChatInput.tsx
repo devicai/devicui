@@ -1051,7 +1051,7 @@ function ChatInputBox({
                       title={t('More stop options')}
                       aria-label={t('More stop options')}
                     >
-                      <span aria-hidden="true">⌄</span>
+                      <ChevronDownIcon />
                     </summary>
                     <div className="devic-stop-menu-popover">
                       <button
@@ -1388,6 +1388,28 @@ function VoiceModeIcon(): JSX.Element {
       <line x1="12" y1="3" x2="12" y2="21" />
       <line x1="16" y1="7" x2="16" y2="17" />
       <line x1="20" y1="10" x2="20" y2="14" />
+    </svg>
+  );
+}
+
+/**
+ * Chevron of the stop menu. An SVG like every other icon in the row: the text
+ * glyph it replaces (⌄) sat low and thin, wherever the font put it.
+ */
+function ChevronDownIcon(): JSX.Element {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="6 9 12 15 18 9" />
     </svg>
   );
 }
