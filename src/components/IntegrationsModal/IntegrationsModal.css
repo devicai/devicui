@@ -26,11 +26,22 @@
   font-size: 13px;
 }
 
+/* Wide enough for three or four cards a row, so names and descriptions are
+   not clipped to a word, and tall enough to show more than one row of each
+   section before scrolling. */
 .devic-int-modal {
-  width: min(620px, calc(100vw - 32px));
-  max-height: min(660px, calc(100vh - 64px));
+  width: min(960px, calc(100vw - 32px));
+  max-height: min(860px, calc(100vh - 48px));
   border-radius: 12px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+}
+
+/* Header, search and footer hold their height: the scroll below gives way,
+   never them — a footer squeezed out of the dialog takes Refresh with it. */
+.devic-int-header,
+.devic-int-search,
+.devic-int-footer {
+  flex-shrink: 0;
 }
 
 .devic-int-header {
@@ -110,9 +121,18 @@
   color: var(--devic-text-muted, #999);
 }
 
+/* The one scrolling region, holding the apps and the MCP servers. `min-height:
+   0` is what lets it shrink below its content inside the column; without it
+   the content wins and spills out of the dialog. */
+.devic-int-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .devic-int-body {
   padding: 12px 16px;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -154,7 +174,7 @@
    like a settings page, and this is a picker. */
 .devic-int-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 10px;
 }
 
@@ -973,8 +993,6 @@
 
 .devic-int-body-secondary {
   padding-top: 0;
-  /* The apps above already have the panel's scroll; this only ever adds to it. */
-  overflow: visible;
 }
 
 .devic-int-mcp-section {
@@ -1031,6 +1049,7 @@
 
 .devic-int-mcp-add {
   align-self: flex-start;
+  max-width: 100%;
   border-style: dashed;
 }
 

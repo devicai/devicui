@@ -660,163 +660,169 @@ export function IntegrationsPanel({
         </div>
       )}
 
-      <div className="devic-int-body">
-        {error && <div className="devic-int-error">{error}</div>}
+      {/* One scroll for apps and servers alike. Each used to scroll on its
+          own, and under the dialog's max height a long server list squeezed
+          the apps into a sliver — or out of view — and pushed the footer off
+          the bottom. */}
+      <div className="devic-int-scroll">
+        <div className="devic-int-body">
+          {error && <div className="devic-int-error">{error}</div>}
 
-        {blockedUrl && (
-          <div className="devic-int-notice">
-            {t("Your browser blocked the pop-up.")}{" "}
-            <a
-              href={blockedUrl.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => {
-                pendingRef.current = null;
-                setBlockedUrl(null);
-              }}
-            >
-              {t("Open the authorisation page")}
-            </a>{" "}
-            {t("and come back — then use Refresh.")}
-          </div>
-        )}
-
-        {loading && integrations.length === 0 ? (
-          // Silent while the MCP section is what this assistant offers: a
-          // spinner labelled "Loading apps" over a list of servers describes
-          // something that is not happening.
-          appsRefusalIsNoise ? null : (
-            <div className="devic-int-loading">{t("Loading apps…")}</div>
-          )
-        ) : integrations.length === 0 ? (
-          // Silent when MCP servers are the whole offer: "no apps available"
-          // over a list of servers reads as a broken panel.
-          mcp.offered ? null : (
-            <div className="devic-int-empty">
-              {t("No apps available here yet.")}
+          {blockedUrl && (
+            <div className="devic-int-notice">
+              {t("Your browser blocked the pop-up.")}{" "}
+              <a
+                href={blockedUrl.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  pendingRef.current = null;
+                  setBlockedUrl(null);
+                }}
+              >
+                {t("Open the authorisation page")}
+              </a>{" "}
+              {t("and come back — then use Refresh.")}
             </div>
-          )
-        ) : visible.length === 0 ? (
-          <div className="devic-int-empty">
-            {t("No apps match “{query}”.", { query: query.trim() })}
-          </div>
-        ) : (
-          <div className="devic-int-grid">
-            {visible.map((integration) => {
-              const cardState = stateOf(t, integration);
-              const busy = busyApp === integration.app;
-              return (
-                <div
-                  key={integration.app}
-                  className="devic-int-card"
-                  data-state={cardState.key}
-                >
-                  <div className="devic-int-card-head">
-                    <IntegrationLogo integration={integration} />
-                    <span className="devic-int-state">
-                      <span
-                        className="devic-int-dot"
-                        data-ok={cardState.key === "connected"}
-                        data-off={cardState.key === "disconnected"}
-                        aria-hidden="true"
-                      />
-                      {cardState.label}
-                    </span>
-                  </div>
+          )}
 
-                  <div className="devic-int-name" title={integration.name}>
-                    {integration.name}
-                  </div>
-
-                  {integration.description && (
-                    <div
-                      className="devic-int-description"
-                      title={integration.description}
-                    >
-                      {integration.description}
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    className={`devic-int-btn devic-int-btn-block${
-                      cardState.key === "connected"
-                        ? ""
-                        : " devic-int-btn-primary"
-                    }`}
-                    onClick={() => handleConnect(integration)}
-                    disabled={busy || !!busyApp}
-                    title={
-                      cardState.key === "connected"
-                        ? t(
-                            "Sign in with a different account. The one connected now is replaced."
-                          )
-                        : undefined
-                    }
+          {loading && integrations.length === 0 ? (
+            // Silent while the MCP section is what this assistant offers: a
+            // spinner labelled "Loading apps" over a list of servers describes
+            // something that is not happening.
+            appsRefusalIsNoise ? null : (
+              <div className="devic-int-loading">{t("Loading apps…")}</div>
+            )
+          ) : integrations.length === 0 ? (
+            // Silent when MCP servers are the whole offer: "no apps available"
+            // over a list of servers reads as a broken panel.
+            mcp.offered ? null : (
+              <div className="devic-int-empty">
+                {t("No apps available here yet.")}
+              </div>
+            )
+          ) : visible.length === 0 ? (
+            <div className="devic-int-empty">
+              {t("No apps match “{query}”.", { query: query.trim() })}
+            </div>
+          ) : (
+            <div className="devic-int-grid">
+              {visible.map((integration) => {
+                const cardState = stateOf(t, integration);
+                const busy = busyApp === integration.app;
+                return (
+                  <div
+                    key={integration.app}
+                    className="devic-int-card"
+                    data-state={cardState.key}
                   >
-                    {busy
-                      ? t("Waiting…")
-                      : cardState.key === "disconnected"
-                        ? t("Connect")
-                        : cardState.key === "reconnect"
-                          ? t("Reconnect")
-                          : // Not "Add account": one account per app is all
-                            // the assistant can use, and connecting again
-                            // retires the previous one.
-                            t("Switch account")}
-                  </button>
+                    <div className="devic-int-card-head">
+                      <IntegrationLogo integration={integration} />
+                      <span className="devic-int-state">
+                        <span
+                          className="devic-int-dot"
+                          data-ok={cardState.key === "connected"}
+                          data-off={cardState.key === "disconnected"}
+                          aria-hidden="true"
+                        />
+                        {cardState.label}
+                      </span>
+                    </div>
 
-                  {integration.accounts.length > 0 && (
-                    <ul className="devic-int-accounts">
-                      {integration.accounts.map((account) => (
-                        <li key={account.id} className="devic-int-account">
-                          <span
-                            className="devic-int-dot"
-                            data-ok={!account.needsReconnect}
-                            aria-hidden="true"
-                          />
-                          <span className="devic-int-account-label">
-                            {accountLabel(t, account)}
-                            {account.needsReconnect && (
-                              <span className="devic-int-account-warn">
-                                {" "}
-                                · {t("reconnect required")}
-                              </span>
-                            )}
-                          </span>
-                          <button
-                            type="button"
-                            className="devic-int-unlink"
-                            onClick={() =>
-                              handleDisconnect(integration.app, account)
-                            }
-                            disabled={!!busyApp}
-                            title={t("Disconnect this account")}
-                            aria-label={t("Disconnect {app}", {
-                              app: integration.name,
-                            })}
-                          >
-                            ×
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              );
-            })}
+                    <div className="devic-int-name" title={integration.name}>
+                      {integration.name}
+                    </div>
+
+                    {integration.description && (
+                      <div
+                        className="devic-int-description"
+                        title={integration.description}
+                      >
+                        {integration.description}
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      className={`devic-int-btn devic-int-btn-block${
+                        cardState.key === "connected"
+                          ? ""
+                          : " devic-int-btn-primary"
+                      }`}
+                      onClick={() => handleConnect(integration)}
+                      disabled={busy || !!busyApp}
+                      title={
+                        cardState.key === "connected"
+                          ? t(
+                              "Sign in with a different account. The one connected now is replaced."
+                            )
+                          : undefined
+                      }
+                    >
+                      {busy
+                        ? t("Waiting…")
+                        : cardState.key === "disconnected"
+                          ? t("Connect")
+                          : cardState.key === "reconnect"
+                            ? t("Reconnect")
+                            : // Not "Add account": one account per app is all
+                              // the assistant can use, and connecting again
+                              // retires the previous one.
+                              t("Switch account")}
+                    </button>
+
+                    {integration.accounts.length > 0 && (
+                      <ul className="devic-int-accounts">
+                        {integration.accounts.map((account) => (
+                          <li key={account.id} className="devic-int-account">
+                            <span
+                              className="devic-int-dot"
+                              data-ok={!account.needsReconnect}
+                              aria-hidden="true"
+                            />
+                            <span className="devic-int-account-label">
+                              {accountLabel(t, account)}
+                              {account.needsReconnect && (
+                                <span className="devic-int-account-warn">
+                                  {" "}
+                                  · {t("reconnect required")}
+                                </span>
+                              )}
+                            </span>
+                            <button
+                              type="button"
+                              className="devic-int-unlink"
+                              onClick={() =>
+                                handleDisconnect(integration.app, account)
+                              }
+                              disabled={!!busyApp}
+                              title={t("Disconnect this account")}
+                              aria-label={t("Disconnect {app}", {
+                                app: integration.name,
+                              })}
+                            >
+                              ×
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Below the apps, in the same panel: to the end user these are one
+            question — what can I plug into this chat — and two panels would
+            mean finding out which of them a thing lives in. */}
+        {mcp.offered && (
+          <div className="devic-int-body devic-int-body-secondary">
+            <McpServersSection state={mcp} theme={theme} query={query} />
           </div>
         )}
       </div>
-
-      {/* Below the apps, in the same panel: to the end user these are one
-          question — what can I plug into this chat — and two panels would
-          mean finding out which of them a thing lives in. */}
-      {mcp.offered && (
-        <div className="devic-int-body devic-int-body-secondary">
-          <McpServersSection state={mcp} theme={theme} query={query} />
-        </div>
-      )}
 
       {showFooter && (
         <div className="devic-int-footer">
