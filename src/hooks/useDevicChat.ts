@@ -47,6 +47,16 @@ const DEFAULT_HANDOFF_POLL_INTERVAL_MS = 5000;
 const QUEUE_HANDOVER_GRACE_TICKS = 60;
 
 /**
+ * A timed pause is resumed by a server scheduler that runs once a minute, so
+ * the conversation can still read `paused_for_resume` for up to a minute after
+ * its deadline. The watch stays attached for this long past the deadline,
+ * waiting for the run to start, instead of reconnecting every few seconds.
+ */
+const PAUSE_RESUME_HOLD_MS = 3 * 60_000;
+/** Between checks once a pause is overdue past the hold window. */
+const PAUSE_RESUME_OVERDUE_RETRY_MS = 30_000;
+
+/**
  * How long a stream may stay quiet on a conversation that has called one of
  * this client's tools, before the state is asked for directly.
  *
@@ -584,12 +594,17 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
       if (pauseResumeTimerRef.current) {
         clearTimeout(pauseResumeTimerRef.current);
       }
+      const untilDeadline = (pausedUntil || Date.now()) - Date.now();
       const delay = Math.min(
-        Math.max((pausedUntil || Date.now()) - Date.now() + 5_000, 5_000),
+        untilDeadline > 0
+          ? untilDeadline + 5_000
+          : PAUSE_RESUME_OVERDUE_RETRY_MS,
         2_147_000_000
       );
+      // Only watch: the conversation is still paused until the server starts
+      // the run. Marking it busy here made the drawer flip between "paused"
+      // and "processing" on every check while the scheduler had not run yet.
       pauseResumeTimerRef.current = setTimeout(() => {
-        setIsLoading(true);
         setShouldPoll(true);
       }, delay);
     },
@@ -945,6 +960,10 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
           setIsLoading(false);
         } else if (data.status === 'processing' || data.status === 'buffering') {
           setIsLoading(true);
+        } else if (data.status === 'paused_for_resume') {
+          // The scheduler owns the continuation; the watch may stay attached
+          // past the deadline (see holdOpen) without the chat looking busy.
+          setIsLoading(false);
         }
         setStreamingMessage(data.status === 'processing' ? data.streamingMessage || null : null);
         logRef.current.log('[useDevicChat] onUpdate called, status:', data.status);
@@ -990,6 +1009,17 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
             // Keep the server uid around: recall anchors reference it.
             return { ...m, uid: tempUid, serverUid: m.uid };
           };
+
+          // A realtime entry that expired (a pause longer than its TTL) can be
+          // rewritten with an empty history when the run resumes. The
+          // conversation did not lose its messages: keep what is on screen
+          // until the full history arrives.
+          if (
+            !data.chatHistory?.length &&
+            prev.some((m) => m.role === 'assistant')
+          ) {
+            return prev;
+          }
 
           const merged = data.chatHistory.map(adopt);
           // Accepted, but not part of the conversation yet. Drawn between the
@@ -1077,6 +1107,12 @@ export function useDevicChat(options: UseDevicChatOptions): UseDevicChatResult {
         }
       },
       holdOpen: (data) => {
+        // The deadline passed and the scheduler has not picked the pause up
+        // yet: keep watching for the run to start.
+        if (data.status === 'paused_for_resume' && data.pausedUntil) {
+          const overdue = Date.now() - data.pausedUntil;
+          if (overdue >= 0 && overdue < PAUSE_RESUME_HOLD_MS) return true;
+        }
         if (observingVoice && ['completed', 'waiting_for_tool_response', 'handed_off'].includes(data.status)) return true;
         const hasPendingSubagentResults = pendingAsyncSubagentIds([
           ...(data.chatHistory ?? []),

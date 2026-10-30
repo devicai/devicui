@@ -130,3 +130,74 @@ test('useDevicChat exposes pause details and restarts observation after resumeNo
     global.fetch = original;
   }
 });
+
+test('an overdue pause is watched without flipping to busy, and survives an empty resume snapshot', async (t) => {
+  const { useDevicChat } = loadTs(src('hooks/useDevicChat.ts'));
+  const original = global.fetch;
+  const pausedUntil = Date.now() - 1_000;
+  const history = [
+    { uid: 'u1', role: 'user', content: { message: 'hi' }, timestamp: 1 },
+    { uid: 'a1', role: 'assistant', content: { message: 'pausing' }, timestamp: 2 },
+  ];
+  let realtimeState = { status: 'paused_for_resume', chatHistory: history, pausedUntil };
+  let realtimeReads = 0;
+  const json = (body) => new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+  global.fetch = async (url) => {
+    const pathname = new URL(url).pathname;
+    if (pathname.endsWith('/realtime')) { realtimeReads += 1; return json(realtimeState); }
+    if (pathname.endsWith('/chats/chat-overdue')) {
+      return json({ chatUID: 'chat-overdue', chatContent: history });
+    }
+    return json({ identifier: 'assistant', messageQueueEnabled: false });
+  };
+  const flush = async () => {
+    for (let i = 0; i < 20; i++) await new Promise((r) => setImmediate(r));
+  };
+
+  let chat;
+  const busyWhilePaused = [];
+  let renderer;
+  function Probe() {
+    chat = useDevicChat({
+      assistantId: 'assistant',
+      chatUid: 'chat-overdue',
+      apiKey: 'key',
+      baseUrl: 'http://api.test',
+      pollingInterval: 1_000,
+      messageQueue: false,
+    });
+    if (chat.status === 'paused_for_resume') busyWhilePaused.push(chat.isLoading);
+    return null;
+  }
+
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'], now: Date.now() });
+  try {
+    await act(async () => { renderer = create(React.createElement(Probe)); await flush(); });
+    assert.equal(chat.status, 'paused_for_resume');
+    assert.equal(chat.isLoading, false);
+    const readsAfterLoad = realtimeReads;
+    busyWhilePaused.length = 0;
+
+    // The overdue watch fires and keeps checking while the scheduler is late.
+    for (let i = 0; i < 6; i++) {
+      await act(async () => { t.mock.timers.tick(10_000); await flush(); });
+    }
+    assert.ok(realtimeReads > readsAfterLoad + 3, 'kept watching the overdue pause');
+    assert.equal(chat.status, 'paused_for_resume');
+    assert.ok(!busyWhilePaused.includes(true), 'never shown busy while still paused');
+
+    // The scheduler resumes; the realtime entry had expired, so it is empty.
+    realtimeState = { status: 'processing', chatHistory: [] };
+    await act(async () => { t.mock.timers.tick(1_000); await flush(); });
+    assert.equal(chat.status, 'processing');
+    assert.equal(chat.isLoading, true);
+    assert.deepEqual(chat.messages.map((m) => m.uid), ['u1', 'a1']);
+  } finally {
+    await act(async () => renderer?.unmount());
+    t.mock.timers.reset();
+    global.fetch = original;
+  }
+});
