@@ -3,6 +3,7 @@ import { useOptionalDevicContext } from '../../provider';
 import { DevicApiClient } from '../../api/client';
 import type { ConversationSummary } from '../../api/types';
 import type { ConversationSelectorProps } from './ChatDrawer.types';
+import { parseReferencedPrefix, readMessageText } from './messageText';
 import { useTranslations } from '../../i18n';
 
 const PAGE_SIZE = 10;
@@ -112,8 +113,9 @@ export function ConversationSelector({
     unnamed.forEach((conv) => {
       clientRef.current!.getChatHistory(assistantId, conv.chatUID, { tenantId }).then((history) => {
         const firstUserMsg = history.chatContent?.find((m) => m.role === 'user');
-        const text = firstUserMsg?.content?.message || '';
-        setFirstMessages((prev) => ({ ...prev, [conv.chatUID]: text || '' }));
+        const raw = (firstUserMsg && readMessageText(firstUserMsg)) ?? '';
+        const text = parseReferencedPrefix(raw)?.cleanContent ?? raw;
+        setFirstMessages((prev) => ({ ...prev, [conv.chatUID]: text }));
       }).catch(() => {
         setFirstMessages((prev) => ({ ...prev, [conv.chatUID]: '' }));
       });
